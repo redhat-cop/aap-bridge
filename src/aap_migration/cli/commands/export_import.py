@@ -196,10 +196,21 @@ def get_missing_dependencies(
         try:
             stats = migration_state.get_import_stats(resource_type)
             # Consider it "missing" if:
-            # 1. Nothing imported yet (total_imported == 0), OR
-            # 2. Some resources still pending (partial import failure)
-            # This ensures dependencies with failed imports are re-attempted
-            if stats["total_imported"] == 0 or stats["pending"] > 0:
+            # 1. Nothing imported yet (total_imported == 0)
+            #
+            # FIXED: Don't re-import if we've already attempted this resource type
+            # (some imported or skipped). If total_imported > 0, it means we already
+            # processed this type in a previous phase, so don't re-import.
+            #
+            # This prevents duplicate import attempts when Phase 3 (Automation)
+            # tries to import job_templates which depend on credentials that were
+            # already imported in Phase 1 (Infrastructure).
+            #
+            # Note: We removed the "or stats['pending'] > 0" check because:
+            # - Pending resources may be intentionally skipped (already exist in target)
+            # - Re-importing will cause all skipped resources to fail again
+            # - If a resource type was attempted (total_imported > 0), don't retry
+            if stats["total_imported"] == 0:
                 missing.append(resource_type)
         except Exception as e:
             logger.warning(f"Failed to get import stats for {resource_type}: {e}")
@@ -769,9 +780,9 @@ def export(
 )
 @click.option(
     "--phase",
-    type=click.Choice(["phase1", "phase2", "all"], case_sensitive=False),
+    type=click.Choice(["phase1", "phase2", "phase3", "all"], case_sensitive=False),
     default="all",
-    help="Import phase: phase1 (up to projects), phase2 (patch projects and automation definitions), all (complete)",
+    help="Import phase: phase1 (up to projects), phase2 (patch projects and automation), phase3 (automation definitions), all (complete)",
 )
 @click.option(
     "-y",
@@ -983,6 +994,9 @@ def import_cmd(
         echo_info("Phase 1 import: credential_types/credentials will be PATCHed (pre-created)")
     elif phase == "phase2":
         # Phase 2 includes Phase 3 resources (merged)
+        types_to_import = [t for t in types_to_import if t in PHASE3_RESOURCE_TYPES]
+    elif phase == "phase3":
+        # Phase 3: Automation definitions (job templates, schedules, etc.)
         types_to_import = [t for t in types_to_import if t in PHASE3_RESOURCE_TYPES]
 
     # Force re-import: Clear import progress and reset target_ids
@@ -1464,23 +1478,36 @@ def import_cmd(
                         }
 
                         method_name = method_map.get(rtype)
+                        echo_info(f"📋 Processing {rtype}: method={method_name}, has_method={hasattr(importer, method_name) if method_name else False}")
                         if method_name and hasattr(importer, method_name):
-                            # Proactive batch pre-check: query target to find existing resources
-                            # This avoids "already exists" errors and shows accurate progress
-                            resources_to_import = await batch_precheck_resources(
-                                resource_type=rtype,
-                                resources=transformed_resources,
-                                importer=importer,
-                                client=ctx.target_client,
-                                state=ctx.migration_state,
-                                progress=progress,
-                                phase_id=phase_id,
-                            )
+                            # TEMPORARY FIX: Skip batch precheck for automation resources to avoid hang
+                            # TODO: Investigate why batch_precheck_resources blocks for these types
+                            if rtype in ("job_templates", "workflow_job_templates", "schedules"):
+                                echo_warning(f"⚠️  SKIPPING batch precheck for {rtype} (known hang issue - using direct import)")
+                                logger.warning(
+                                    "batch_precheck_skipped_temporary_fix",
+                                    resource_type=rtype,
+                                    message="Skipping batch precheck due to known hang issue"
+                                )
+                                resources_to_import = transformed_resources
+                            else:
+                                # Proactive batch pre-check: query target to find existing resources
+                                # This avoids "already exists" errors and shows accurate progress
+                                resources_to_import = await batch_precheck_resources(
+                                    resource_type=rtype,
+                                    resources=transformed_resources,
+                                    importer=importer,
+                                    client=ctx.target_client,
+                                    state=ctx.migration_state,
+                                    progress=progress,
+                                    phase_id=phase_id,
+                                )
 
                             # Calculate skipped count (resources that already exist)
                             skipped_count = len(transformed_resources) - len(resources_to_import)
 
                             if resources_to_import:
+                                echo_info(f"🔄 Starting import for {rtype}: {len(resources_to_import)} resources")
                                 # Create progress callback for live updates
                                 def update_progress(
                                     success: int, failed: int, skipped: int, phase_id=phase_id
@@ -1489,9 +1516,11 @@ def import_cmd(
                                     progress.update_phase(phase_id, success, failed, skipped)
 
                                 method = getattr(importer, method_name)
+                                echo_info(f"⏳ Calling {method_name}...")
                                 results = await method(
                                     resources_to_import, progress_callback=update_progress
                                 )
+                                echo_info(f"✅ {method_name} completed: {len(results) if results else 0} results")
 
                                 # Calculate actual imported, failed, and skipped from results
                                 imported_count = len(
@@ -1673,22 +1702,6 @@ def import_cmd(
 
                     # Complete this phase
                     progress.complete_phase(phase_id)
-
-                    # Automatic Phase 2: Patch projects if this was 'projects' import and phase is 'all'
-                    if rtype == "projects" and phase == "all":
-                        echo_info("Automatic Phase 2: Patching projects with SCM details...")
-                        try:
-                            # We can't easily nest progress bars, so let patch_projects run its own
-                            # It might look a bit messy if the outer one is still active, but phase is complete
-                            await patch_project_scm_details(
-                                ctx,
-                                input_dir,
-                                batch_size=ctx.config.performance.project_patch_batch_size,
-                                interval=ctx.config.performance.project_patch_batch_interval,
-                            )
-                        except Exception as e:
-                            echo_warning(f"Project patching failed: {e}")
-                            logger.error("patch_projects_failed", error=str(e))
 
             click.echo()
             if dry_run:

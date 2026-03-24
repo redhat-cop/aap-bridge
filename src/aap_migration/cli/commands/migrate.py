@@ -267,7 +267,7 @@ def _run_migration_workflow(
     import_ctx.obj = ctx
 
     # Helper to run import for specific types
-    def run_import(types, phase_label):
+    def run_import(types, phase_label, import_phase=None):
         if not types:
             return
         echo_info(f"Phase 3 ({phase_label}): Importing resources...")
@@ -281,7 +281,8 @@ def _run_migration_workflow(
             skip_dependencies=False,
             check_dependencies=False,
             force_reimport=False,
-            phase=phase,  # pass the overall phase, although logic handles subsets
+            yes=True,  # Auto-confirm to avoid blocking on prompts
+            phase=import_phase if import_phase else phase,  # Use specific phase for each import
         )
         click.echo()
 
@@ -289,7 +290,7 @@ def _run_migration_workflow(
     if phase == "phase1":
         # Import Phase 1 resources
         types = [t for t in resource_types if t in PHASE1_RESOURCE_TYPES]
-        run_import(types, "Infrastructure & Projects")
+        run_import(types, "Infrastructure & Projects", import_phase="phase1")
 
     elif phase == "phase2":
         # Patch Projects + Import Phase 3 resources
@@ -317,7 +318,7 @@ def _run_migration_workflow(
     else:  # phase == "all"
         # 1. Import Phase 1
         types1 = [t for t in resource_types if t in PHASE1_RESOURCE_TYPES]
-        run_import(types1, "Infrastructure & Projects")
+        run_import(types1, "Infrastructure & Projects", import_phase="phase1")
 
         # 2. Patch Projects (Phase 2 logic)
         echo_info("Phase 2 (Patching): Patching Projects with SCM details...")
@@ -337,9 +338,9 @@ def _run_migration_workflow(
             loop.run_until_complete(run_patch())
         click.echo()
 
-        # 3. Import Phase 3
+        # 3. Import Phase 3 - Pass "phase3" to trigger the batch_precheck fix
         types3 = [t for t in resource_types if t in PHASE3_RESOURCE_TYPES]
-        run_import(types3, "Automation Definitions")
+        run_import(types3, "Automation Definitions", import_phase="phase3")
 
     click.echo()
     echo_success(f"Phase 3 complete: Import finished (phase={phase})")

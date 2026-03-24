@@ -1,0 +1,271 @@
+{
+  "organizations": {
+    "created": [
+      {
+        "id": 10,
+        "name": "E2E-Test-Simple-Org",
+        "type": "organization"
+      },
+      {
+        "id": 11,
+        "name": "E2E-Test-Galaxy-Org",
+        "type": "organization"
+      },
+      {
+        "id": 12,
+        "name": "E2E-Test-Limited-Org",
+        "type": "organization"
+      },
+      {
+        "id": 13,
+        "name": "E2E-Test-CustomEE-Org",
+        "type": "organization"
+      },
+      {
+        "id": 14,
+        "name": "E2E-Test-MultiPurpose-Org",
+        "type": "organization"
+      }
+    ],
+    "failed": []
+  },
+  "users": {
+    "created": [
+      {
+        "id": 24,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 25,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 26,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 27,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 28,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 29,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 30,
+        "name": null,
+        "type": "user"
+      },
+      {
+        "id": 31,
+        "name": null,
+        "type": "user"
+      }
+    ],
+    "failed": []
+  },
+  "teams": {
+    "created": [
+      {
+        "id": 12,
+        "name": "E2E-Simple-Team",
+        "type": "team"
+      },
+      {
+        "id": 13,
+        "name": "E2E-Multi-User-Team",
+        "type": "team"
+      },
+      {
+        "id": 14,
+        "name": "E2E-Empty-Team",
+        "type": "team"
+      },
+      {
+        "id": 15,
+        "name": "E2E-Permissions-Team",
+        "type": "team"
+      },
+      {
+        "id": 16,
+        "name": "E2E-Role-Team",
+        "type": "team"
+      }
+    ],
+    "failed": []
+  },
+  "credentials": {
+    "created": [
+      {
+        "id": 54,
+        "name": "E2E-Machine-Password",
+        "type": "credential"
+      },
+      {
+        "id": 55,
+        "name": "E2E-Git-Token",
+        "type": "credential"
+      },
+      {
+        "id": 56,
+        "name": "E2E-Vault-Cred",
+        "type": "credential"
+      },
+      {
+        "id": 57,
+        "name": "E2E-AWS-Cred",
+        "type": "credential"
+      }
+    ],
+    "failed": [
+      {
+        "name": "E2E-Machine-SSH-Key",
+        "error": "{\"detail\":\"A server error has occurred.\"}"
+      },
+      {
+        "name": "E2E-Git-SSH",
+        "error": "{\"detail\":\"A server error has occurred.\"}"
+      }
+    ]
+  },
+  "projects": {
+    "created": [
+      {
+        "id": 30,
+        "name": "E2E-Git-Public-Project",
+        "type": "project"
+      },
+      {
+        "id": 31,
+        "name": "E2E-Git-Private-Project",
+        "type": "project"
+      },
+      {
+        "id": 32,
+        "name": "E2E-Git-Branch-Project",
+        "type": "project"
+      }
+    ],
+    "failed": [
+      {
+        "name": "E2E-Manual-Project",
+        "error": "{\"local_path\":[\"This path is already being used by another manual project.\"]}"
+      }
+    ]
+  },
+  "inventories": {
+    "created": [
+      {
+        "id": 11,
+        "name": "E2E-Simple-Inventory",
+        "type": "inventory"
+      },
+      {
+        "id": 12,
+        "name": "E2E-Complex-Inventory",
+        "type": "inventory"
+      },
+      {
+        "id": 13,
+        "name": "E2E-Dynamic-Inventory",
+        "type": "inventory"
+      }
+    ],
+    "failed": []
+  },
+  "hosts": {
+    "created": [
+      {
+        "id": 22,
+        "name": "web1.test.local",
+        "type": "host"
+      },
+      {
+        "id": 23,
+        "name": "web2.test.local",
+        "type": "host"
+      },
+      {
+        "id": 24,
+        "name": "db1.test.local",
+        "type": "host"
+      },
+      {
+        "id": 25,
+        "name": "db2.test.local",
+        "type": "host"
+      },
+      {
+        "id": 26,
+        "name": "app1.test.local",
+        "type": "host"
+      }
+    ],
+    "failed": []
+  },
+  "groups": {
+    "created": [
+      {
+        "id": 13,
+        "name": "webservers",
+        "type": "group"
+      },
+      {
+        "id": 14,
+        "name": "databases",
+        "type": "group"
+      },
+      {
+        "id": 15,
+        "name": "production",
+        "type": "group"
+      }
+    ],
+    "failed": []
+  },
+  "job_templates": {
+    "created": [
+      {
+        "id": 33,
+        "name": "E2E-Basic-Job-Template",
+        "type": "job_template"
+      },
+      {
+        "id": 34,
+        "name": "E2E-Multi-Cred-Job",
+        "type": "job_template"
+      },
+      {
+        "id": 35,
+        "name": "E2E-Check-Job-Template",
+        "type": "job_template"
+      }
+    ],
+    "failed": []
+  },
+  "workflow_templates": {
+    "created": [
+      {
+        "id": 36,
+        "name": "E2E-Simple-Workflow",
+        "type": "workflow_job_template"
+      },
+      {
+        "id": 37,
+        "name": "E2E-Complex-Workflow",
+        "type": "workflow_job_template"
+      }
+    ],
+    "failed": []
+  }
+}

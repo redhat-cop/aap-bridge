@@ -105,7 +105,7 @@ def compare_credentials(ctx: MigrationContext, output: str):
                         f"\nShowing first 20 of {result['missing_count']} missing credentials."
                     )
 
-                print_table(headers, rows)
+                print_table("Missing Credentials", headers, rows)
         else:
             echo_success("\nAll source credentials exist in target!")
 

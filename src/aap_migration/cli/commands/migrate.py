@@ -67,6 +67,8 @@ PHASE3_RESOURCE_TYPES = [
     "job_templates",
     "workflow_job_templates",
     "schedules",
+    "applications",  # OAuth applications
+    "settings",  # Global system settings
 ]
 
 async def _map_managed_credential_types(source_client, target_client, state) -> int:

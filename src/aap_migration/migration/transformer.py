@@ -2180,8 +2180,10 @@ class ApplicationTransformer(DataTransformer):
         data["_source_id"] = data.get("id")
 
         # Handle client secret
-        if data.get('_has_client_secret'):
-            # Redact the actual secret value
+        # AAP masks secrets with "************" when exporting, but we need to detect
+        # if a secret exists and mark it for regeneration
+        if 'client_secret' in data and data['client_secret']:
+            # Redact the actual secret value (even if already masked)
             data['client_secret'] = "***REDACTED_WILL_BE_REGENERATED***"
             # Mark for secret regeneration during import
             data['_requires_new_secret'] = True

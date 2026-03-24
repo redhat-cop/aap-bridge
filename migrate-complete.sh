@@ -66,13 +66,15 @@ fi
 echo "✅ Project patching complete"
 echo ""
 
-# Step 5: Import Phase 3 (Automation - Job Templates, Schedules, etc.)
-echo "📥 STEP 5: Importing Phase 3 (Automation Definitions)..."
+# Step 5: Import Phase 3 (Automation - Job Templates, Schedules, Applications, Settings)
+echo "📥 STEP 5: Importing Phase 3 (Automation Definitions, Applications, Settings)..."
 aap-bridge import --yes \
     --resource-type job_templates \
     --resource-type workflow_job_templates \
     --resource-type schedules \
-    --resource-type notification_templates
+    --resource-type notification_templates \
+    --resource-type applications \
+    --resource-type settings
 
 if [ $? -ne 0 ]; then
     echo "⚠️  Phase 3 import had some failures (check log for details)"

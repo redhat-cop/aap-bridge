@@ -1038,7 +1038,7 @@ AAP_BRIDGE_LOG_LEVEL=DEBUG aap-bridge migrate
 
 **1. Check documentation:**
 - This guide
-- `RBAC-MIGRATION-GUIDE.md`
+- `docs/workflows/RBAC-MIGRATION-GUIDE.md`
 - `CLAUDE.md` (developer documentation)
 
 **2. Check logs:**
@@ -1301,7 +1301,7 @@ python rbac_migration.py
 ### Documentation
 
 - **This Guide:** Complete user documentation
-- **RBAC Guide:** `RBAC-MIGRATION-GUIDE.md`
+- **RBAC Guide:** `docs/workflows/RBAC-MIGRATION-GUIDE.md`
 - **Developer Guide:** `CLAUDE.md`
 - **API Documentation:** https://docs.ansible.com/automation-controller/
 

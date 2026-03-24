@@ -116,7 +116,7 @@ aap-bridge migrate full
 **📚 Documentation:**
 - **[CREDENTIAL-FIRST-WORKFLOW.md](docs/workflows/CREDENTIAL-FIRST-WORKFLOW.md)** - Complete user guide
 - **[MIGRATION-WORKFLOW-DIAGRAM.md](docs/workflows/MIGRATION-WORKFLOW-DIAGRAM.md)** - Visual diagrams and flowcharts
-- **[QUICK-START-CREDENTIALS.md](QUICK-START-CREDENTIALS.md)** - Quick reference guide
+- **[QUICK-START.md](QUICK-START.md)** - Quick reference guide
 
 ## Architecture
 
@@ -461,7 +461,7 @@ The tool migrates resources in the correct dependency order:
 ### Critical Limitations
 
 1. **Encrypted Credentials**: AAP API returns `$encrypted$` for secret fields. **Solution:**
-   - Use the credential migration tool (see `ZERO-LOSS-CREDENTIAL-MIGRATION.md`)
+   - Use the credential migration tool (see `docs/guides/credential-migration.md`)
    - Automated playbook generation from source AAP
    - Interactive secret filling workflow
    - Structure migration with proper encryption handling

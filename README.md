@@ -17,6 +17,49 @@ migrations
 
 The tool automatically detects AAP versions and validates compatibility before migration.
 
+## Before You Begin
+
+### Prerequisites: Running AAP Instances
+
+This migration tool requires **two accessible AAP instances**:
+- **Source AAP** (version 2.3, 2.4, or 2.5)
+- **Target AAP** (version 2.5 or 2.6)
+
+#### Quick Health Check
+
+Verify both AAP instances are running and accessible:
+
+```bash
+# Test Source AAP (should return version info)
+curl -k https://your-source-aap/api/v2/ping/
+# Expected: {"version": "2.4.x", ...}
+
+# Test Target AAP (should return version info)
+curl -k https://your-target-aap/api/controller/v2/ping/
+# Expected: {"version": "2.6.x", ...}
+```
+
+✅ **If both commands return JSON with version info, you're ready to proceed.**
+
+❌ **If you get connection errors:**
+- Verify AAP instances are running
+- Check network connectivity and firewall rules
+- Verify URLs are correct (note `/api/controller/v2` for AAP 2.6)
+
+#### Don't Have AAP Instances Yet?
+
+**Option 1: Use Existing AAP Infrastructure**
+- Contact your AAP administrator for access
+- You need **admin** or **superuser** permissions on both instances
+
+**Option 2: Set Up Test Instances**
+- Follow [AAP Installation Guide](https://access.redhat.com/documentation/en-us/red_hat_ansible_automation_platform)
+- Minimum requirements: 8GB RAM per instance
+- Recommended ports: 8443 (source), 10443 (target)
+
+**Option 3: Red Hat Demo Environment**
+- Request AAP sandbox from Red Hat for testing
+
 ## Features
 
 - **🔐 Credential-First Migration**: Ensures credentials are checked, compared, and migrated BEFORE all other resources
@@ -147,17 +190,39 @@ The tool is organized into several key components:
 
 ```bash
 # Clone the repository
-git clone https://github.com/antonysallas/aap-bridge.git
-cd aap-bridge
+git clone https://github.com/arnav3000/aap-bridge-fork.git
+cd aap-bridge-fork
 
-# Create virtual environment
+# Create virtual environment (using uv)
 uv venv --seed --python 3.12
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-2. **Install dependencies and editable package:**
-This command will create/update your virtual environment, install all dependencies (including development dependencies), and install the `aap-bridge` package in editable mode.
-
+# Install dependencies
 uv sync
+```
+
+**Alternative: Using standard Python venv**
+
+If you don't have `uv` installed, use Python's built-in venv:
+
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install package and dependencies
+pip install -e .
+```
+
+**Verify Installation:**
+
+```bash
+# Check installation was successful
+aap-bridge --version
+# Should display: AAP Bridge version 0.2.0
+
+# View available commands
+aap-bridge --help
 ```
 
 ### Configuration
@@ -213,7 +278,62 @@ Then update `.env`:
 MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:password@localhost:5432/aap_migration
 ```
 
-#### 2. Environment Setup
+#### 2. Getting AAP API Tokens
+
+You need API tokens with **write** permissions for both Source and Target AAP instances.
+
+##### Method 1: AAP Web UI (Recommended)
+
+**For each AAP instance (repeat for Source and Target):**
+
+1. Log in to AAP web interface
+2. Click your **username** in the top-right corner
+3. Select **"Tokens"** from the dropdown menu
+4. Click **"Add"** or **"Create Token"**
+5. Fill in the form:
+   - **Description:** `Migration Tool - Source` (or `Target`)
+   - **Application:** Leave blank
+   - **Scope:** Select **"Write"**
+6. Click **"Save"**
+7. **⚠️ Copy the token immediately!** It will only be shown once.
+
+**Required Permissions:**
+- Your user account needs **Superuser** or **Organization Admin** permissions
+- Token must have **Write** scope (not just Read)
+- Tokens don't expire by default but can be revoked
+
+##### Method 2: CLI/API
+
+```bash
+# Generate token using username and password
+curl -k -X POST https://your-aap/api/v2/tokens/ \
+  -H "Content-Type: application/json" \
+  -u "your_username:your_password" \
+  -d '{
+    "description": "Migration Tool",
+    "scope": "write"
+  }'
+
+# Response includes your token - copy the "token" field value
+```
+
+##### Verify Your Tokens
+
+Test that your tokens work before proceeding:
+
+```bash
+# Test Source token
+curl -k -H "Authorization: Bearer YOUR_SOURCE_TOKEN" \
+  https://your-source-aap/api/v2/me/
+# Should return your user information
+
+# Test Target token
+curl -k -H "Authorization: Bearer YOUR_TARGET_TOKEN" \
+  https://your-target-aap/api/controller/v2/me/
+# Should return your user information
+```
+
+#### 3. Environment Configuration
 
 Copy the example environment file and configure your credentials:
 
@@ -225,42 +345,98 @@ cp .env.example .env
 
 Edit `.env` with your AAP instance details and database connection string.
 
-**Critical AAP 2.6 Note:** The Target URL must point to the **Platform Gateway** (`/api/controller/v2`), not the direct controller API.
+##### Understanding AAP 2.6 Platform Gateway
 
-```bash
-
-# Source AAP instance
-SOURCE__URL=https://source-aap.example.com/api/v2
-SOURCE__TOKEN=your_source_token
-
-# Target AAP instance (Platform Gateway)
-TARGET__URL=https://target-aap.example.com/api/controller/v2
-TARGET__TOKEN=your_target_token
-
-# State database (SQLite by default - no setup required!)
-MIGRATION_STATE_DB_PATH=sqlite:///./migration_state.db
-
-# For PostgreSQL (enterprise scale only):
-# MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:password@localhost:5432/aap_migration
-
-# HashiCorp Vault (Optional)
-# If configured, the tool can inject credentials. If skipped, credentials must
-be manually recreated.
-VAULT__URL=https://vault.example.com
-VAULT__ROLE_ID=xxxxx
-VAULT__SECRET_ID=xxxxx
+⚠️ **Critical for AAP 2.6:** The API path is different!
 
 ```
+AAP 2.4/2.5: https://your-aap/api/v2
+AAP 2.6:     https://your-aap/api/controller/v2
+             Note the /controller/ ^^^^^^^^^^^^
+```
 
-#### 3. Application Configuration
+AAP 2.6 uses "Platform Gateway" which provides a unified API entry point. Always use `/api/controller/v2` for target AAP 2.6.
+
+**How to verify:**
+```bash
+# AAP 2.6 responds to Platform Gateway path
+curl -k https://your-aap26/api/controller/v2/ping/
+```
+
+##### Configuration Examples
+
+**Example 1: Basic Setup (Recommended for Most Users)**
+
+```bash
+# .env file
+
+# Source AAP 2.4 instance
+SOURCE__URL=https://aap24-prod.company.com/api/v2
+SOURCE__TOKEN=aBc123dEf456GhI789jKlMnO...  # Your actual token from step 2
+SOURCE__VERIFY_SSL=false  # Use 'true' for production with valid SSL certs
+SOURCE__TIMEOUT=300
+
+# Target AAP 2.6 instance
+TARGET__URL=https://aap26-prod.company.com/api/controller/v2  # Note: /api/controller/v2
+TARGET__TOKEN=xYz987WvU654TsR321qPoNmL...  # Your actual token from step 2
+TARGET__VERIFY_SSL=false  # Use 'true' for production with valid SSL certs
+TARGET__TIMEOUT=300
+
+# Database: SQLite (default - no setup needed!)
+MIGRATION_STATE_DB_PATH=sqlite:///./migration_state.db
+
+# Vault: Not using (credentials will need manual secret updates after migration)
+# VAULT__URL=
+# VAULT__ROLE_ID=
+# VAULT__SECRET_ID=
+```
+
+**Example 2: With HashiCorp Vault (Optional)**
+
+```bash
+# Same as Example 1, plus:
+
+# HashiCorp Vault configuration
+VAULT__URL=https://vault.company.com:8200
+VAULT__ROLE_ID=12345678-1234-1234-1234-123456789012
+VAULT__SECRET_ID=87654321-4321-4321-4321-210987654321
+VAULT__MOUNT_POINT=secret
+VAULT__PATH=aap/credentials
+```
+
+**Example 3: Enterprise Scale with PostgreSQL**
+
+```bash
+# Source and Target configs (same as Example 1)
+SOURCE__URL=https://aap24-prod.company.com/api/v2
+SOURCE__TOKEN=aBc123dEf456GhI789jKlMnO...
+# ... (other SOURCE settings)
+
+TARGET__URL=https://aap26-prod.company.com/api/controller/v2
+TARGET__TOKEN=xYz987WvU654TsR321qPoNmL...
+# ... (other TARGET settings)
+
+# Database: PostgreSQL (for very large migrations)
+MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:SecurePass123!@db-server.company.com:5432/aap_migration
+```
+
+**Common Configuration Values:**
+
+| Setting | Recommended Value | Notes |
+|---------|------------------|-------|
+| `SOURCE__VERIFY_SSL` | `false` for testing, `true` for production | Set to `false` if using self-signed certs |
+| `TARGET__VERIFY_SSL` | `false` for testing, `true` for production | Set to `false` if using self-signed certs |
+| `SOURCE__TIMEOUT` | `300` | Increase for slow networks or large datasets |
+| `TARGET__TIMEOUT` | `300` | Increase for slow networks or large datasets |
+
+#### 4. Application Configuration
 
 Review and adjust `config/config.yaml` for your environment:
 
 - **Performance settings**: Adjust batch sizes and concurrency based on your AAP instance capacity
 - **Logging**: Configure log levels and file paths
 - **Migration phases**: Enable/disable specific resource types
-
-1. Update `config/mappings.yaml` if you need to rename resources during migration (e.g., credential types with different names between AAP versions).
+- **Resource mappings**: Update `config/mappings.yaml` if you need to rename resources during migration (e.g., credential types with different names between AAP versions)
 
 ### Usage
 

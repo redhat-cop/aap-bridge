@@ -1422,6 +1422,25 @@ class WorkflowExporter(ResourceExporter):
                     )
                     workflow["nodes"] = []
 
+            # Fetch survey spec if survey is enabled
+            if workflow.get("survey_enabled"):
+                try:
+                    survey_spec = await self.client.get(
+                        f"workflow_job_templates/{workflow['id']}/survey_spec/"
+                    )
+                    workflow["survey_spec"] = survey_spec
+                    logger.debug(
+                        "workflow_survey_fetched",
+                        workflow_id=workflow["id"],
+                        survey_questions=len(survey_spec.get("spec", [])),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "failed_to_fetch_workflow_survey",
+                        workflow_id=workflow["id"],
+                        error=str(e),
+                    )
+
             yield workflow
 
     async def export_parallel(
@@ -1472,6 +1491,25 @@ class WorkflowExporter(ResourceExporter):
                     error=str(e),
                 )
                 workflow["nodes"] = []
+
+            # Fetch survey spec if survey is enabled
+            if workflow.get("survey_enabled"):
+                try:
+                    survey_spec = await self.client.get(
+                        f"workflow_job_templates/{workflow['id']}/survey_spec/"
+                    )
+                    workflow["survey_spec"] = survey_spec
+                    logger.debug(
+                        "workflow_survey_fetched",
+                        workflow_id=workflow["id"],
+                        survey_questions=len(survey_spec.get("spec", [])),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "failed_to_fetch_workflow_survey",
+                        workflow_id=workflow["id"],
+                        error=str(e),
+                    )
 
             yield workflow
 

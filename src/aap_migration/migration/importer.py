@@ -2940,13 +2940,17 @@ class WorkflowImporter(ResourceImporter):
         failed_count = 0
         skipped_count = 0
         all_pending_nodes = []  # Collect all nodes for batch import
+        workflows_with_surveys = []  # Collect workflows that have surveys to apply
 
-        # Phase 1: Import workflows and collect nodes
+        # Phase 1: Import workflows and collect nodes/surveys
         for workflow in workflows:
             source_id = workflow.pop("_source_id", workflow.get("id"))
 
             # Extract nodes for separate import
             nodes = workflow.pop("_workflow_nodes", None)
+
+            # Extract survey spec for separate import (must be POSTed after workflow creation)
+            survey_spec = workflow.pop("survey_spec", None)
 
             result = await self.import_resource(
                 resource_type="workflow_job_templates",
@@ -2962,6 +2966,15 @@ class WorkflowImporter(ResourceImporter):
                         node["workflow_job_template"] = result["id"]
                         node["_source_workflow_id"] = source_id
                     all_pending_nodes.extend(nodes)
+
+                # Store survey spec for later import
+                if survey_spec:
+                    workflows_with_surveys.append({
+                        "workflow_id": result["id"],
+                        "workflow_name": result.get("name", "unknown"),
+                        "survey_spec": survey_spec,
+                    })
+
                 results.append(result)
                 success_count += 1
             else:
@@ -3014,6 +3027,37 @@ class WorkflowImporter(ResourceImporter):
                     total_nodes=len(all_pending_nodes),
                     error=str(e),
                 )
+
+        # Phase 4: Import survey specs
+        if workflows_with_surveys:
+            logger.info(
+                "importing_workflow_surveys",
+                total_surveys=len(workflows_with_surveys),
+            )
+
+            for survey_data in workflows_with_surveys:
+                workflow_id = survey_data["workflow_id"]
+                workflow_name = survey_data["workflow_name"]
+                survey_spec = survey_data["survey_spec"]
+
+                try:
+                    await self.client.post(
+                        f"workflow_job_templates/{workflow_id}/survey_spec/",
+                        json_data=survey_spec,
+                    )
+                    logger.info(
+                        "workflow_survey_imported",
+                        workflow_id=workflow_id,
+                        workflow_name=workflow_name,
+                        survey_questions=len(survey_spec.get("spec", [])),
+                    )
+                except Exception as e:
+                    logger.error(
+                        "workflow_survey_import_failed",
+                        workflow_id=workflow_id,
+                        workflow_name=workflow_name,
+                        error=str(e),
+                    )
 
         return results
 

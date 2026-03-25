@@ -1424,6 +1424,57 @@ class WorkflowExporter(ResourceExporter):
 
             yield workflow
 
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Export workflow templates using parallel page fetching with node inclusion.
+
+        Overrides base class to fetch workflow nodes for each workflow.
+
+        Args:
+            resource_type: Type of resource being exported (for logging)
+            endpoint: API endpoint to fetch from
+            page_size: Number of items per page (max 200)
+            max_concurrent_pages: Maximum number of pages to fetch concurrently
+            filters: Optional query parameters for filtering
+
+        Yields:
+            Workflow dictionaries with 'nodes' field containing workflow nodes
+        """
+        logger.info("parallel_export_workflows_with_nodes", max_concurrent_pages=max_concurrent_pages)
+
+        # Use base class parallel export to get workflows
+        async for workflow in super().export_parallel(
+            resource_type=resource_type,
+            endpoint=endpoint,
+            page_size=page_size,
+            max_concurrent_pages=max_concurrent_pages,
+            filters=filters,
+        ):
+            # Fetch workflow nodes for each workflow
+            try:
+                nodes = await self.client.get_workflow_nodes(workflow["id"])
+                workflow["nodes"] = nodes
+                logger.debug(
+                    "workflow_nodes_fetched",
+                    workflow_id=workflow["id"],
+                    node_count=len(nodes),
+                )
+            except Exception as e:
+                logger.warning(
+                    "failed_to_fetch_workflow_nodes",
+                    workflow_id=workflow["id"],
+                    error=str(e),
+                )
+                workflow["nodes"] = []
+
+            yield workflow
+
 
 class SystemJobTemplateExporter(ResourceExporter):
     """Exporter for system job template resources.

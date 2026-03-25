@@ -1585,12 +1585,143 @@ class WorkflowNodeImporter(ResourceImporter):
 
     Edge relationships (success_nodes, failure_nodes, always_nodes) are
     removed during initial import and should be handled separately.
+
+    NOTE: Workflow nodes use a nested endpoint under workflow_job_templates,
+    not the flat /workflow_nodes/ endpoint.
     """
 
     DEPENDENCIES = {
         "workflow_job_template": "workflow_job_templates",
         "unified_job_template": "unified_job_templates",
     }
+
+    async def import_resource(
+        self,
+        resource_type: str,
+        source_id: int,
+        data: dict[str, Any],
+        resolve_dependencies: bool = True,
+    ) -> dict[str, Any] | None:
+        """Override to use nested workflow node endpoint.
+
+        Workflow nodes must be created at:
+        /workflow_job_templates/{workflow_id}/workflow_nodes/
+        not at /workflow_nodes/
+        """
+        # Get the workflow template ID (should be target ID, not source)
+        workflow_target_id = data.get("workflow_job_template")
+        if not workflow_target_id:
+            logger.error(
+                "workflow_node_missing_workflow_id",
+                source_id=source_id,
+                data_keys=list(data.keys()),
+            )
+            return None
+
+        # Check if already imported
+        if self.state.is_migrated(resource_type, source_id):
+            logger.debug(
+                "resource_already_imported",
+                resource_type=resource_type,
+                source_id=source_id,
+            )
+            self.stats["skipped_count"] += 1
+            return None
+
+        # Mark as in progress
+        self.state.mark_in_progress(
+            resource_type=resource_type,
+            source_id=source_id,
+            source_name=data.get("identifier", "unknown"),
+            phase="import",
+        )
+
+        try:
+            # Resolve unified_job_template dependency only
+            # (workflow_job_template is already the target ID)
+            resolved = dict(data)
+            if "unified_job_template" in resolved and resolved["unified_job_template"]:
+                ujt_source_id = resolved["unified_job_template"]
+                # Try to map the unified job template
+                # This could be a job_template, workflow_job_template, or other template type
+                # For now, assume it's a job_template (most common case)
+                target_id = self.state.get_mapped_id("job_templates", ujt_source_id)
+                if target_id:
+                    resolved["unified_job_template"] = target_id
+                else:
+                    logger.warning(
+                        "workflow_node_ujt_not_found",
+                        source_id=source_id,
+                        ujt_source_id=ujt_source_id,
+                    )
+                    # Remove the field if we can't resolve it
+                    resolved.pop("unified_job_template")
+
+            # Remove workflow_job_template from data (it's part of the URL)
+            resolved.pop("workflow_job_template", None)
+
+            # Remove source workflow ID tracking field
+            resolved.pop("_source_workflow_id", None)
+
+            # Remove edge fields (will be handled separately)
+            resolved.pop("success_nodes", None)
+            resolved.pop("failure_nodes", None)
+            resolved.pop("always_nodes", None)
+
+            # Remove None values
+            resolved = {k: v for k, v in resolved.items() if v is not None}
+
+            # Use nested endpoint
+            nested_endpoint = f"workflow_job_templates/{workflow_target_id}/workflow_nodes/"
+
+            # Create the node using the nested endpoint
+            result = await self.client.post(nested_endpoint, data=resolved)
+
+            # Mark as completed
+            self.state.mark_completed(
+                resource_type=resource_type,
+                source_id=source_id,
+                target_id=result["id"],
+                target_name=result.get("identifier", "unknown"),
+            )
+
+            self.stats["imported_count"] += 1
+
+            logger.info(
+                "workflow_node_imported",
+                source_id=source_id,
+                target_id=result["id"],
+                workflow_id=workflow_target_id,
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                "workflow_node_import_failed",
+                resource_type=resource_type,
+                source_id=source_id,
+                error=str(e),
+            )
+
+            self.stats["error_count"] += 1
+            self.state.mark_failed(
+                resource_type=resource_type,
+                source_id=source_id,
+                error_message=f"{type(e).__name__}: {str(e)}",
+            )
+
+            self.import_errors.append(
+                {
+                    "resource_type": resource_type,
+                    "source_id": source_id,
+                    "name": data.get("identifier", "unknown"),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
+
+            return None
 
     async def import_workflow_nodes(
         self,
@@ -2772,7 +2903,7 @@ class WorkflowImporter(ResourceImporter):
     ) -> list[dict[str, Any]]:
         """Import multiple workflow job templates with live progress updates.
 
-        Note: Workflow nodes must be imported separately after workflows are created.
+        Imports workflows first, then automatically imports their workflow nodes.
         Workflows use sequential import (not parallel) to properly track node metadata.
 
         Args:
@@ -2787,7 +2918,9 @@ class WorkflowImporter(ResourceImporter):
         success_count = 0
         failed_count = 0
         skipped_count = 0
+        all_pending_nodes = []  # Collect all nodes for batch import
 
+        # Phase 1: Import workflows and collect nodes
         for workflow in workflows:
             source_id = workflow.pop("_source_id", workflow.get("id"))
 
@@ -2801,9 +2934,13 @@ class WorkflowImporter(ResourceImporter):
             )
 
             if result:
-                if nodes:
-                    # Store nodes for later import
-                    result["_pending_nodes"] = nodes
+                if nodes and len(nodes) > 0:
+                    # Store workflow mapping for node import
+                    for node in nodes:
+                        # Add workflow_job_template reference to node
+                        node["workflow_job_template"] = result["id"]
+                        node["_source_workflow_id"] = source_id
+                    all_pending_nodes.extend(nodes)
                 results.append(result)
                 success_count += 1
             else:
@@ -2813,7 +2950,48 @@ class WorkflowImporter(ResourceImporter):
             if progress_callback:
                 progress_callback(success_count, failed_count, skipped_count)
 
+        # Phase 2: Import all workflow nodes
+        if all_pending_nodes:
+            logger.info(
+                "importing_workflow_nodes",
+                total_nodes=len(all_pending_nodes),
+                total_workflows=len(results),
+            )
+
+            # Create node importer and import nodes
+            # WorkflowNodeImporter is defined in this same file
+            node_importer = WorkflowNodeImporter(
+                client=self.client,
+                state=self.state,
+                performance_config=self.performance_config,
+            )
+
+            try:
+                imported_nodes = await node_importer.import_workflow_nodes(
+                    all_pending_nodes,
+                    progress_callback=None,  # Could add separate progress for nodes
+                )
+                logger.info(
+                    "workflow_nodes_imported",
+                    imported_count=len(imported_nodes),
+                    total_nodes=len(all_pending_nodes),
+                )
+            except Exception as e:
+                logger.error(
+                    "workflow_nodes_import_failed",
+                    total_nodes=len(all_pending_nodes),
+                    error=str(e),
+                )
+
         return results
+
+    async def import_workflow_job_templates(
+        self,
+        workflows: list[dict[str, Any]],
+        progress_callback: Callable[[int, int, int], None] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Alias for import_workflows to match CLI method naming convention."""
+        return await self.import_workflows(workflows, progress_callback)
 
 
 class NotificationTemplateImporter(ResourceImporter):

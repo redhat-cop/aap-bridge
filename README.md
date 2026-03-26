@@ -623,27 +623,45 @@ PHASE 5: PROJECTS & INVENTORIES (Require Credentials)
 │      (200/batch - AAP maximum)         │
 └────────────────────────────────────────┘
                     ↓
-PHASE 6: SCHEDULES
+PHASE 6: EXECUTION ENVIRONMENTS & INSTANCE GROUPS
 ┌────────────────────────────────────────┐
-│  12. Schedules                         │  ← Requires: Projects, Inventory Sources
-│      (including inventory source)      │     Job Templates
+│  12. Execution Environments            │  ← Requires: Organizations
+│      (container images)                │
+└────────────────────────────────────────┘
+                    ↓
+┌────────────────────────────────────────┐
+│  13. Instance Groups                   │  ← Requires: None (infrastructure)
+│      (controller node groups)          │
 └────────────────────────────────────────┘
                     ↓
 PHASE 7: JOB TEMPLATES & WORKFLOWS (Require Everything Above)
 ┌────────────────────────────────────────┐
-│  13. Job Templates                     │  ← Requires: Organizations, Projects,
+│  14. Job Templates                     │  ← Requires: Organizations, Projects,
 │                                        │     Inventories, Credentials,
-│                                        │     Execution Environments
+│                                        │     Execution Environments, Instance Groups
 └────────────────────────────────────────┘
                     ↓
 ┌────────────────────────────────────────┐
-│  14. Workflow Job Templates            │  ← Requires: Job Templates
+│  15. Workflow Job Templates            │  ← Requires: Job Templates
 │      & Workflow Nodes                  │
 └────────────────────────────────────────┘
                     ↓
-PHASE 8: ACCESS CONTROL (Final Step)
+PHASE 8: SCHEDULES
 ┌────────────────────────────────────────┐
-│  15. RBAC Role Assignments             │  ← Requires: ALL resources above
+│  16. Schedules                         │  ← Requires: Projects, Inventory Sources
+│      (for job templates, workflows,    │     Job Templates, Workflow Job Templates
+│       inventory sources, projects)     │
+└────────────────────────────────────────┘
+                    ↓
+PHASE 9: SETTINGS (Optional)
+┌────────────────────────────────────────┐
+│  17. Settings (Global Configuration)   │  ← Optional: None (singleton)
+│      (LDAP, logging, UI settings)      │     Review before applying
+└────────────────────────────────────────┘
+                    ↓
+PHASE 10: ACCESS CONTROL (Final Step)
+┌────────────────────────────────────────┐
+│  18. RBAC Role Assignments             │  ← Requires: ALL resources above
 │      (via rbac_migration.py)           │     to exist first
 └────────────────────────────────────────┘
 ```
@@ -679,10 +697,67 @@ sqlite3 migration_state.db "SELECT resource_type, COUNT(*) FROM id_mappings WHER
 # Phase 3: Projects & Inventories (Now safe - credentials exist)
 aap-bridge migrate -r projects -r inventories --skip-prep
 
-# Phase 4: Job Templates (Now safe - all dependencies exist)
-aap-bridge migrate -r job_templates -r workflow_job_templates --skip-prep
+# Phase 3b: Inventory Sources (Dynamic inventories)
+# Note: Inventory sources are automatically synced after import
+aap-bridge migrate -r inventory_sources --skip-prep
 
-# Phase 5: RBAC (Final step)
+# ℹ️ Automatic Sync: The migration tool automatically triggers sync for all
+# inventory sources after import. This fetches the actual inventory data from
+# SCM/cloud providers. You can verify sync status in the AAP Web UI or via API.
+
+# Optional: Verify sync status if needed
+sqlite3 migration_state.db "SELECT source_id, target_id FROM id_mappings WHERE resource_type='inventory_sources';"
+
+# Check sync status via API (optional)
+curl -sk -H "Authorization: Bearer $TARGET__TOKEN" \
+  "https://localhost:10443/api/controller/v2/inventory_sources/<TARGET_ID>/inventory_updates/?order_by=-id&page_size=1" | \
+  jq -r '.results[0].status'
+
+# If sync failed, you can manually trigger it using one of these methods:
+
+# Method 1: Via awx CLI (if available)
+awx inventory_sources update <TARGET_ID>
+
+# Method 2: Via API
+curl -sk -X POST \
+  -H "Authorization: Bearer $TARGET__TOKEN" \
+  "https://localhost:10443/api/controller/v2/inventory_sources/<TARGET_ID>/update/"
+
+# Method 3: Via AAP Web UI
+# Go to: Resources → Inventories → [Select Inventory] → Sources → [Click Sync button]
+
+# Phase 4: Hosts (Now safe after inventory sources are synced)
+# Note: Static inventory hosts can be migrated now. Dynamic inventory hosts
+# come from inventory source syncs (completed above).
+aap-bridge migrate -r hosts --skip-prep
+
+# Phase 5: Execution Environments & Instance Groups
+# These are required by job templates
+aap-bridge migrate -r execution_environments --skip-prep
+aap-bridge migrate -r instance_groups --skip-prep
+
+# Verify Phase 5 completed successfully
+sqlite3 migration_state.db "SELECT resource_type, COUNT(*) FROM id_mappings WHERE resource_type IN ('execution_environments', 'instance_groups') GROUP BY resource_type;"
+
+# Phase 6: Job Templates & Workflows (Now safe - all dependencies exist)
+aap-bridge migrate -r job_templates --skip-prep
+aap-bridge migrate -r workflow_job_templates --skip-prep
+
+# Verify Phase 6 completed successfully
+sqlite3 migration_state.db "SELECT resource_type, COUNT(*) FROM id_mappings WHERE resource_type IN ('job_templates', 'workflow_job_templates') GROUP BY resource_type;"
+
+# Phase 7: Schedules (Requires job templates, workflows, projects, inventory sources)
+aap-bridge migrate -r schedules --skip-prep
+
+# Verify Phase 7 completed successfully
+sqlite3 migration_state.db "SELECT resource_type, COUNT(*) FROM id_mappings WHERE resource_type='schedules';"
+
+# Phase 8: Settings (Optional - Global configuration)
+# Note: Settings are environment-specific (LDAP, logging, UI settings, etc.)
+# Review and adjust settings before applying to ensure they match your target environment
+aap-bridge migrate -r settings --skip-prep
+
+# Phase 9: RBAC (Final step)
 python rbac_migration.py
 ```
 
@@ -702,9 +777,35 @@ python rbac_migration.py
 - Inventory sources need credentials for dynamic inventory sync
 - Without credentials, projects/inventories will import but won't be functional
 
-**Job Templates Last:**
-- Job templates reference: organizations, projects, inventories, credentials, execution environments
-- All dependencies must exist before job templates can be created
+**Inventory Sources Are Automatically Synced:**
+- ✅ Inventory sources are automatically synced after import
+- Syncing triggers the actual data fetch from SCM/cloud providers
+- Dynamic inventory hosts are fetched during the sync process
+- You can verify sync status in AAP Web UI or via API
+- Manual sync commands are available in Phase 3b if needed for troubleshooting
+
+**Execution Environments & Instance Groups Before Job Templates:**
+- Execution environments define the container images used to run playbooks
+- Instance groups define which controller nodes can execute jobs
+- Job templates reference both execution environments and instance groups
+- These must be migrated before job templates to avoid missing dependency errors
+
+**Job Templates & Workflows Before Schedules:**
+- Job templates reference: organizations, projects, inventories, credentials, execution environments, instance groups
+- Workflow job templates reference: job templates
+- Schedules reference: projects, inventory sources, job templates, workflow job templates
+- All dependencies must exist before schedules can be created
+
+**Schedules After Job Templates:**
+- Schedules can be attached to projects, inventory sources, job templates, and workflow job templates
+- Schedules define when these resources should run automatically (e.g., nightly, weekly)
+- Must be migrated after all schedulable resources exist
+
+**Settings Migration (Optional):**
+- Settings is a singleton resource containing global AAP configuration (LDAP, logging, UI settings, etc.)
+- ⚠️ **Review carefully before applying**: Settings are environment-specific and may not be appropriate for the target environment
+- Settings migration is optional and independent of other resources
+- Common settings to review: authentication backends, logging levels, session timeouts, UI configurations
 
 ### Dependency Reference Table
 
@@ -715,15 +816,17 @@ python rbac_migration.py
 | Labels | None | Various resources |
 | Teams | Organizations | RBAC |
 | Execution Environments | Organizations (optional) | Job Templates |
+| Instance Groups | None (infrastructure) | Job Templates |
 | **Credential Types** | None | **Credentials** |
 | **Credentials** | **Organizations, Credential Types** | **Projects, Inventory Sources, Job Templates** |
 | Projects | Organizations, Credentials (for SCM) | Inventory Sources, Job Templates |
 | Inventories | Organizations | Hosts, Inventory Sources, Job Templates |
 | Inventory Sources | Inventories, Projects, Credentials | Schedules |
 | Hosts | Inventories | Job Templates |
-| Schedules | Projects, Inventory Sources, Job Templates | None |
-| Job Templates | Organizations, Projects, Inventories, Credentials, Execution Environments | Workflows |
-| Workflow Job Templates | Job Templates | None |
+| Job Templates | Organizations, Projects, Inventories, Credentials, Execution Environments, Instance Groups | Workflows, Schedules |
+| Workflow Job Templates | Job Templates | Schedules |
+| Schedules | Projects, Inventory Sources, Job Templates, Workflow Job Templates | None |
+| Settings | None (singleton) | None (global configuration) |
 | RBAC | All resources above | None |
 
 ## Known Issues and Limitations

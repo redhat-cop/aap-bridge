@@ -383,11 +383,24 @@ aap-bridge migrate -r organizations -r users -r teams --skip-prep
 # Phase 2: Credentials (CRITICAL - must be 100% complete)
 aap-bridge migrate -r credential_types -r credentials --skip-prep
 
-# Phase 3: Projects & Inventories
+# Phase 3: Infrastructure
 aap-bridge migrate -r execution_environments -r projects -r inventories --skip-prep
+aap-bridge migrate -r inventory_sources --skip-prep
 
-# Phase 4: Job Templates
+# Phase 4: Hosts
+aap-bridge migrate -r hosts --skip-prep
+
+# Phase 5: Instance Groups
+aap-bridge migrate -r instance_groups --skip-prep
+
+# Phase 6: Automation
 aap-bridge migrate -r job_templates -r workflow_job_templates --skip-prep
+
+# Phase 7: Schedules
+aap-bridge migrate -r schedules --skip-prep
+
+# Phase 8: Settings (Optional - review before applying)
+aap-bridge migrate -r settings --skip-prep
 
 # Step 4: Validate migration
 aap-bridge validate all --sample-size 4000
@@ -401,14 +414,9 @@ python rbac_migration.py
 If the `migrate` command fails with asyncio errors, run each phase separately:
 
 ```bash
-# Phase 1: Foundation (organizations, users, teams)
-# Step 1: Export
+# Phase 1: Foundation
 aap-bridge export -r organizations -r users -r teams
-
-# Step 2: Transform
 aap-bridge transform -r organizations -r users -r teams
-
-# Step 3: Import
 aap-bridge import -r organizations -r users -r teams --yes
 
 # Phase 2: Credentials
@@ -416,15 +424,35 @@ aap-bridge export -r credential_types -r credentials
 aap-bridge transform -r credential_types -r credentials
 aap-bridge import -r credential_types -r credentials --yes
 
-# Phase 3: Projects & Inventories
-aap-bridge export -r execution_environments -r projects -r inventories
-aap-bridge transform -r execution_environments -r projects -r inventories
-aap-bridge import -r execution_environments -r projects -r inventories --yes
+# Phase 3: Infrastructure
+aap-bridge export -r execution_environments -r projects -r inventories -r inventory_sources
+aap-bridge transform -r execution_environments -r projects -r inventories -r inventory_sources
+aap-bridge import -r execution_environments -r projects -r inventories -r inventory_sources --yes
 
-# Phase 4: Job Templates
+# Phase 4: Hosts
+aap-bridge export -r hosts
+aap-bridge transform -r hosts
+aap-bridge import -r hosts --yes
+
+# Phase 5: Instance Groups
+aap-bridge export -r instance_groups
+aap-bridge transform -r instance_groups
+aap-bridge import -r instance_groups --yes
+
+# Phase 6: Automation
 aap-bridge export -r job_templates -r workflow_job_templates
 aap-bridge transform -r job_templates -r workflow_job_templates
 aap-bridge import -r job_templates -r workflow_job_templates --yes
+
+# Phase 7: Schedules
+aap-bridge export -r schedules
+aap-bridge transform -r schedules
+aap-bridge import -r schedules --yes
+
+# Phase 8: Settings (Optional)
+aap-bridge export -r settings
+aap-bridge transform -r settings
+aap-bridge import -r settings --yes
 ```
 
 **Understanding `--skip-prep`:**

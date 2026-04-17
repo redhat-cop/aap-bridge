@@ -2235,15 +2235,16 @@ class RoleDefinitionTransformer(DataTransformer):
 # Maps a resource type to its REQUIRED prerequisite resource types.
 # This is used to warn operators when parent resources were not exported.
 DEPENDENCY_MAP: dict[str, list[str]] = {
-    "inventories": ["organizations"],
+    # Canonical resource type is "inventory" (metadata keys / ENDPOINT_TO_RESOURCE_TYPE)
+    "inventory": ["organizations"],
     "teams": ["organizations"],
     "credential_types": ["organizations"],
     "credentials": ["organizations", "credential_types"],
     "execution_environments": ["organizations"],
     "projects": ["organizations"],
-    "hosts": ["inventories"],
-    "groups": ["inventories"],
-    "inventory_sources": ["inventories", "projects"],
+    "hosts": ["inventory"],
+    "groups": ["inventory"],
+    "inventory_sources": ["inventory", "projects"],
     "job_templates": ["organizations", "projects"],
     "workflow_job_templates": ["organizations"],
     "schedules": ["job_templates"],

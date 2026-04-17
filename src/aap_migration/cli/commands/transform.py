@@ -305,6 +305,7 @@ def transform(
 
     # Check for missing prerequisite types (REQ-006)
     from aap_migration.migration.transformer import DEPENDENCY_MAP
+    from aap_migration.resources import normalize_resource_type
 
     missing_prerequisites: list[str] = []
     for rtype in types_to_transform:
@@ -312,9 +313,10 @@ def transform(
         for dep_type in deps:
             # If the dependency is supposed to be in this transform run but was
             # empty in the export, or if it wasn't exported at all
-            dep_meta = metadata.get("resource_types", {}).get(dep_type, {})
+            dep_key = normalize_resource_type(dep_type)
+            dep_meta = metadata.get("resource_types", {}).get(dep_key, {})
             if dep_meta.get("count", 0) == 0:
-                missing_prerequisites.append(f"{rtype} requires {dep_type} (exported 0 resources)")
+                missing_prerequisites.append(f"{rtype} requires {dep_key} (exported 0 resources)")
 
     if missing_prerequisites:
         echo_warning("Pipeline continuity issues detected:")

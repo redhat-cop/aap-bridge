@@ -145,7 +145,6 @@ def configure_logging(
         structlog.processors.TimeStamper(fmt="iso"),
         add_app_context,
         structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
         structlog.dev.ConsoleRenderer(colors=False),  # RichHandler handles coloring
     ]

@@ -66,6 +66,12 @@ class MigrationCoordinator:
             "batch_size": 100,
         },
         {
+            "name": "projects",
+            "description": "Projects",
+            "resource_types": ["projects"],
+            "batch_size": 100,
+        },
+        {
             "name": "inventory",
             "description": "Inventories (80,000+ expected)",
             "resource_types": ["inventory"],
@@ -78,35 +84,23 @@ class MigrationCoordinator:
             "batch_size": 100,
         },
         {
+            "name": "inventory_sources",
+            "description": "Inventory Sources",
+            "resource_types": ["inventory_sources"],
+            "batch_size": 100,
+        },
+        {
+            "name": "groups",
+            "description": "Inventory Groups",
+            "resource_types": ["groups"],
+            "batch_size": 100,
+        },
+        {
             "name": "hosts",
             "description": "Hosts (using bulk operations)",
             "resource_types": ["hosts"],
             "batch_size": 200,
             "use_bulk": True,
-        },
-        {
-            "name": "instances",
-            "description": "Instances (AAP Controller Nodes)",
-            "resource_types": ["instances"],
-            "batch_size": 50,
-        },
-        {
-            "name": "instance_groups",
-            "description": "Instance Groups",
-            "resource_types": ["instance_groups"],
-            "batch_size": 50,
-        },
-        {
-            "name": "projects",
-            "description": "Projects",
-            "resource_types": ["projects"],
-            "batch_size": 100,
-        },
-        {
-            "name": "inventory_config",
-            "description": "Inventory Sources and Groups",
-            "resource_types": ["inventory_sources", "groups"],
-            "batch_size": 100,
         },
         {
             "name": "notification_templates",

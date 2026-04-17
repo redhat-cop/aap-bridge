@@ -37,8 +37,10 @@ logger = get_logger(__name__)
 # Migration phase order - use centralized registry
 MIGRATION_PHASES = ALL_RESOURCE_TYPES
 
-# Two-phase import definitions
-# Phase 1: Infrastructure & Projects
+# Excluded from default migrate workflow (operators configure controller topology separately)
+DEFAULT_MIGRATION_EXCLUDED_TYPES = frozenset({"instances", "instance_groups"})
+
+# Phase 1 import: foundation through projects (before patching projects / inventory that needs SCM)
 # credential_types and credentials are PATCHed (not POSTed) - they're pre-created in target
 PHASE1_RESOURCE_TYPES = [
     "organizations",
@@ -47,23 +49,19 @@ PHASE1_RESOURCE_TYPES = [
     "teams",
     "credential_types",  # PATCH existing (pre-created in target)
     "credentials",  # PATCH existing (pre-created in target)
+    "credential_input_sources",
     "execution_environments",
-    "inventory",
-    "constructed_inventories",
-    "groups",
-    "hosts",
-    "instances",
-    "instance_groups",
-    "projects",  # Before inventory_sources (SCM sources need project FK)
-    "inventory_sources",  # After projects (source_project dependency)
+    "projects",
 ]
 
-# Phase 2: Project SCM Patching + Automation Definitions
-# (Logic phase, no resources to import - handled by import --phase phase2)
-PHASE2_RESOURCE_TYPES = []
-
-# Phase 3 resources (now part of Phase 2 logic, but kept for reference/imports)
-PHASE3_RESOURCE_TYPES = [
+# Phase 2 import: patch projects (in import runner), then inventory chain + automation.
+# Inventory sources require patched projects (SCM); hosts last after groups.
+PHASE2_RESOURCE_TYPES = [
+    "inventory",
+    "constructed_inventories",
+    "inventory_sources",
+    "groups",
+    "hosts",
     "notification_templates",
     "job_templates",
     "workflow_job_templates",
@@ -195,6 +193,7 @@ def _run_migration_workflow(
     # Determine resource types to migrate
     # If user specified types, use those
     # Otherwise, use discovered types (if prep ran) or fallback to fully supported
+    explicit_resource_types = bool(resource_type)
     if resource_type:
         resource_types = list(resource_type)
     else:
@@ -211,6 +210,12 @@ def _run_migration_workflow(
             # Fallback to hardcoded fully supported types
             resource_types = FULLY_SUPPORTED_TYPES
             echo_info(f"Using {len(resource_types)} hardcoded resource types (prep not run)")
+
+    if not explicit_resource_types:
+        resource_types = [t for t in resource_types if t not in DEFAULT_MIGRATION_EXCLUDED_TYPES]
+    default_migration_types = [
+        t for t in FULLY_SUPPORTED_TYPES if t not in DEFAULT_MIGRATION_EXCLUDED_TYPES
+    ]
 
     echo_info(f"Migrating {len(resource_types)} resource type(s):")
     for rtype in resource_types:
@@ -255,7 +260,7 @@ def _run_migration_workflow(
         output_dir=xformed_dir,
         schema_file=Path("schemas/schema_comparison.json"),
         force=force,
-        resource_type=resource_types if resource_types != list(FULLY_SUPPORTED_TYPES) else (),
+        resource_type=resource_types if resource_types != default_migration_types else (),
         quiet=False,
         disable_progress=False,
     )
@@ -345,9 +350,9 @@ def _run_migration_workflow(
             loop.run_until_complete(run_patch())
         click.echo()
 
-        # 3. Import Phase 3
-        types3 = [t for t in resource_types if t in PHASE3_RESOURCE_TYPES]
-        run_import(types3, "Automation Definitions")
+        # 3. Import Phase 2 (inventory + automation; projects already patched above)
+        types_phase2 = [t for t in resource_types if t in PHASE2_RESOURCE_TYPES]
+        run_import(types_phase2, "Inventory & Automation")
 
     click.echo()
     echo_success(f"Phase 3 complete: Import finished (phase={phase})")
@@ -361,7 +366,9 @@ def _run_migration_workflow(
         echo_info("  Next step: Run Phase 2 to patch projects")
         echo_info("  Then run: aap-bridge migrate --phase phase2")
     elif phase == "phase2":
-        echo_success("✅ Phase 2 migration complete (Projects Patched and Automation Imported)!")
+        echo_success(
+            "✅ Phase 2 migration complete (projects patched; inventory & automation imported)!"
+        )
     else:
         echo_success("✅ Migration workflow complete!")
 
@@ -400,7 +407,11 @@ def _run_migration_workflow(
     "--phase",
     type=click.Choice(["phase1", "phase2", "all"], case_sensitive=False),
     default="all",
-    help="Import phase: phase1 (up to projects), phase2 (patch projects and automation definitions), all (complete)",
+    help=(
+        "Import phase: phase1 (foundation through projects), "
+        "phase2 (patch projects then inventory + automation), "
+        "all (complete)"
+    ),
 )
 @click.pass_context
 def migrate(ctx, resource_type, force, resume, skip_prep, phase) -> None:

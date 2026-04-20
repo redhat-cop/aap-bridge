@@ -84,7 +84,7 @@ performance:
   project_sync_timeout: 600
   project_sync_poll_interval: 10
 
-  # After importing inventory_sources: GET inventory_sources/<id>/update/ then poll inventory_updates
+  # After importing inventory_sources: POST inventory_sources/<id>/update/ then poll inventory_sources/<id> status
   inventory_source_update_job_timeout_seconds: 3600
   inventory_source_update_poll_interval_seconds: 3
   inventory_source_sync_max_concurrent: 5

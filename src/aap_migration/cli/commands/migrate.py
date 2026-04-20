@@ -60,11 +60,12 @@ PHASE1_RESOURCE_TYPES = [
 ]
 
 # Phase 2 import: patch projects (in import runner), then inventory chain + automation.
-# inventory_sources before constructed_inventories: constructed (and smart) inventories
-# may depend on input inventories that already have sources configured.
+# inventory_sources before smart/constructed inventories: smart filters depend on hosts
+# populated by inventory source sync, and constructed inventories may depend on both.
 PHASE2_RESOURCE_TYPES = [
     "inventory",
     "inventory_sources",
+    "smart_inventories",
     "constructed_inventories",
     "groups",
     "hosts",

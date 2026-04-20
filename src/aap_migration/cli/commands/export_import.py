@@ -1100,13 +1100,39 @@ def import_cmd(
     elif phase == "phase2":
         types_to_import = [t for t in types_to_import if t in PHASE2_RESOURCE_TYPES]
 
-    if phase in ("phase1", "phase2"):
+    if (
+        "inventory" in types_to_import
+        and "inventory_sources" in types_to_import
+        and "smart_inventories" not in types_to_import
+    ):
+        # Smart inventories should be created only after inventory source sync.
+        types_to_import.append("smart_inventories")
+
+    if phase == "phase1":
+        phase1_order = {rtype: idx for idx, rtype in enumerate(PHASE1_RESOURCE_TYPES)}
         types_to_import = sorted(
             types_to_import,
-            key=lambda t: RESOURCE_REGISTRY[t].migration_order
-            if t in RESOURCE_REGISTRY
-            else 999,
+            key=lambda t: phase1_order.get(t, 999),
         )
+    elif phase == "phase2":
+        phase2_order = {rtype: idx for idx, rtype in enumerate(PHASE2_RESOURCE_TYPES)}
+        types_to_import = sorted(
+            types_to_import,
+            key=lambda t: phase2_order.get(t, 999),
+        )
+
+    if "smart_inventories" in types_to_import:
+        # Keep smart inventories directly after inventory_sources and before constructed.
+        stripped = [t for t in types_to_import if t != "smart_inventories"]
+        insert_idx = len(stripped)
+        if "inventory_sources" in stripped:
+            insert_idx = stripped.index("inventory_sources") + 1
+        elif "inventory" in stripped:
+            insert_idx = stripped.index("inventory") + 1
+        if "constructed_inventories" in stripped:
+            insert_idx = min(insert_idx, stripped.index("constructed_inventories"))
+        stripped.insert(insert_idx, "smart_inventories")
+        types_to_import = stripped
 
     # Force re-import: Clear import progress and reset target_ids
     if force_reimport:
@@ -1397,6 +1423,7 @@ def import_cmd(
 
         # Track detailed stats per resource type
         run_stats = {}
+        split_smart_inventory_phase = "smart_inventories" in types_to_import
 
         # Initialize phases
         phases = []
@@ -1428,16 +1455,24 @@ def import_cmd(
 
             # For accurate counts, read actual file contents instead of metadata
             # (metadata count may not reflect post-transform splits like constructed inventories)
-            rtype_dir = input_dir / rtype
+            rtype_dir = input_dir / ("inventory" if rtype == "smart_inventories" else rtype)
             if rtype_dir.exists():
                 actual_count = 0
-                for json_file in sorted(rtype_dir.glob(f"{rtype}_*.json")):
+                file_prefix = "inventory" if rtype == "smart_inventories" else rtype
+                for json_file in sorted(rtype_dir.glob(f"{file_prefix}_*.json")):
                     try:
                         with open(json_file) as f:
-                            actual_count += len(json.load(f))
+                            rows = json.load(f)
+                            if split_smart_inventory_phase and rtype == "smart_inventories":
+                                rows = [r for r in rows if (r.get("kind") or "") == "smart"]
+                            elif split_smart_inventory_phase and rtype == "inventory":
+                                rows = [r for r in rows if (r.get("kind") or "") != "smart"]
+                            actual_count += len(rows)
                     except Exception:
                         pass
-                if actual_count > 0:
+                if split_smart_inventory_phase and rtype in ("inventory", "smart_inventories"):
+                    count = actual_count
+                elif actual_count > 0:
                     count = actual_count
 
             description = rtype.replace("_", " ").title()
@@ -1476,8 +1511,9 @@ def import_cmd(
                     # Load resume cache if resume mode is enabled
                     imported_source_ids_cache = set()
                     if resume:
+                        cache_type = "inventory" if rtype == "smart_inventories" else rtype
                         imported_source_ids_cache = ctx.migration_state.get_imported_source_ids(
-                            rtype
+                            cache_type
                         )
                         if imported_source_ids_cache:
                             logger.info(
@@ -1487,14 +1523,15 @@ def import_cmd(
                             )
 
                     # Load all files for this resource type
-                    resource_dir = input_dir / rtype
+                    resource_dir = input_dir / ("inventory" if rtype == "smart_inventories" else rtype)
                     if not resource_dir.exists():
                         echo_warning(f"No directory for {rtype}, skipping")
                         progress.complete_phase(phase_id)
                         continue
 
                     # Find all JSON files for this resource type
-                    json_files = sorted(resource_dir.glob(f"{rtype}_*.json"))
+                    file_prefix = "inventory" if rtype == "smart_inventories" else rtype
+                    json_files = sorted(resource_dir.glob(f"{file_prefix}_*.json"))
 
                     if not json_files:
                         echo_warning(f"No files found for {rtype}, skipping")
@@ -1513,6 +1550,10 @@ def import_cmd(
                             continue
 
                     resources = all_resources
+                    if split_smart_inventory_phase and rtype == "smart_inventories":
+                        resources = [r for r in all_resources if (r.get("kind") or "") == "smart"]
+                    elif split_smart_inventory_phase and rtype == "inventory":
+                        resources = [r for r in all_resources if (r.get("kind") or "") != "smart"]
                     if not resources:
                         echo_warning(f"No {rtype} to import, skipping")
                         progress.complete_phase(phase_id)
@@ -1531,7 +1572,10 @@ def import_cmd(
                         # Fallback: Look up source_id from database by name if missing
                         if source_id is None:
                             resource_name = resource.get("name", "")
-                            mapping = ctx.migration_state.get_mapping_by_name(rtype, resource_name)
+                            mapping_type = "inventory" if rtype == "smart_inventories" else rtype
+                            mapping = ctx.migration_state.get_mapping_by_name(
+                                mapping_type, resource_name
+                            )
                             if mapping:
                                 source_id = mapping.source_id
                                 resource["_source_id"] = source_id
@@ -1554,8 +1598,9 @@ def import_cmd(
                     if not dry_run:
                         # Create appropriate importer using factory
                         try:
+                            importer_resource_type = "inventory" if rtype == "smart_inventories" else rtype
                             importer = create_importer(
-                                rtype,
+                                importer_resource_type,
                                 ctx.target_client,
                                 ctx.migration_state,
                                 ctx.config.performance,
@@ -1595,6 +1640,7 @@ def import_cmd(
                             # Inventory resources (canonical names + legacy aliases)
                             "inventory": "import_inventories",
                             "inventories": "import_inventories",
+                            "smart_inventories": "import_inventories",
                             "inventory_sources": "import_inventory_sources",
                             "groups": "import_inventory_groups",
                             "inventory_groups": "import_inventory_groups",
@@ -1616,7 +1662,7 @@ def import_cmd(
                             # Proactive batch pre-check: query target to find existing resources
                             # This avoids "already exists" errors and shows accurate progress
                             resources_to_import = await batch_precheck_resources(
-                                resource_type=rtype,
+                                resource_type=importer_resource_type,
                                 resources=transformed_resources,
                                 importer=importer,
                                 client=ctx.target_client,

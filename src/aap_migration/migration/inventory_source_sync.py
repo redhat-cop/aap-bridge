@@ -47,6 +47,51 @@ def _sync_status_from_inventory_source_payload(data: dict[str, Any]) -> str:
     return ""
 
 
+def _extract_run_markers(data: dict[str, Any] | None) -> tuple[Any, Any, Any]:
+    """Extract markers that indicate a *new sync run* occurred."""
+    if not isinstance(data, dict):
+        return (None, None, None)
+    sf = data.get("summary_fields") if isinstance(data.get("summary_fields"), dict) else {}
+    last_job_id = None
+    if isinstance(sf, dict):
+        last_job = sf.get("last_job")
+        if isinstance(last_job, dict):
+            last_job_id = last_job.get("id")
+    return (
+        data.get("last_job_run"),
+        data.get("last_updated"),
+        last_job_id,
+    )
+
+
+def _extract_last_job_id(data: dict[str, Any] | None) -> int | None:
+    """Extract ``summary_fields.last_job.id`` if present."""
+    if not isinstance(data, dict):
+        return None
+    sf = data.get("summary_fields")
+    if not isinstance(sf, dict):
+        return None
+    last_job = sf.get("last_job")
+    if not isinstance(last_job, dict):
+        return None
+    job_id = last_job.get("id")
+    return int(job_id) if job_id is not None else None
+
+
+def _sync_run_changed_since_baseline(
+    current: dict[str, Any], baseline: dict[str, Any] | None
+) -> bool:
+    """Return true only when run-specific markers changed."""
+    if not baseline:
+        return True
+    current_markers = _extract_run_markers(current)
+    baseline_markers = _extract_run_markers(baseline)
+    # If all markers are absent, we cannot claim this is a new run yet.
+    if all(m is None for m in current_markers):
+        return False
+    return current_markers != baseline_markers
+
+
 def collect_inventory_source_target_ids_for_sync(
     import_results: list[dict[str, Any]] | None,
 ) -> list[int]:
@@ -105,21 +150,51 @@ async def wait_for_inventory_source_sync(
     *,
     poll_interval: float,
     timeout_seconds: int,
+    expected_job_id: int | None = None,
+    baseline_source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Poll ``inventory_sources/<id>/`` until sync status leaves active states."""
     deadline = time.monotonic() + timeout_seconds
     path = f"inventory_sources/{inventory_source_id}/"
     last: dict[str, Any] = {}
+    seen_active = False
+    seen_expected_job = expected_job_id is None
+    last_status = ""
+    last_job_seen: int | None = None
     while time.monotonic() < deadline:
         last = await client.get(path)
         status = _sync_status_from_inventory_source_payload(last)
+        current_job_id = _extract_last_job_id(last)
+        prev_job_seen = last_job_seen
+        if current_job_id is not None:
+            last_job_seen = current_job_id
+        if expected_job_id is not None and current_job_id == expected_job_id:
+            seen_expected_job = True
+        if status != last_status or current_job_id != prev_job_seen:
+            logger.info(
+                "inventory_source_sync_poll_state",
+                inventory_source_id=inventory_source_id,
+                status=status,
+                seen_expected_job=seen_expected_job,
+                expected_job_id=expected_job_id,
+                current_last_job_id=current_job_id,
+            )
+            last_status = status
+        if status in _ACTIVE_STATUSES:
+            seen_active = True
         if status and status not in _ACTIVE_STATUSES:
-            return last
+            # Don't accept an old terminal status from before launch.
+            # Require either an active phase to be observed or state change.
+            if seen_expected_job and (
+                seen_active or _sync_run_changed_since_baseline(last, baseline_source)
+            ):
+                return last
         await asyncio.sleep(poll_interval)
     last_status = _sync_status_from_inventory_source_payload(last)
     raise TimeoutError(
         f"inventory_source {inventory_source_id} sync did not finish within {timeout_seconds}s "
-        f"(last status={last_status!r})"
+        f"(last status={last_status!r}, expected_job_id={expected_job_id}, "
+        f"last_seen_job_id={last_job_seen})"
     )
 
 
@@ -145,6 +220,7 @@ async def sync_inventory_sources_after_import(
     async def run_one(is_id: int) -> None:
         async with sem:
             try:
+                baseline = await client.get(f"inventory_sources/{is_id}/")
                 job_id = await trigger_inventory_source_update(client, is_id)
                 logger.info(
                     "inventory_source_update_triggered",
@@ -156,6 +232,8 @@ async def sync_inventory_sources_after_import(
                     is_id,
                     poll_interval=interval,
                     timeout_seconds=timeout,
+                    expected_job_id=job_id,
+                    baseline_source=baseline,
                 )
                 status = _sync_status_from_inventory_source_payload(final)
                 ok = status in _SUCCESS_STATUSES

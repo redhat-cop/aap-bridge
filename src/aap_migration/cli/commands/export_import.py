@@ -1591,7 +1591,6 @@ def import_cmd(
                             # Inventory resources (canonical names + legacy aliases)
                             "inventory": "import_inventories",
                             "inventories": "import_inventories",
-                            # Optional: use -r inventory_sources (excluded from default import list)
                             "inventory_sources": "import_inventory_sources",
                             "groups": "import_inventory_groups",
                             "inventory_groups": "import_inventory_groups",

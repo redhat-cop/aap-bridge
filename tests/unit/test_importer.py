@@ -38,6 +38,7 @@ def mock_client():
     client.bulk_create_resources = AsyncMock(return_value=[{"id": 100, "name": "Test Resource"}])
     client.get_workflow_nodes = AsyncMock(return_value=[])
     client.get_resource = AsyncMock(return_value={"kind": "", "id": 1, "name": "Test Inventory"})
+    client.get = AsyncMock(return_value={"count": 0, "results": []})
     return client
 
 
@@ -376,6 +377,20 @@ class TestHostImporter:
         assert result["total_skipped"] == 1
         host_importer.bulk_ops.bulk_create_hosts.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_import_hosts_bulk_skips_when_inventory_has_sources(self, host_importer, mock_client):
+        """Hosts from sync-managed inventories should come from inventory update, not bulk import."""
+        mock_client.get_resource = AsyncMock(return_value={"kind": "", "id": 10})
+        mock_client.get = AsyncMock(return_value={"count": 1, "results": [{"id": 1}]})
+        host_importer.bulk_ops.bulk_create_hosts = AsyncMock()
+
+        hosts = [{"_source_id": 1, "name": "host-1", "enabled": True}]
+        result = await host_importer.import_hosts_bulk(inventory_id=10, hosts=hosts)
+
+        assert result["total_created"] == 0
+        assert result["total_skipped"] == 1
+        host_importer.bulk_ops.bulk_create_hosts.assert_not_called()
+
 
 class TestInventoryGroupImporter:
     """Tests for InventoryGroupImporter."""
@@ -397,6 +412,23 @@ class TestInventoryGroupImporter:
         )
 
         assert result == {"_skipped": True, "policy_skip": True, "name": "g1"}
+        mock_client.create_resource.assert_not_called()
+        mock_state.mark_skipped.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_import_group_skips_sourced_inventory(self, group_importer, mock_client, mock_state):
+        mock_state.is_migrated.return_value = False
+        mock_state.get_mapped_id.return_value = 99
+        mock_client.get_resource = AsyncMock(return_value={"kind": "", "id": 99})
+        mock_client.get = AsyncMock(return_value={"count": 1, "results": [{"id": 1}]})
+
+        result = await group_importer.import_resource(
+            resource_type="groups",
+            source_id=20,
+            data={"name": "g2", "inventory": 5},
+        )
+
+        assert result == {"_skipped": True, "policy_skip": True, "name": "g2"}
         mock_client.create_resource.assert_not_called()
         mock_state.mark_skipped.assert_called_once()
 

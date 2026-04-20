@@ -42,8 +42,6 @@ DEFAULT_MIGRATION_EXCLUDED_TYPES = frozenset(
     {
         "instances",
         "instance_groups",
-        # inventory_sources optional for many deployments; use -r inventory_sources to include
-        "inventory_sources",
     }
 )
 
@@ -62,10 +60,12 @@ PHASE1_RESOURCE_TYPES = [
 ]
 
 # Phase 2 import: patch projects (in import runner), then inventory chain + automation.
+# inventory_sources before constructed_inventories: constructed (and smart) inventories
+# may depend on input inventories that already have sources configured.
 PHASE2_RESOURCE_TYPES = [
     "inventory",
+    "inventory_sources",
     "constructed_inventories",
-    # "inventory_sources",  # skipped by default — add here if you need SCM/dynamic sources on target
     "groups",
     "hosts",
     "notification_templates",

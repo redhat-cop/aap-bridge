@@ -204,6 +204,7 @@ advanced:
 # Export Configuration
 # ============================================================================
 export:
+  # Prefer true: hosts tied to inventory sources are re-created by sync on the target.
   skip_dynamic_hosts: false
   skip_smart_inventories: false
   skip_constructed_inventories: false

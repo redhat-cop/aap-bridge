@@ -19,6 +19,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from aap_migration.config import MigrationConfig
 from aap_migration.schema.models import ComparisonResult
+from aap_migration.utils.inventory_fk import (
+    ensure_inventory_id_on_inventory_source,
+    parse_inventory_id_from_api_value,
+)
 from aap_migration.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -832,20 +836,24 @@ class DataTransformer:
         Returns:
             Transformed inventory source data
         """
+        ensure_inventory_id_on_inventory_source(data)
         source_id = data.get("_source_id") or data.get("id")
 
-        # Extract inventory ID (required)
+        # Extract inventory ID (required). Treat null/invalid top-level inventory as missing
+        # so we still read from summary_fields (raw exports often set "inventory": null).
         if "summary_fields" in data and "inventory" in data["summary_fields"]:
-            inv_info = data["summary_fields"]["inventory"]
-            if isinstance(inv_info, dict) and "id" in inv_info:
-                data["inventory"] = inv_info["id"]
-                logger.debug(
-                    "extracted_inventory_from_summary",
-                    resource_type="inventory_sources",
-                    source_id=source_id,
-                    source_name=data.get("name"),
-                    inventory_id=inv_info["id"],
-                )
+            if parse_inventory_id_from_api_value(data.get("inventory")) is None:
+                inv_info = data["summary_fields"]["inventory"]
+                pid = parse_inventory_id_from_api_value(inv_info)
+                if pid is not None:
+                    data["inventory"] = pid
+                    logger.debug(
+                        "extracted_inventory_from_summary",
+                        resource_type="inventory_sources",
+                        source_id=source_id,
+                        source_name=data.get("name"),
+                        inventory_id=pid,
+                    )
 
         # Extract source_project ID (optional)
         if "summary_fields" in data and "source_project" in data["summary_fields"]:
@@ -1857,6 +1865,15 @@ class InventorySourceTransformer(DataTransformer):
     # Inventory is required; source_project/credential/EE are optional
     REQUIRED_DEPENDENCIES = {"inventory"}
 
+    def _validate_dependencies(
+        self,
+        data: dict[str, Any],
+        resource_type: str,
+    ) -> None:
+        """Resolve inventory FK from URLs / related before dependency checks."""
+        ensure_inventory_id_on_inventory_source(data)
+        super()._validate_dependencies(data, resource_type)
+
     def _apply_specific_transformations(
         self, data: dict[str, Any], resource_type: str
     ) -> dict[str, Any]:
@@ -1869,20 +1886,22 @@ class InventorySourceTransformer(DataTransformer):
         Returns:
             Transformed inventory source data
         """
+        ensure_inventory_id_on_inventory_source(data)
         source_id = data.get("_source_id") or data.get("id")
 
-        # Extract inventory ID from summary_fields if not already set
-        if "inventory" not in data and "summary_fields" in data:
-            if "inventory" in data["summary_fields"]:
+        # Extract inventory from summary when top-level is missing or null (see _transform_inventory_sources)
+        if "summary_fields" in data and "inventory" in data["summary_fields"]:
+            if parse_inventory_id_from_api_value(data.get("inventory")) is None:
                 inv_info = data["summary_fields"]["inventory"]
-                if isinstance(inv_info, dict) and "id" in inv_info:
-                    data["inventory"] = inv_info["id"]
+                pid = parse_inventory_id_from_api_value(inv_info)
+                if pid is not None:
+                    data["inventory"] = pid
                     logger.debug(
                         "extracted_inventory_from_summary",
                         resource_type="inventory_sources",
                         source_id=source_id,
                         source_name=data.get("name"),
-                        inventory_id=inv_info["id"],
+                        inventory_id=pid,
                     )
 
         # Extract source_project ID from summary_fields

@@ -13,7 +13,12 @@ from aap_migration.client.bulk_operations import BulkOperations
 from aap_migration.client.exceptions import APIError, ConflictError
 from aap_migration.config import PerformanceConfig, normalized_execution_environment_skip_names
 from aap_migration.migration.state import MigrationState
+from aap_migration.resources import get_endpoint, normalize_resource_type
 from aap_migration.utils.idempotency import compare_resources
+from aap_migration.utils.inventory_fk import (
+    ensure_inventory_id_on_inventory_source,
+    parse_inventory_id_from_api_value,
+)
 from aap_migration.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -46,6 +51,44 @@ async def _fetch_target_inventory_kind(
     if cache is not None:
         cache[target_inventory_id] = kind
     return kind
+
+
+async def _fetch_target_inventory_has_inventory_sources(
+    client: AAPTargetClient,
+    target_inventory_id: int,
+    *,
+    cache: dict[int, bool] | None = None,
+) -> bool:
+    """True if the target inventory has at least one inventory source (sync-managed content)."""
+    if cache is not None and target_inventory_id in cache:
+        return cache[target_inventory_id]
+
+    endpoint = get_endpoint("inventory_sources")
+    if not endpoint.endswith("/"):
+        endpoint = f"{endpoint}/"
+    try:
+        resp = await client.get(
+            endpoint,
+            params={"inventory": target_inventory_id, "page_size": 1},
+        )
+    except Exception as e:
+        logger.warning(
+            "inventory_sources_lookup_failed",
+            target_inventory_id=target_inventory_id,
+            error=str(e),
+        )
+        if cache is not None:
+            cache[target_inventory_id] = False
+        return False
+
+    total = resp.get("count")
+    if total is not None:
+        has_sources = total > 0
+    else:
+        has_sources = len(resp.get("results", [])) > 0
+    if cache is not None:
+        cache[target_inventory_id] = has_sources
+    return has_sources
 
 
 class ResourceImporter:
@@ -129,6 +172,23 @@ class ResourceImporter:
             # Resolve dependencies
             if resolve_dependencies:
                 data = await self._resolve_dependencies(resource_type, data)
+
+            if normalize_resource_type(resource_type) == "inventory_sources" and not data.get(
+                "inventory"
+            ):
+                reason = (
+                    "Skipped inventory source: no parent inventory FK (null/unmapped). "
+                    "Often auto-created; not required to recreate on target."
+                )
+                self.state.mark_skipped(resource_type, source_id, reason)
+                self.stats["skipped_count"] += 1
+                logger.info(
+                    "inventory_source_skipped_no_inventory_fk",
+                    resource_type=resource_type,
+                    source_id=source_id,
+                    source_name=data.get("name"),
+                )
+                return {"_skipped": True, "policy_skip": True, "name": data.get("name")}
 
             # Remove None/null values from data before API call
             # AAP 2.6 API requires null-valued fields to be absent, not sent as null
@@ -263,6 +323,9 @@ class ResourceImporter:
         Returns:
             Data with resolved dependencies
         """
+        if normalize_resource_type(resource_type) == "inventory_sources":
+            ensure_inventory_id_on_inventory_source(data)
+
         resolved = dict(data)
         dependencies = self._get_dependencies(resource_type)
         resource_source_id = data.get("_source_id") or data.get("id")
@@ -279,6 +342,10 @@ class ResourceImporter:
         for field, dep_resource_type in dependencies.items():
             if field in data and data[field]:
                 dep_source_id = data[field]
+                if dep_resource_type == "inventory":
+                    coerced = parse_inventory_id_from_api_value(dep_source_id)
+                    if coerced is not None:
+                        dep_source_id = coerced
 
                 logger.debug(
                     "resolving_dependency_field",
@@ -1253,6 +1320,7 @@ class InventoryGroupImporter(ResourceImporter):
     ):
         super().__init__(client, state, performance_config, resource_mappings)
         self._inventory_kind_cache: dict[int, str | None] = {}
+        self._inventory_has_sources_cache: dict[int, bool] = {}
 
     async def _get_target_inventory_kind(self, target_inventory_id: int) -> str | None:
         """Fetch and cache inventory ``kind`` for the target (e.g. '', 'smart', 'constructed')."""
@@ -1317,6 +1385,38 @@ class InventoryGroupImporter(ResourceImporter):
                         group_name=data.get("name"),
                         target_inventory_id=target_inventory_id,
                         kind=kind,
+                    )
+                    return {"_skipped": True, "policy_skip": True, "name": data.get("name")}
+
+                try:
+                    has_sources = await _fetch_target_inventory_has_inventory_sources(
+                        self.client,
+                        int(target_inventory_id),
+                        cache=self._inventory_has_sources_cache,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "inventory_sources_check_failed",
+                        target_inventory_id=target_inventory_id,
+                        source_id=source_id,
+                        error=str(e),
+                    )
+                    has_sources = False
+
+                if has_sources:
+                    reason = (
+                        "Groups are defined by inventory source sync (SCM, Satellite, etc.); "
+                        f"run an inventory update on the target instead "
+                        f"(target_inventory_id={target_inventory_id})"
+                    )
+                    self.state.mark_skipped(resource_type, source_id, reason)
+                    self.stats["skipped_count"] += 1
+                    logger.info(
+                        "group_skipped_inventory_source_sync",
+                        resource_type=resource_type,
+                        source_id=source_id,
+                        group_name=data.get("name"),
+                        target_inventory_id=target_inventory_id,
                     )
                     return {"_skipped": True, "policy_skip": True, "name": data.get("name")}
 
@@ -1549,6 +1649,19 @@ class InventorySourceImporter(ResourceImporter):
         "credential": "credentials",
         "execution_environment": "execution_environments",
     }
+
+    async def import_resource(
+        self,
+        resource_type: str,
+        source_id: int,
+        data: dict[str, Any],
+        resolve_dependencies: bool = True,
+    ) -> dict[str, Any] | None:
+        """Ensure ``inventory`` is a numeric source PK (API may return only URLs)."""
+        ensure_inventory_id_on_inventory_source(data)
+        return await super().import_resource(
+            resource_type, source_id, data, resolve_dependencies=resolve_dependencies
+        )
 
     async def import_inventory_sources(
         self,
@@ -1961,6 +2074,7 @@ class HostImporter(ResourceImporter):
         """
         super().__init__(client, state, performance_config, resource_mappings)
         self.bulk_ops = BulkOperations(client, performance_config)
+        self._inventory_has_sources_cache: dict[int, bool] = {}
 
     async def import_hosts_bulk(
         self,
@@ -2006,6 +2120,39 @@ class HostImporter(ResourceImporter):
                 host_count=len(hosts),
                 kind=inv_kind,
                 message="Hosts cannot be created for Smart or Constructed inventories",
+            )
+            return {
+                "total_requested": len(hosts),
+                "total_created": 0,
+                "total_failed": 0,
+                "total_skipped": len(hosts),
+                "results": [],
+            }
+
+        try:
+            has_sources = await _fetch_target_inventory_has_inventory_sources(
+                self.client,
+                inventory_id,
+                cache=self._inventory_has_sources_cache,
+            )
+        except Exception as e:
+            logger.warning(
+                "inventory_sources_check_failed",
+                inventory_id=inventory_id,
+                error=str(e),
+            )
+            has_sources = False
+
+        if has_sources:
+            self.stats["skipped_count"] += len(hosts)
+            logger.info(
+                "hosts_skipped_inventory_source_sync",
+                inventory_id=inventory_id,
+                host_count=len(hosts),
+                message=(
+                    "Hosts are populated by inventory source sync (SCM, Satellite, etc.); "
+                    "run an inventory update on the target instead of bulk import"
+                ),
             )
             return {
                 "total_requested": len(hosts),

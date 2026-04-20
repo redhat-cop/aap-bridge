@@ -578,8 +578,10 @@ class ExportConfig(BaseModel):
     skip_hosts_with_inventory_sources: bool = Field(
         default=True,
         description=(
-            "Skip hosts managed by inventory sources (has_inventory_sources=true). "
-            "These hosts are recreated when the inventory source syncs on target."
+            "Export/transform: skip hosts managed by inventory sources (has_inventory_sources=true). "
+            "Import also skips bulk host/group create when the target inventory already has "
+            "inventory_sources (after they are migrated); run an inventory update on the target "
+            "to populate hosts and groups from SCM, Satellite, cloud, etc."
         ),
     )
     skip_execution_environment_names: list[str] = Field(

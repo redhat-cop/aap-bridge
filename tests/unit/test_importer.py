@@ -647,12 +647,12 @@ class TestWorkflowImporter:
         results = await workflow_importer.import_workflows(workflows)
 
         assert len(results) == 1
-        # Nodes should be stored for later import
-        assert "_pending_nodes" in results[0]
-        assert len(results[0]["_pending_nodes"]) == 2
+        # Nodes are imported immediately after workflows are created.
+        assert "_pending_nodes" not in results[0]
+        assert mock_client.create_resource.call_count == 3
 
         # Nodes should not be in the create call
-        call_args = mock_client.create_resource.call_args[1]["data"]
+        call_args = mock_client.create_resource.call_args_list[0][1]["data"]
         assert "_workflow_job_template_nodes" not in call_args
 
 

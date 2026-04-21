@@ -1460,6 +1460,68 @@ class JobTemplateExporter(ResourceExporter):
 class WorkflowExporter(ResourceExporter):
     """Exporter for workflow job template resources."""
 
+    @staticmethod
+    def _endpoint_from_related_url(url: str | None) -> str | None:
+        """Convert related URL to client endpoint path (without API prefix)."""
+        if not url or not isinstance(url, str):
+            return None
+        marker = "/api/controller/v2/"
+        if marker in url:
+            return url.split(marker, 1)[1]
+        cleaned = url.lstrip("/")
+        if cleaned.startswith("api/controller/v2/"):
+            return cleaned[len("api/controller/v2/") :]
+        return cleaned
+
+    async def _attach_workflow_approval_template_data(
+        self, nodes: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Attach approval template payloads for approval nodes.
+
+        Workflow approval templates are separate resources and must be created
+        before node linking on import. We capture minimal fields needed for that.
+        """
+        for node in nodes:
+            summary = node.get("summary_fields") or {}
+            ujt = summary.get("unified_job_template") or {}
+            if (ujt.get("unified_job_type") or "") != "workflow_approval":
+                continue
+
+            approval_data: dict[str, Any] = {
+                "id": ujt.get("id") or node.get("unified_job_template"),
+                "name": ujt.get("name"),
+                "description": ujt.get("description", ""),
+                "timeout": ujt.get("timeout", 0),
+            }
+
+            endpoint = self._endpoint_from_related_url(
+                (node.get("related") or {}).get("unified_job_template")
+            )
+            if endpoint:
+                try:
+                    details = await self.client.get(endpoint)
+                    approval_data.update(
+                        {
+                            "id": details.get("id", approval_data.get("id")),
+                            "name": details.get("name", approval_data.get("name")),
+                            "description": details.get(
+                                "description", approval_data.get("description", "")
+                            ),
+                            "timeout": details.get("timeout", approval_data.get("timeout", 0)),
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "workflow_approval_template_detail_fetch_failed",
+                        endpoint=endpoint,
+                        node_id=node.get("id"),
+                        error=str(e),
+                    )
+
+            node["_approval_template"] = approval_data
+
+        return nodes
+
     async def export(
         self,
         filters: dict[str, Any] | None = None,
@@ -1486,6 +1548,7 @@ class WorkflowExporter(ResourceExporter):
             if include_nodes:
                 try:
                     nodes = await self.client.get_workflow_nodes(workflow["id"])
+                    nodes = await self._attach_workflow_approval_template_data(nodes)
                     workflow["nodes"] = nodes
                     logger.debug(
                         "workflow_nodes_fetched",
@@ -1499,6 +1562,45 @@ class WorkflowExporter(ResourceExporter):
                         error=str(e),
                     )
                     workflow["nodes"] = []
+
+            yield workflow
+
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Export workflows with nodes when using parallel page fetches.
+
+        The CLI export path uses ``export_parallel`` for all resource types; without
+        this override, workflow nodes are never attached to workflow templates.
+        """
+        async for workflow in super().export_parallel(
+            resource_type=resource_type,
+            endpoint=endpoint,
+            page_size=page_size,
+            max_concurrent_pages=max_concurrent_pages,
+            filters=filters,
+        ):
+            try:
+                nodes = await self.client.get_workflow_nodes(workflow["id"])
+                nodes = await self._attach_workflow_approval_template_data(nodes)
+                workflow["nodes"] = nodes
+                logger.debug(
+                    "workflow_nodes_fetched",
+                    workflow_id=workflow["id"],
+                    node_count=len(nodes),
+                )
+            except Exception as e:
+                logger.warning(
+                    "failed_to_fetch_workflow_nodes",
+                    workflow_id=workflow["id"],
+                    error=str(e),
+                )
+                workflow["nodes"] = []
 
             yield workflow
 

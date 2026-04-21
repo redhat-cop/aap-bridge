@@ -1885,8 +1885,158 @@ class WorkflowNodeImporter(ResourceImporter):
 
     DEPENDENCIES = {
         "workflow_job_template": "workflow_job_templates",
-        "unified_job_template": "unified_job_templates",
+        "inventory": "inventory",
     }
+
+    _UJT_TYPE_BY_UNIFIED_JOB_TYPE = {
+        "job": "job_templates",
+        "workflow_job_template": "workflow_job_templates",
+        "project_update": "projects",
+        "inventory_update": "inventory_sources",
+    }
+
+    @staticmethod
+    def _resource_type_from_related_url(url: str | None) -> str | None:
+        """Infer canonical resource type from ``related.unified_job_template`` URL."""
+        if not url or not isinstance(url, str):
+            return None
+        parts = [p for p in url.split("/") if p]
+        if len(parts) < 2:
+            return None
+        if parts[-1].isdigit():
+            return normalize_resource_type(parts[-2])
+        if len(parts) >= 3 and parts[-2].isdigit():
+            return normalize_resource_type(parts[-3])
+        return None
+
+    def _infer_unified_job_template_resource_type(self, node: dict[str, Any]) -> str | None:
+        """Infer source UJT concrete type from related URL or summary fields."""
+        related = node.get("related") or {}
+        inferred = self._resource_type_from_related_url(related.get("unified_job_template"))
+        if inferred:
+            return inferred
+
+        summary = node.get("summary_fields") or {}
+        ujt = summary.get("unified_job_template") or {}
+        ujt_type = ujt.get("unified_job_type")
+        if isinstance(ujt_type, str):
+            return self._UJT_TYPE_BY_UNIFIED_JOB_TYPE.get(ujt_type)
+        return None
+
+    async def _resolve_unified_job_template_target_id(self, node: dict[str, Any]) -> int | None:
+        """Resolve node ``unified_job_template`` source ID to target ID for known types."""
+        source_id = node.get("unified_job_template")
+        if source_id is None:
+            return None
+        try:
+            source_id = int(source_id)
+        except (TypeError, ValueError):
+            return None
+
+        resource_type = self._infer_unified_job_template_resource_type(node)
+        if resource_type is None:
+            return None
+
+        if resource_type == "workflow_approval_templates":
+            # Some targets do not expose /workflow_approval_templates/ directly.
+            # Approval templates are created via
+            # POST workflow_job_template_nodes/<id>/create_approval_template/
+            # after the node exists.
+            return None
+
+        return self.state.get_mapped_id(resource_type, source_id)
+
+    async def _create_node_scoped_approval_template(
+        self,
+        target_node_id: int,
+        source_approval_id: int | None,
+        approval_data: dict[str, Any] | None,
+    ) -> None:
+        """Create approval template from a node-scoped endpoint and map IDs."""
+        data = approval_data or {}
+        name = data.get("name") or (
+            f"Workflow Approval {source_approval_id}" if source_approval_id else "Workflow Approval"
+        )
+        description = data.get("description") or ""
+        timeout = data.get("timeout")
+        try:
+            timeout = int(timeout) if timeout is not None else 0
+        except (TypeError, ValueError):
+            timeout = 0
+
+        endpoint = f"workflow_job_template_nodes/{target_node_id}/create_approval_template/"
+        try:
+            resp = await self.client.post(
+                endpoint,
+                json_data={"name": name, "description": description, "timeout": timeout},
+            )
+        except Exception as e:
+            logger.warning(
+                "workflow_approval_template_create_from_node_failed",
+                target_node_id=target_node_id,
+                source_approval_id=source_approval_id,
+                name=name,
+                error=str(e),
+            )
+            return
+
+        if source_approval_id is None:
+            return
+
+        rid = resp.get("id") if isinstance(resp, dict) else None
+        try:
+            target_id = int(rid) if rid is not None else None
+        except (TypeError, ValueError):
+            target_id = None
+        if target_id is None:
+            return
+
+        self.state.create_or_update_mapping(
+            resource_type="workflow_approval_templates",
+            source_id=source_approval_id,
+            target_id=target_id,
+            source_name=name,
+        )
+
+    async def _associate_node_edges(
+        self,
+        source_parent_node_id: int,
+        edge_field: str,
+        source_child_node_ids: list[int],
+    ) -> None:
+        """Create workflow node graph edges on target after all nodes exist."""
+        target_parent_id = self.state.get_mapped_id("workflow_nodes", source_parent_node_id)
+        if not target_parent_id:
+            logger.warning(
+                "workflow_node_edge_parent_unmapped",
+                source_parent_node_id=source_parent_node_id,
+                edge_field=edge_field,
+            )
+            return
+
+        endpoint = f"workflow_job_template_nodes/{int(target_parent_id)}/{edge_field}/"
+        for source_child_id in source_child_node_ids:
+            target_child_id = self.state.get_mapped_id("workflow_nodes", source_child_id)
+            if not target_child_id:
+                logger.warning(
+                    "workflow_node_edge_child_unmapped",
+                    source_parent_node_id=source_parent_node_id,
+                    source_child_node_id=source_child_id,
+                    edge_field=edge_field,
+                )
+                continue
+            try:
+                await self.client.post(endpoint, json_data={"id": int(target_child_id)})
+            except Exception as e:
+                logger.warning(
+                    "workflow_node_edge_associate_failed",
+                    source_parent_node_id=source_parent_node_id,
+                    target_parent_node_id=int(target_parent_id),
+                    source_child_node_id=source_child_id,
+                    target_child_node_id=int(target_child_id),
+                    edge_field=edge_field,
+                    error=str(e),
+                )
 
     async def import_workflow_nodes(
         self,
@@ -1909,14 +2059,46 @@ class WorkflowNodeImporter(ResourceImporter):
         results = []
         success_count = 0
         failed_count = 0
+        pending_edges: list[tuple[int, dict[str, list[int]]]] = []
 
         for node in nodes:
             source_id = node.pop("_source_id", node.get("id"))
+            try:
+                source_node_id = int(source_id) if source_id is not None else None
+            except (TypeError, ValueError):
+                source_node_id = None
 
-            # Remove edge fields before import (will be handled separately)
-            node.pop("success_nodes", None)
-            node.pop("failure_nodes", None)
-            node.pop("always_nodes", None)
+            source_approval_id: int | None = None
+            approval_data: dict[str, Any] | None = None
+            node_ujt_type = self._infer_unified_job_template_resource_type(node)
+            if node_ujt_type == "workflow_approval_templates":
+                raw_sid = node.get("unified_job_template")
+                try:
+                    source_approval_id = int(raw_sid) if raw_sid is not None else None
+                except (TypeError, ValueError):
+                    source_approval_id = None
+                raw_approval = node.get("_approval_template")
+                if isinstance(raw_approval, dict):
+                    approval_data = dict(raw_approval)
+                node.pop("unified_job_template", None)
+            else:
+                target_ujt = await self._resolve_unified_job_template_target_id(node)
+                if target_ujt is not None:
+                    node["unified_job_template"] = target_ujt
+                else:
+                    node.pop("unified_job_template", None)
+
+            edge_map: dict[str, list[int]] = {}
+            for edge_field in ("success_nodes", "failure_nodes", "always_nodes"):
+                raw_children = node.pop(edge_field, None) or []
+                child_ids: list[int] = []
+                for child in raw_children:
+                    try:
+                        child_ids.append(int(child))
+                    except (TypeError, ValueError):
+                        continue
+                if child_ids:
+                    edge_map[edge_field] = child_ids
 
             try:
                 result = await self.import_resource(
@@ -1927,6 +2109,20 @@ class WorkflowNodeImporter(ResourceImporter):
                 if result:
                     results.append(result)
                     success_count += 1
+                    if node_ujt_type == "workflow_approval_templates":
+                        tid = result.get("id")
+                        try:
+                            target_node_id = int(tid) if tid is not None else None
+                        except (TypeError, ValueError):
+                            target_node_id = None
+                        if target_node_id is not None:
+                            await self._create_node_scoped_approval_template(
+                                target_node_id,
+                                source_approval_id,
+                                approval_data,
+                            )
+                    if source_node_id is not None and edge_map:
+                        pending_edges.append((source_node_id, edge_map))
                 else:
                     failed_count += 1
             except Exception as e:
@@ -1951,8 +2147,7 @@ class WorkflowNodeImporter(ResourceImporter):
                         "error_type": type(e).__name__,
                     }
                 )
-
-                raise
+                continue
             finally:
                 # Update progress after each node
                 if progress_callback:
@@ -1961,6 +2156,10 @@ class WorkflowNodeImporter(ResourceImporter):
                         self.stats["error_count"],
                         self.stats["skipped_count"],
                     )
+
+        for source_parent_id, edge_map in pending_edges:
+            for edge_field, source_children in edge_map.items():
+                await self._associate_node_edges(source_parent_id, edge_field, source_children)
 
         return results
 
@@ -3132,12 +3331,15 @@ class WorkflowImporter(ResourceImporter):
             List of created workflow data
         """
         results = []
+        pending_nodes: list[dict[str, Any]] = []
         success_count = 0
         failed_count = 0
         skipped_count = 0
 
-        for workflow in workflows:
-            source_id = workflow.pop("_source_id", workflow.get("id"))
+        for workflow_raw in workflows:
+            source_id = workflow_raw.get("_source_id") or workflow_raw.get("id")
+            workflow = dict(workflow_raw)
+            workflow.pop("_source_id", None)
 
             # Extract nodes for separate import
             nodes = workflow.pop("_workflow_job_template_nodes", None)
@@ -3150,8 +3352,9 @@ class WorkflowImporter(ResourceImporter):
 
             if result:
                 if nodes:
-                    # Store nodes for later import
-                    result["_pending_nodes"] = nodes
+                    for node in nodes:
+                        if isinstance(node, dict):
+                            pending_nodes.append(dict(node))
                 results.append(result)
                 success_count += 1
             else:
@@ -3160,6 +3363,25 @@ class WorkflowImporter(ResourceImporter):
             # Update progress after each workflow
             if progress_callback:
                 progress_callback(success_count, failed_count, skipped_count)
+
+        if pending_nodes:
+            node_importer = WorkflowNodeImporter(
+                self.client,
+                self.state,
+                self.performance_config,
+                self.resource_mappings,
+            )
+            node_results = await node_importer.import_workflow_nodes(pending_nodes)
+            self.unresolved_dependencies.extend(node_importer.unresolved_dependencies)
+            self.import_errors.extend(node_importer.import_errors)
+            logger.info(
+                "workflow_nodes_imported_after_workflows",
+                workflow_count=success_count,
+                node_count=len(pending_nodes),
+                imported_nodes=len(node_results),
+                failed_nodes=node_importer.stats["error_count"],
+                skipped_nodes=node_importer.stats["skipped_count"],
+            )
 
         return results
 

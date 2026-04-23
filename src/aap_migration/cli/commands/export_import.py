@@ -1751,6 +1751,69 @@ def import_cmd(
                                     transformed_resources
                                 )
 
+                            # Users: pre-check can skip creates for already-existing users,
+                            # but team memberships still need reconciliation.
+                            if (
+                                rtype == "users"
+                                and not dry_run
+                                and transformed_resources
+                                and hasattr(importer, "sync_team_memberships_for_existing_users")
+                            ):
+                                to_import_ids = {
+                                    r.get("_source_id")
+                                    for r in (resources_to_import or [])
+                                    if r.get("_source_id") is not None
+                                }
+                                existing_users = [
+                                    r
+                                    for r in transformed_resources
+                                    if r.get("_source_id") is not None
+                                    and r.get("_source_id") not in to_import_ids
+                                ]
+                                if existing_users:
+                                    await importer.sync_team_memberships_for_existing_users(
+                                        existing_users
+                                    )
+
+                            # Teams: users may have been processed earlier in phase1, before team
+                            # id_mappings existed. Reconcile user->team memberships now that teams
+                            # are imported/mapped.
+                            if (
+                                rtype == "teams"
+                                and not dry_run
+                                and hasattr(importer, "stats")
+                            ):
+                                users_dir = input_dir / "users"
+                                users_for_resync: list[dict] = []
+                                if users_dir.exists():
+                                    for users_file in sorted(users_dir.glob("users_*.json")):
+                                        try:
+                                            with open(users_file) as f:
+                                                users_for_resync.extend(json.load(f))
+                                        except Exception as e:
+                                            logger.warning(
+                                                "users_membership_resync_file_load_failed",
+                                                file=str(users_file),
+                                                error=str(e),
+                                            )
+                                if users_for_resync:
+                                    user_importer = create_importer(
+                                        "users",
+                                        ctx.target_client,
+                                        ctx.migration_state,
+                                        ctx.config.performance,
+                                        ctx.config.resource_mappings,
+                                        skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                                    )
+                                    if hasattr(user_importer, "sync_team_memberships_for_existing_users"):
+                                        await user_importer.sync_team_memberships_for_existing_users(
+                                            users_for_resync
+                                        )
+                                        logger.info(
+                                            "user_team_memberships_resync_after_teams",
+                                            user_count=len(users_for_resync),
+                                        )
+
                             if rtype == "inventory_sources" and results:
                                 sync_ids = collect_inventory_source_target_ids_for_sync(results)
                                 if sync_ids:

@@ -2009,6 +2009,42 @@ class ExecutionEnvironmentExporter(ResourceExporter):
 class UserExporter(ResourceExporter):
     """Exporter for user resources."""
 
+    async def _process_resource(
+        self, resource: dict[str, Any], resource_type: str
+    ) -> dict[str, Any] | None:
+        """Attach team membership source IDs to each user export row.
+
+        Team memberships are represented via related endpoint calls, not inline user
+        fields. Persist these source team IDs so import can re-associate users to
+        teams on the target using ``teams/<id>/users/``.
+        """
+        processed = await super()._process_resource(resource, resource_type)
+        if not processed:
+            return None
+
+        source_user_id = processed.get("id")
+        if not source_user_id:
+            return processed
+
+        try:
+            teams = await self.client.get_paginated(
+                f"users/{source_user_id}/teams/",
+                page_size=self.performance_config.batch_sizes.get("teams", 200),
+            )
+            processed["_team_source_ids"] = [
+                int(team["id"]) for team in teams if team.get("id") is not None
+            ]
+        except Exception as e:
+            # Non-fatal: user export should continue even if team relation lookup fails.
+            logger.warning(
+                "user_team_memberships_fetch_failed",
+                source_user_id=source_user_id,
+                error=str(e),
+            )
+            processed["_team_source_ids"] = []
+
+        return processed
+
     async def export(
         self, filters: dict[str, Any] | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:

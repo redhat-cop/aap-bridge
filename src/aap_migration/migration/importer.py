@@ -1072,6 +1072,103 @@ class UserImporter(ResourceImporter):
     DEPENDENCIES = {}  # No dependencies - users can exist independently
     IDENTIFIER_FIELD = "username"  # Users use 'username' instead of 'name'
 
+    async def _sync_team_memberships(
+        self,
+        *,
+        source_user_id: int,
+        target_user_id: int,
+        source_team_ids: list[int],
+    ) -> None:
+        """Ensure target user belongs to mapped target teams.
+
+        Export captures source team IDs from ``users/<id>/teams/``. During import we
+        resolve each source team ID via id_mappings and associate the target user via
+        ``POST teams/<target_team_id>/users/``.
+        """
+        if not source_team_ids:
+            return
+
+        teams_endpoint = get_endpoint("teams").rstrip("/")
+        linked = 0
+        skipped_unmapped = 0
+
+        for source_team_id in source_team_ids:
+            target_team_id = self.state.get_mapped_id("teams", source_team_id)
+            if not target_team_id:
+                skipped_unmapped += 1
+                logger.warning(
+                    "user_team_membership_skipped_unmapped_team",
+                    source_user_id=source_user_id,
+                    source_team_id=source_team_id,
+                )
+                continue
+
+            try:
+                await self.client.post(
+                    f"{teams_endpoint}/{target_team_id}/users/",
+                    json_data={"id": target_user_id},
+                )
+                linked += 1
+            except ConflictError:
+                # Membership already exists; treat as idempotent success.
+                linked += 1
+            except Exception as e:
+                logger.warning(
+                    "user_team_membership_link_failed",
+                    source_user_id=source_user_id,
+                    target_user_id=target_user_id,
+                    source_team_id=source_team_id,
+                    target_team_id=target_team_id,
+                    error=str(e),
+                )
+
+        logger.info(
+            "user_team_memberships_synced",
+            source_user_id=source_user_id,
+            target_user_id=target_user_id,
+            requested=len(source_team_ids),
+            linked=linked,
+            skipped_unmapped=skipped_unmapped,
+        )
+
+    async def sync_team_memberships_for_existing_users(
+        self, users: list[dict[str, Any]]
+    ) -> None:
+        """Sync memberships for users skipped by create/update import path.
+
+        Import pre-check may detect users already existing in target and skip
+        ``import_users``. In that case we still need to re-apply team membership
+        associations using mapped target user/team IDs.
+        """
+        for user in users:
+            source_user_id = user.get("_source_id")
+            if source_user_id is None:
+                continue
+
+            try:
+                source_user_id = int(source_user_id)
+            except (TypeError, ValueError):
+                continue
+
+            target_user_id = self.state.get_mapped_id("users", source_user_id)
+            if not target_user_id:
+                logger.warning(
+                    "user_team_membership_skipped_unmapped_user",
+                    source_user_id=source_user_id,
+                )
+                continue
+
+            source_team_ids = [
+                int(team_id)
+                for team_id in (user.get("_team_source_ids", []) or [])
+                if team_id is not None
+            ]
+            await self._sync_team_memberships(
+                source_user_id=source_user_id,
+                target_user_id=target_user_id,
+                source_team_ids=source_team_ids,
+            )
+
     async def import_resource(
         self,
         resource_type: str,
@@ -1107,7 +1204,15 @@ class UserImporter(ResourceImporter):
             phase="import",
         )
 
+        team_source_ids: list[int] = []
+
         try:
+            # Team memberships are exported separately from user fields.
+            # Keep them for post-create association calls, but do not include in create payload.
+            team_source_ids = [
+                int(team_id) for team_id in (data.pop("_team_source_ids", []) or []) if team_id is not None
+            ]
+
             # Remove password-related fields (cannot be migrated)
             data.pop("password", None)
             data.pop("ldap_dn", None)
@@ -1153,13 +1258,26 @@ class UserImporter(ResourceImporter):
                 target_id=result["id"],
             )
 
+            await self._sync_team_memberships(
+                source_user_id=source_id,
+                target_user_id=result["id"],
+                source_team_ids=team_source_ids,
+            )
+
             return result
 
         except ConflictError as e:
             # Handle conflict (user already exists)
-            result = await self._handle_conflict(resource_type, source_id, data, e)
+            result = await self._handle_conflict(resource_type, source_id, data)
             if result:
                 self.stats["conflict_count"] += 1
+                target_user_id = result.get("id")
+                if target_user_id:
+                    await self._sync_team_memberships(
+                        source_user_id=source_id,
+                        target_user_id=target_user_id,
+                        source_team_ids=team_source_ids,
+                    )
             return result
 
         except Exception as e:

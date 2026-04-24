@@ -5,7 +5,9 @@ that handle dependency resolution, bulk operations, and conflict handling.
 """
 
 import asyncio
+import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from aap_migration.client.aap_target_client import AAPTargetClient
@@ -158,6 +160,61 @@ class ResourceImporter:
         # Track issues for reporting
         self.unresolved_dependencies: list[dict[str, Any]] = []
         self.import_errors: list[dict[str, Any]] = []
+
+    # ------------------------------------------------------------------
+    # Shared classic-RBAC helpers (used by UserImporter and TeamImporter)
+    # ------------------------------------------------------------------
+
+    async def _list_object_role_rows(
+        self, content_resource_type: str, target_resource_id: int
+    ) -> list[dict[str, Any]]:
+        """Fetch all pages of ``<resource>/<id>/object_roles/`` on the target controller."""
+        ctype = normalize_resource_type(content_resource_type)
+        try:
+            base = get_endpoint(ctype).rstrip("/")
+        except KeyError:
+            logger.warning(
+                "role_grants_unknown_content_type",
+                content_resource_type=content_resource_type,
+            )
+            return []
+        out: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            resp = await self.client.get(
+                f"{base}/{target_resource_id}/object_roles/",
+                params={"page": page, "page_size": 200},
+            )
+            batch = resp.get("results", [])
+            out.extend(batch)
+            if not resp.get("next") or not batch:
+                break
+            page += 1
+        return out
+
+    async def _resolve_target_role_id(
+        self,
+        content_resource_type: str,
+        target_resource_id: int,
+        role_display_name: str,
+    ) -> int | None:
+        """Return the target Role id whose name matches ``role_display_name`` on the given resource."""
+        want = (role_display_name or "").strip().casefold()
+        if not want:
+            return None
+        rows = await self._list_object_role_rows(content_resource_type, target_resource_id)
+        for row in rows:
+            if str(row.get("name", "")).strip().casefold() == want:
+                rid = row.get("id")
+                if rid is not None:
+                    return int(rid)
+        logger.warning(
+            "role_grant_target_role_not_found",
+            content_resource_type=content_resource_type,
+            target_resource_id=target_resource_id,
+            role_name=role_display_name,
+        )
+        return None
 
     async def import_resource(
         self,
@@ -1072,6 +1129,103 @@ class UserImporter(ResourceImporter):
     DEPENDENCIES = {}  # No dependencies - users can exist independently
     IDENTIFIER_FIELD = "username"  # Users use 'username' instead of 'name'
 
+    async def _sync_team_memberships(
+        self,
+        *,
+        source_user_id: int,
+        target_user_id: int,
+        source_team_ids: list[int],
+    ) -> None:
+        """Ensure target user belongs to mapped target teams.
+
+        Export captures source team IDs from ``users/<id>/teams/``. During import we
+        resolve each source team ID via id_mappings and associate the target user via
+        ``POST teams/<target_team_id>/users/``.
+        """
+        if not source_team_ids:
+            return
+
+        teams_endpoint = get_endpoint("teams").rstrip("/")
+        linked = 0
+        skipped_unmapped = 0
+
+        for source_team_id in source_team_ids:
+            target_team_id = self.state.get_mapped_id("teams", source_team_id)
+            if not target_team_id:
+                skipped_unmapped += 1
+                logger.warning(
+                    "user_team_membership_skipped_unmapped_team",
+                    source_user_id=source_user_id,
+                    source_team_id=source_team_id,
+                )
+                continue
+
+            try:
+                await self.client.post(
+                    f"{teams_endpoint}/{target_team_id}/users/",
+                    json_data={"id": target_user_id},
+                )
+                linked += 1
+            except ConflictError:
+                # Membership already exists; treat as idempotent success.
+                linked += 1
+            except Exception as e:
+                logger.warning(
+                    "user_team_membership_link_failed",
+                    source_user_id=source_user_id,
+                    target_user_id=target_user_id,
+                    source_team_id=source_team_id,
+                    target_team_id=target_team_id,
+                    error=str(e),
+                )
+
+        logger.info(
+            "user_team_memberships_synced",
+            source_user_id=source_user_id,
+            target_user_id=target_user_id,
+            requested=len(source_team_ids),
+            linked=linked,
+            skipped_unmapped=skipped_unmapped,
+        )
+
+    async def sync_team_memberships_for_existing_users(
+        self, users: list[dict[str, Any]]
+    ) -> None:
+        """Sync memberships for users skipped by create/update import path.
+
+        Import pre-check may detect users already existing in target and skip
+        ``import_users``. In that case we still need to re-apply team membership
+        associations using mapped target user/team IDs.
+        """
+        for user in users:
+            source_user_id = user.get("_source_id")
+            if source_user_id is None:
+                continue
+
+            try:
+                source_user_id = int(source_user_id)
+            except (TypeError, ValueError):
+                continue
+
+            target_user_id = self.state.get_mapped_id("users", source_user_id)
+            if not target_user_id:
+                logger.warning(
+                    "user_team_membership_skipped_unmapped_user",
+                    source_user_id=source_user_id,
+                )
+                continue
+
+            source_team_ids = [
+                int(team_id)
+                for team_id in (user.get("_team_source_ids", []) or [])
+                if team_id is not None
+            ]
+            await self._sync_team_memberships(
+                source_user_id=source_user_id,
+                target_user_id=target_user_id,
+                source_team_ids=source_team_ids,
+            )
+
     async def import_resource(
         self,
         resource_type: str,
@@ -1107,7 +1261,15 @@ class UserImporter(ResourceImporter):
             phase="import",
         )
 
+        team_source_ids: list[int] = []
+
         try:
+            # Team memberships are exported separately from user fields.
+            # Keep them for post-create association calls, but do not include in create payload.
+            team_source_ids = [
+                int(team_id) for team_id in (data.pop("_team_source_ids", []) or []) if team_id is not None
+            ]
+
             # Remove password-related fields (cannot be migrated)
             data.pop("password", None)
             data.pop("ldap_dn", None)
@@ -1153,13 +1315,26 @@ class UserImporter(ResourceImporter):
                 target_id=result["id"],
             )
 
+            await self._sync_team_memberships(
+                source_user_id=source_id,
+                target_user_id=result["id"],
+                source_team_ids=team_source_ids,
+            )
+
             return result
 
         except ConflictError as e:
             # Handle conflict (user already exists)
-            result = await self._handle_conflict(resource_type, source_id, data, e)
+            result = await self._handle_conflict(resource_type, source_id, data)
             if result:
                 self.stats["conflict_count"] += 1
+                target_user_id = result.get("id")
+                if target_user_id:
+                    await self._sync_team_memberships(
+                        source_user_id=source_id,
+                        target_user_id=target_user_id,
+                        source_team_ids=team_source_ids,
+                    )
             return result
 
         except Exception as e:
@@ -1217,6 +1392,87 @@ class UserImporter(ResourceImporter):
             concurrency=self.performance_config.user_import_max_concurrent,
         )
 
+    async def sync_user_resource_role_grants_from_xformed(self, input_dir: Path) -> int:
+        """Apply user-as-principal role grants from transformed user JSON (after other resources exist).
+
+        Reads ``_user_role_grants`` from xformed user files and POSTs each to
+        ``POST users/<target_user_id>/roles/`` with the resolved target Role id.
+        """
+        users_dir = input_dir / "users"
+        if not users_dir.is_dir():
+            return 0
+
+        users_base = get_endpoint("users").rstrip("/")
+        applied = 0
+
+        for uf in sorted(users_dir.glob("users_*.json")):
+            try:
+                with open(uf) as f:
+                    users = json.load(f)
+            except Exception as e:
+                logger.warning("user_role_grants_file_read_failed", file=str(uf), error=str(e))
+                continue
+            for user in users:
+                grants = user.get("_user_role_grants") or []
+                if not grants:
+                    continue
+                sid = user.get("_source_id")
+                if sid is None:
+                    continue
+                try:
+                    sid = int(sid)
+                except (TypeError, ValueError):
+                    continue
+                target_user_id = self.state.get_mapped_id("users", sid)
+                if not target_user_id:
+                    logger.warning("user_role_grants_skip_unmapped_user", source_user_id=sid)
+                    continue
+                for g in grants:
+                    rname = str(g.get("role_name", "")).strip()
+                    raw_ct = g.get("content_resource_type")
+                    if raw_ct is None or str(raw_ct).strip() == "":
+                        continue
+                    ctype = normalize_resource_type(str(raw_ct).strip())
+                    # Organization roles changed semantics in AAP 2.5; skip.
+                    if ctype == "organizations":
+                        continue
+                    try:
+                        csid = int(g.get("content_source_id"))
+                    except (TypeError, ValueError):
+                        continue
+                    target_resource_id = self.state.get_mapped_id(ctype, csid)
+                    if not target_resource_id:
+                        logger.warning(
+                            "user_role_grants_skip_unmapped_resource",
+                            user_source_id=sid,
+                            content_resource_type=ctype,
+                            content_source_id=csid,
+                        )
+                        continue
+                    target_role_id = await self._resolve_target_role_id(
+                        ctype, target_resource_id, rname
+                    )
+                    if not target_role_id:
+                        continue
+                    try:
+                        await self.client.post(
+                            f"{users_base}/{target_user_id}/roles/",
+                            json_data={"id": target_role_id},
+                        )
+                        applied += 1
+                    except ConflictError:
+                        applied += 1
+                    except Exception as e:
+                        logger.warning(
+                            "user_role_grant_post_failed",
+                            target_user_id=target_user_id,
+                            target_role_id=target_role_id,
+                            error=str(e),
+                        )
+
+        logger.info("user_resource_role_grants_applied", count=applied)
+        return applied
+
 
 class TeamImporter(ResourceImporter):
     """Importer for team resources."""
@@ -1241,6 +1497,87 @@ class TeamImporter(ResourceImporter):
             List of created team data
         """
         return await self._import_parallel("teams", teams, progress_callback)
+
+    async def sync_team_resource_role_grants_from_xformed(self, input_dir: Path) -> int:
+        """Apply team-as-principal role grants from transformed team JSON (after other resources exist).
+
+        Reads ``_team_role_grants`` from xformed team files and POSTs each to
+        ``POST teams/<target_team_id>/roles/`` with the resolved target Role id.
+        """
+        teams_dir = input_dir / "teams"
+        if not teams_dir.is_dir():
+            return 0
+
+        teams_base = get_endpoint("teams").rstrip("/")
+        applied = 0
+
+        for tf in sorted(teams_dir.glob("teams_*.json")):
+            try:
+                with open(tf) as f:
+                    teams = json.load(f)
+            except Exception as e:
+                logger.warning("team_role_grants_file_read_failed", file=str(tf), error=str(e))
+                continue
+            for team in teams:
+                grants = team.get("_team_role_grants") or []
+                if not grants:
+                    continue
+                sid = team.get("_source_id")
+                if sid is None:
+                    continue
+                try:
+                    sid = int(sid)
+                except (TypeError, ValueError):
+                    continue
+                target_team_id = self.state.get_mapped_id("teams", sid)
+                if not target_team_id:
+                    logger.warning("team_role_grants_skip_unmapped_team", source_team_id=sid)
+                    continue
+                for g in grants:
+                    rname = str(g.get("role_name", "")).strip()
+                    raw_ct = g.get("content_resource_type")
+                    if raw_ct is None or str(raw_ct).strip() == "":
+                        continue
+                    ctype = normalize_resource_type(str(raw_ct).strip())
+                    # Organization roles changed semantics in AAP 2.5; skip.
+                    if ctype == "organizations":
+                        continue
+                    try:
+                        csid = int(g.get("content_source_id"))
+                    except (TypeError, ValueError):
+                        continue
+                    target_resource_id = self.state.get_mapped_id(ctype, csid)
+                    if not target_resource_id:
+                        logger.warning(
+                            "team_role_grants_skip_unmapped_resource",
+                            team_source_id=sid,
+                            content_resource_type=ctype,
+                            content_source_id=csid,
+                        )
+                        continue
+                    target_role_id = await self._resolve_target_role_id(
+                        ctype, target_resource_id, rname
+                    )
+                    if not target_role_id:
+                        continue
+                    try:
+                        await self.client.post(
+                            f"{teams_base}/{target_team_id}/roles/",
+                            json_data={"id": target_role_id},
+                        )
+                        applied += 1
+                    except ConflictError:
+                        applied += 1
+                    except Exception as e:
+                        logger.warning(
+                            "team_role_grant_post_failed",
+                            target_team_id=target_team_id,
+                            target_role_id=target_role_id,
+                            error=str(e),
+                        )
+
+        logger.info("team_resource_role_grants_applied", count=applied)
+        return applied
 
 
 class OrganizationImporter(ResourceImporter):

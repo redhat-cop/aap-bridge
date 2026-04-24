@@ -1653,6 +1653,7 @@ def import_cmd(
                             # Credentials
                             "credential_types": "import_credential_types",
                             "credentials": "import_credentials",
+                            "credential_input_sources": "import_credential_input_sources",
                             # Projects and execution
                             "projects": "import_projects",
                             "execution_environments": "import_execution_environments",
@@ -1667,10 +1668,12 @@ def import_cmd(
                             "job_templates": "import_job_templates",
                             "workflow_job_templates": "import_workflows",
                             "schedules": "import_schedules",
+                            # Notifications
+                            "notification_templates": "import_notification_templates",
                             # Constructed inventories
                             "constructed_inventories": "import_constructed_inventories",
                             # RBAC
-                            "rbac": "import_rbac_assignments",
+                            "rbac": "import_role_assignments",
                             "role_definitions": "import_role_definitions",
                             "role_user_assignments": "import_role_user_assignments",
                             "role_team_assignments": "import_role_team_assignments",
@@ -1751,6 +1754,69 @@ def import_cmd(
                                     transformed_resources
                                 )
 
+                            # Users: pre-check can skip creates for already-existing users,
+                            # but team memberships still need reconciliation.
+                            if (
+                                rtype == "users"
+                                and not dry_run
+                                and transformed_resources
+                                and hasattr(importer, "sync_team_memberships_for_existing_users")
+                            ):
+                                to_import_ids = {
+                                    r.get("_source_id")
+                                    for r in (resources_to_import or [])
+                                    if r.get("_source_id") is not None
+                                }
+                                existing_users = [
+                                    r
+                                    for r in transformed_resources
+                                    if r.get("_source_id") is not None
+                                    and r.get("_source_id") not in to_import_ids
+                                ]
+                                if existing_users:
+                                    await importer.sync_team_memberships_for_existing_users(
+                                        existing_users
+                                    )
+
+                            # Teams: users are imported in the same phase immediately before teams,
+                            # but team id_mappings aren't set until now. Reconcile any memberships
+                            # that were skipped during user import due to unmapped team IDs.
+                            if (
+                                rtype == "teams"
+                                and not dry_run
+                                and hasattr(importer, "stats")
+                            ):
+                                users_dir = input_dir / "users"
+                                users_for_resync: list[dict] = []
+                                if users_dir.exists():
+                                    for users_file in sorted(users_dir.glob("users_*.json")):
+                                        try:
+                                            with open(users_file) as f:
+                                                users_for_resync.extend(json.load(f))
+                                        except Exception as e:
+                                            logger.warning(
+                                                "users_membership_resync_file_load_failed",
+                                                file=str(users_file),
+                                                error=str(e),
+                                            )
+                                if users_for_resync:
+                                    user_importer = create_importer(
+                                        "users",
+                                        ctx.target_client,
+                                        ctx.migration_state,
+                                        ctx.config.performance,
+                                        ctx.config.resource_mappings,
+                                        skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                                    )
+                                    if hasattr(user_importer, "sync_team_memberships_for_existing_users"):
+                                        await user_importer.sync_team_memberships_for_existing_users(
+                                            users_for_resync
+                                        )
+                                        logger.info(
+                                            "user_team_memberships_resync_after_teams",
+                                            user_count=len(users_for_resync),
+                                        )
+
                             if rtype == "inventory_sources" and results:
                                 sync_ids = collect_inventory_source_target_ids_for_sync(results)
                                 if sync_ids:
@@ -1766,8 +1832,8 @@ def import_cmd(
                                     )
 
                             # NOTE: SCM sync waiting has been removed from automatic flow.
-                            # With two-phase import, users run phase1 (up to projects),
-                            # then manually wait for project sync, then run phase2.
+                            # With two-phase import, run phase1 (foundation + projects),
+                            # wait for project SCM sync, then run phase2 (inventory + automation).
                             # The wait_for_project_sync() function is still available
                             # for manual use if needed.
 
@@ -1930,6 +1996,55 @@ def import_cmd(
                         except Exception as e:
                             echo_warning(f"Project patching failed: {e}")
                             logger.error("patch_projects_failed", error=str(e))
+
+                # Principal-side classic RBAC: roles held by users/teams on other resources
+                # (e.g. Execute on Job Template, Use on Project). Exported as _user_role_grants
+                # and _team_role_grants. Applied after all content objects exist.
+                # Skip on phase1-only runs: JTs, WFs, etc. won't be mapped yet.
+                if not dry_run and phase in ("all", "phase2"):
+                    if (input_dir / "users").is_dir():
+                        try:
+                            user_importer = create_importer(
+                                "users",
+                                ctx.target_client,
+                                ctx.migration_state,
+                                ctx.config.performance,
+                                ctx.config.resource_mappings,
+                                skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                            )
+                            n = await user_importer.sync_user_resource_role_grants_from_xformed(
+                                input_dir
+                            )
+                            if n:
+                                echo_info(
+                                    f"Applied {format_count(n)} user resource role grant(s) "
+                                    "(org/project/JT/WF/… roles held by users)"
+                                )
+                        except Exception as e:
+                            echo_warning(f"User resource role grants sync failed: {e}")
+                            logger.warning("user_resource_role_grants_sync_failed", error=str(e))
+
+                    if (input_dir / "teams").is_dir():
+                        try:
+                            team_importer = create_importer(
+                                "teams",
+                                ctx.target_client,
+                                ctx.migration_state,
+                                ctx.config.performance,
+                                ctx.config.resource_mappings,
+                                skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                            )
+                            n = await team_importer.sync_team_resource_role_grants_from_xformed(
+                                input_dir
+                            )
+                            if n:
+                                echo_info(
+                                    f"Applied {format_count(n)} team resource role grant(s) "
+                                    "(org/project/JT/WF/… roles held by teams)"
+                                )
+                        except Exception as e:
+                            echo_warning(f"Team resource role grants sync failed: {e}")
+                            logger.warning("team_resource_role_grants_sync_failed", error=str(e))
 
             click.echo()
             if dry_run:

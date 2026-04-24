@@ -2009,6 +2009,64 @@ class ExecutionEnvironmentExporter(ResourceExporter):
 class UserExporter(ResourceExporter):
     """Exporter for user resources."""
 
+    async def _process_resource(
+        self, resource: dict[str, Any], resource_type: str
+    ) -> dict[str, Any] | None:
+        """Attach team memberships and direct role grants to each user export row.
+
+        Both are represented via related-endpoint calls, not inline user fields.
+        - ``_team_source_ids``: used by import to re-associate users to teams.
+        - ``_user_role_grants``: used by post-import pass to apply classic RBAC
+          role grants (e.g. Execute on Job Template) via ``POST users/{id}/roles/``.
+        """
+        from aap_migration.migration.team_role_grants import parse_user_role_from_api
+
+        processed = await super()._process_resource(resource, resource_type)
+        if not processed:
+            return None
+
+        source_user_id = processed.get("id")
+        if not source_user_id:
+            return processed
+
+        # Team memberships
+        try:
+            teams = await self.client.get_paginated(
+                f"users/{source_user_id}/teams/",
+                page_size=self.performance_config.batch_sizes.get("teams", 200),
+            )
+            processed["_team_source_ids"] = [
+                int(team["id"]) for team in teams if team.get("id") is not None
+            ]
+        except Exception as e:
+            logger.warning(
+                "user_team_memberships_fetch_failed",
+                source_user_id=source_user_id,
+                error=str(e),
+            )
+            processed["_team_source_ids"] = []
+
+        # Direct role grants on other resources (classic RBAC)
+        grants: list[dict[str, str | int]] = []
+        try:
+            roles = await self.client.get_paginated(
+                f"users/{source_user_id}/roles/",
+                page_size=self.performance_config.batch_sizes.get("users", 200),
+            )
+            for role in roles:
+                parsed = parse_user_role_from_api(role)
+                if parsed:
+                    grants.append(parsed)
+        except Exception as e:
+            logger.warning(
+                "user_roles_fetch_failed",
+                source_user_id=source_user_id,
+                error=str(e),
+            )
+        processed["_user_role_grants"] = grants
+
+        return processed
+
     async def export(
         self, filters: dict[str, Any] | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:
@@ -2032,6 +2090,46 @@ class UserExporter(ResourceExporter):
 
 class TeamExporter(ResourceExporter):
     """Exporter for team resources."""
+
+    async def _process_resource(
+        self, resource: dict[str, Any], resource_type: str
+    ) -> dict[str, Any] | None:
+        """Attach role grants where this team is the principal (via ``teams/<id>/roles/``).
+
+        These are distinct from membership in the team (``users/<id>/teams/``). They are
+        applied on import with ``POST teams/<id>/roles/`` after target resources exist.
+        """
+        from aap_migration.migration.team_role_grants import parse_team_role_from_api
+
+        processed = await super()._process_resource(resource, resource_type)
+        if not processed:
+            return None
+
+        team_id = processed.get("id")
+        if not team_id:
+            return processed
+
+        grants: list[dict[str, str | int]] = []
+        try:
+            roles = await self.client.get_paginated(
+                f"teams/{team_id}/roles/",
+                page_size=self.performance_config.batch_sizes.get("teams", 200),
+            )
+        except Exception as e:
+            logger.warning(
+                "team_roles_list_fetch_failed",
+                team_id=team_id,
+                error=str(e),
+            )
+            roles = []
+
+        for role in roles:
+            parsed = parse_team_role_from_api(role, team_source_id=int(team_id))
+            if parsed:
+                grants.append(parsed)
+
+        processed["_team_role_grants"] = grants
+        return processed
 
     async def export(
         self, filters: dict[str, Any] | None = None

@@ -50,8 +50,6 @@ DEFAULT_MIGRATION_EXCLUDED_TYPES = frozenset(
 PHASE1_RESOURCE_TYPES = [
     "organizations",
     "labels",
-    "users",
-    "teams",
     "credential_types",  # PATCH existing (pre-created in target)
     "credentials",  # PATCH existing (pre-created in target)
     "credential_input_sources",
@@ -62,6 +60,8 @@ PHASE1_RESOURCE_TYPES = [
 # Phase 2 import: patch projects (in import runner), then inventory chain + automation.
 # inventory_sources before smart/constructed inventories: smart filters depend on hosts
 # populated by inventory source sync, and constructed inventories may depend on both.
+# users and teams come just before role_definitions so all content objects (JTs, projects,
+# inventories, etc.) exist when team role grants and RBAC assignments are applied.
 PHASE2_RESOURCE_TYPES = [
     "inventory",
     "inventory_sources",
@@ -73,6 +73,8 @@ PHASE2_RESOURCE_TYPES = [
     "job_templates",
     "workflow_job_templates",
     "schedules",
+    "users",
+    "teams",
     "role_definitions",
     "role_user_assignments",
     "role_team_assignments",

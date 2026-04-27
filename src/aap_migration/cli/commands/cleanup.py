@@ -43,6 +43,7 @@ NON_DELETABLE_RESOURCES = [
     "role_definitions",  # System-managed roles cannot be deleted (400: Role is managed by the system)
     "role_user_assignments",  # Assignments are removed when the role/user/resource is deleted
     "role_team_assignments",  # Assignments are removed when the role/team/resource is deleted
+    "inventory_sources",  # Automatically removed when their parent inventory is deleted
 ]
 
 
@@ -1268,12 +1269,25 @@ async def delete_resources(
                 f"(max_concurrent={max_concurrent})..."
             )
 
+            # Wrap the callback so the pre-filter skipped_count is always included.
+            # delete_resources_parallel tracks its own local skipped (PendingDeletionError)
+            # starting from 0, which would reset the live display's Skip counter.
+            if progress_callback and skipped_count > 0:
+                _pre_skipped = skipped_count
+
+                def _parallel_cb(del_cnt: int, skip_cnt: int, err_cnt: int) -> None:
+                    progress_callback(del_cnt, _pre_skipped + skip_cnt, err_cnt)
+
+                parallel_callback: Callable[[int, int, int], None] | None = _parallel_cb
+            else:
+                parallel_callback = progress_callback
+
             deleted, _, errors, failed = await delete_resources_parallel(
                 client,
                 endpoint,
                 resources_to_delete,
                 config,
-                progress_callback=progress_callback,
+                progress_callback=parallel_callback,
             )
 
             deleted_count = deleted

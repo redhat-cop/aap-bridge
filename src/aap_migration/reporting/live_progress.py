@@ -592,26 +592,30 @@ class MigrationProgressDisplay:
             state = self.phase_states[phase_id]
             task_id = self.phase_tasks[phase_id]
 
-            # Mark the specific phase's task as complete
-            # When explicitly completed, always show as complete (✓) unless there were errors
+            # complete_phase is an explicit end-of-phase signal: always force ✓ 100%.
+            # We cannot rely on state.status_text here because concurrent callbacks
+            # from delete_resources_parallel may have left total_processed < total_items
+            # (e.g. the rendering thread captures a mid-progress frame), causing
+            # status_text to return "running" and the spinner to persist.
             total_processed = state.completed + state.skipped + state.failed
-            final_status = state.status_text
-            final_color = state.status_color
 
-            # Handle zero-export case (REQ-005)
-            # If nothing was processed but we expected items, show a warning instead of complete
+            # Only warn if truly nothing happened on a non-empty phase
             if total_processed == 0 and state.total_items > 0:
                 final_status = "complete_with_issues"
                 final_color = MigrationColors.WARNING
-
-            # If no items were tracked but phase is explicitly completed, force complete status
-            if final_status == "pending":
+            elif state.failed > 0:
+                final_status = "complete_with_issues"
+                final_color = MigrationColors.WARNING
+            else:
                 final_status = "complete"
                 final_color = MigrationColors.COMPLETE
 
+            # Force completed = total_items so the bar reaches 100% regardless of
+            # how many callbacks fired before this call.
             self.phase_progress.update(
                 task_id,
-                completed=total_processed,
+                completed=state.total_items,
+                total=state.total_items,
                 status_text=final_status,
                 status=f"[{final_color}]{final_status}[/{final_color}]",
                 metrics=state.formatted_metrics,

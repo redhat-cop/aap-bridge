@@ -1894,8 +1894,9 @@ class ScheduleExporter(ResourceExporter):
     ) -> dict[str, Any] | None:
         """Process schedule resource.
 
-        Note: We no longer skip system schedules here, as we now support mapping
-        system_job_templates. The transformer will handle validation.
+        Skips schedules whose unified_job_template is a system_job — these are
+        built-in maintenance schedules (cleanup jobs, session expiry, etc.) that
+        cannot be meaningfully imported into a target environment.
 
         Args:
             resource: Raw resource data from API
@@ -1904,7 +1905,17 @@ class ScheduleExporter(ResourceExporter):
         Returns:
             Processed resource or None if should be skipped
         """
-        # Call parent processing
+        summary = resource.get("summary_fields") or {}
+        ujt_summary = summary.get("unified_job_template") or {}
+        if ujt_summary.get("unified_job_type") == "system_job":
+            schedule_name = resource.get("name", f"id={resource.get('id')}")
+            logger.debug(
+                "skipping_system_job_schedule",
+                name=schedule_name,
+                ujt_id=ujt_summary.get("id"),
+            )
+            return None
+
         return await super()._process_resource(resource, resource_type)
 
 

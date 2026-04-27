@@ -1206,6 +1206,15 @@ async def delete_resources(
                     skip_resource = True
                     skip_reason = "managed/system instance"
 
+                # Skip schedules that belong to system jobs (built-in maintenance tasks)
+                elif resource_type == "schedules":
+                    ujt_summary = (resource.get("summary_fields") or {}).get(
+                        "unified_job_template"
+                    ) or {}
+                    if ujt_summary.get("unified_job_type") == "system_job":
+                        skip_resource = True
+                        skip_reason = "system_job schedule"
+
             if skip_resource:
                 logger.debug(f"Skipping {skip_reason}: {resource_name} (id={resource_id})")
                 skipped_count += 1

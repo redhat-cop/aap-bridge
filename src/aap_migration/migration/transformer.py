@@ -1967,9 +1967,20 @@ class ScheduleTransformer(DataTransformer):
                 # API types are singular (job_template), our state uses plural (job_templates)
                 api_type = ujt_summary.get("type")
 
-                # Fallback for system jobs where 'type' might be missing but 'unified_job_type' exists
-                if not api_type and ujt_summary.get("unified_job_type") == "system_job":
-                    api_type = "system_job_template"
+                # Fallback when 'type' is absent — derive it from 'unified_job_type'.
+                # Older AAP versions (e.g. 4.x) omit 'type' from summary_fields but
+                # always include 'unified_job_type'.
+                if not api_type:
+                    _unified_job_type_to_api_type = {
+                        "job": "job_template",
+                        "workflow_job": "workflow_job_template",
+                        "project_update": "project",
+                        "inventory_update": "inventory_source",
+                        "system_job": "system_job_template",
+                    }
+                    api_type = _unified_job_type_to_api_type.get(
+                        ujt_summary.get("unified_job_type", "")
+                    )
 
                 if api_type:
                     # Map API type to our internal resource type (usually plural)

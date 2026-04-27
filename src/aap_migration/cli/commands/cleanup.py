@@ -1145,12 +1145,19 @@ async def delete_resources(
             skip_resource = False
             skip_reason = ""
 
-            # Same name list as export (export.skip_execution_environment_names) — never delete these
-            if resource_type == "execution_environments" and ee_skip_names:
-                rn = resource.get("name")
-                if rn and isinstance(rn, str) and rn.strip().casefold() in ee_skip_names:
+            # Execution environments: always respect both skip-name list and managed flag,
+            # regardless of --full / skip_default.  The managed flag covers platform EEs like
+            # "Control Plane Execution Environment"; the name list covers non-managed defaults
+            # like "Default execution environment" that ship with AAP but aren't marked managed.
+            if resource_type == "execution_environments":
+                if ee_skip_names:
+                    rn = resource.get("name")
+                    if rn and isinstance(rn, str) and rn.strip().casefold() in ee_skip_names:
+                        skip_resource = True
+                        skip_reason = "export.skip_execution_environment_names"
+                if not skip_resource and is_managed:
                     skip_resource = True
-                    skip_reason = "export.skip_execution_environment_names"
+                    skip_reason = "managed execution environment"
 
             if skip_default:
                 # Skip Default organization (by name or by ID=1)
@@ -1180,10 +1187,7 @@ async def delete_resources(
                     skip_resource = True
                     skip_reason = "managed credential"
 
-                # Skip managed execution environments (Control Plane EE, etc.)
-                elif resource_type == "execution_environments" and is_managed:
-                    skip_resource = True
-                    skip_reason = "managed execution environment"
+                # execution_environments handled unconditionally above
 
                 # Skip managed instance groups (like controlplane)
                 elif resource_type == "instance_groups" and (

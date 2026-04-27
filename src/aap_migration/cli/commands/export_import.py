@@ -1997,54 +1997,60 @@ def import_cmd(
                             echo_warning(f"Project patching failed: {e}")
                             logger.error("patch_projects_failed", error=str(e))
 
-                # Principal-side classic RBAC: roles held by users/teams on other resources
-                # (e.g. Execute on Job Template, Use on Project). Exported as _user_role_grants
-                # and _team_role_grants. Applied after all content objects exist.
-                # Skip on phase1-only runs: JTs, WFs, etc. won't be mapped yet.
-                if not dry_run and phase in ("all", "phase2"):
-                    if (input_dir / "users").is_dir():
-                        try:
-                            user_importer = create_importer(
-                                "users",
-                                ctx.target_client,
-                                ctx.migration_state,
-                                ctx.config.performance,
-                                ctx.config.resource_mappings,
-                                skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+            # Principal-side classic RBAC: roles held by users/teams on other resources
+            # (e.g. Execute on Job Template, Use on Project). Exported as _user_role_grants
+            # and _team_role_grants. Applied after all content objects exist.
+            # Skip on phase1-only runs: JTs, WFs, etc. won't be mapped yet.
+            #
+            # IMPORTANT: this block is intentionally outside the MigrationProgressDisplay
+            # context. echo_info/echo_warning calls inside a Live display context write to
+            # sys.stdout, which Live redirects via FileProxy → console.print() →
+            # process_renderables(), shifting the cursor down by one line per call and
+            # producing orphan top-border lines in the final output.
+            if not dry_run and phase in ("all", "phase2"):
+                if (input_dir / "users").is_dir():
+                    try:
+                        user_importer = create_importer(
+                            "users",
+                            ctx.target_client,
+                            ctx.migration_state,
+                            ctx.config.performance,
+                            ctx.config.resource_mappings,
+                            skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                        )
+                        n = await user_importer.sync_user_resource_role_grants_from_xformed(
+                            input_dir
+                        )
+                        if n:
+                            echo_info(
+                                f"Applied {format_count(n)} user resource role grant(s) "
+                                "(org/project/JT/WF/… roles held by users)"
                             )
-                            n = await user_importer.sync_user_resource_role_grants_from_xformed(
-                                input_dir
-                            )
-                            if n:
-                                echo_info(
-                                    f"Applied {format_count(n)} user resource role grant(s) "
-                                    "(org/project/JT/WF/… roles held by users)"
-                                )
-                        except Exception as e:
-                            echo_warning(f"User resource role grants sync failed: {e}")
-                            logger.warning("user_resource_role_grants_sync_failed", error=str(e))
+                    except Exception as e:
+                        echo_warning(f"User resource role grants sync failed: {e}")
+                        logger.warning("user_resource_role_grants_sync_failed", error=str(e))
 
-                    if (input_dir / "teams").is_dir():
-                        try:
-                            team_importer = create_importer(
-                                "teams",
-                                ctx.target_client,
-                                ctx.migration_state,
-                                ctx.config.performance,
-                                ctx.config.resource_mappings,
-                                skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                if (input_dir / "teams").is_dir():
+                    try:
+                        team_importer = create_importer(
+                            "teams",
+                            ctx.target_client,
+                            ctx.migration_state,
+                            ctx.config.performance,
+                            ctx.config.resource_mappings,
+                            skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                        )
+                        n = await team_importer.sync_team_resource_role_grants_from_xformed(
+                            input_dir
+                        )
+                        if n:
+                            echo_info(
+                                f"Applied {format_count(n)} team resource role grant(s) "
+                                "(org/project/JT/WF/… roles held by teams)"
                             )
-                            n = await team_importer.sync_team_resource_role_grants_from_xformed(
-                                input_dir
-                            )
-                            if n:
-                                echo_info(
-                                    f"Applied {format_count(n)} team resource role grant(s) "
-                                    "(org/project/JT/WF/… roles held by teams)"
-                                )
-                        except Exception as e:
-                            echo_warning(f"Team resource role grants sync failed: {e}")
-                            logger.warning("team_resource_role_grants_sync_failed", error=str(e))
+                    except Exception as e:
+                        echo_warning(f"Team resource role grants sync failed: {e}")
+                        logger.warning("team_resource_role_grants_sync_failed", error=str(e))
 
             click.echo()
             if dry_run:

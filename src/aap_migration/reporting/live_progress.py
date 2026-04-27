@@ -15,6 +15,7 @@ issues and multiple boxes. Instead, update tasks with new values including compl
 to effectively reset progress while maintaining a single display.
 """
 
+import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -237,6 +238,7 @@ class MigrationProgressDisplay:
         self.total_phases: int = 0
         self.phases_list: list[tuple[str, str]] = []
         self._original_log_handlers = []
+        self._null_handler: logging.NullHandler | None = None
         self._live_started = False  # Track if live display has started
 
         if not self.enabled:
@@ -311,8 +313,6 @@ class MigrationProgressDisplay:
         if self.enabled:
             # Temporarily disable console logging to prevent interference with Live display
             # Store handlers so we can restore them later
-            import logging
-
             root_logger = logging.getLogger()
             self._original_log_handlers = root_logger.handlers[:]
 
@@ -320,6 +320,15 @@ class MigrationProgressDisplay:
             for handler in root_logger.handlers[:]:
                 if hasattr(handler, "__class__") and "RichHandler" in handler.__class__.__name__:
                     root_logger.removeHandler(handler)
+
+            # Add a NullHandler so the root logger always has at least one handler.
+            # Without this, any WARNING+ log that fires while the Live display is active
+            # falls through to Python's logging.lastResort, which writes to sys.stderr.
+            # sys.stderr is redirected to FileProxy by Live._enable_redirect_io(), so
+            # that write flows through process_renderables(), shifting the cursor down
+            # by 1 line per log call and leaving orphan top-border lines in the output.
+            self._null_handler = logging.NullHandler()
+            root_logger.addHandler(self._null_handler)
 
             # Note: Live display will be started in initialize_phases() or start_phase()
             # This prevents jitter from tasks being added while display is active
@@ -336,10 +345,15 @@ class MigrationProgressDisplay:
                 self.live.stop()
                 self._live_started = False
 
+            # Remove the NullHandler added in start() before restoring originals
+            if self._null_handler is not None:
+                root_logger = logging.getLogger()
+                if self._null_handler in root_logger.handlers:
+                    root_logger.removeHandler(self._null_handler)
+                self._null_handler = None
+
             # Restore original logging handlers
             if self._original_log_handlers:
-                import logging
-
                 root_logger = logging.getLogger()
                 for handler in self._original_log_handlers:
                     if handler not in root_logger.handlers:
@@ -471,9 +485,13 @@ class MigrationProgressDisplay:
                 total=self.total_phases,
             )
 
-        # Start live display immediately with the running task
+        # Start live display immediately with the running task.
+        # refresh=True triggers an immediate render so that _live_render._shape is
+        # populated right away. Without it, _shape stays None until the first
+        # auto-refresh tick (~100 ms), and any console print in that window calls
+        # process_renderables with no cursor movement, leaving an orphan header line.
         if not self._live_started:
-            self.live.start()
+            self.live.start(refresh=True)
             self._live_started = True
 
         return phase_name
@@ -539,11 +557,12 @@ class MigrationProgressDisplay:
             )
             self.phase_tasks[phase_name] = task_id
 
-        # Ensure live display is started (fallback if initialize_phases wasn't called)
-        # MOVED TO END: Start display AFTER task is in "running" state
-        # This prevents duplicate header artifacts caused by Pending -> Running transition
+        # Start live display AFTER the task is in "running" state to avoid a
+        # brief "pending" flash. refresh=True renders immediately so _shape is
+        # populated before any console prints can fire process_renderables with
+        # a None _shape (which would append an orphan header instead of overwriting).
         if not self._live_started:
-            self.live.start()
+            self.live.start(refresh=True)
             self._live_started = True
 
         return phase_name

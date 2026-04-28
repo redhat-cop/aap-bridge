@@ -44,6 +44,8 @@ NON_DELETABLE_RESOURCES = [
     "role_user_assignments",  # Assignments are removed when the role/user/resource is deleted
     "role_team_assignments",  # Assignments are removed when the role/team/resource is deleted
     "inventory_sources",  # Automatically removed when their parent inventory is deleted
+    "groups",  # Automatically removed when their parent inventory is deleted
+    "hosts",  # Automatically removed when their parent inventory is deleted
     "instances",  # Not managed by this tool; controller nodes must not be deleted
     "instance_groups",  # Not managed by this tool; must exist as a prerequisite on the target
     # Job history is preserved so there is a record of what occurred on the target

@@ -63,11 +63,11 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
     VersionPath(
         source="2.5",
         target="2.6",
-        status="partial",
-        notes="Schema differences are minimal. RBAC model changes may require manual review.",
+        status="supported",
+        notes="Fully supported. RBAC role definitions and assignments are migrated.",
         known_exceptions=[
             "Encrypted credentials cannot be extracted from source API",
-            "RBAC model differences between 2.5 and 2.6 may affect role assignments",
+            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
         ],
     ),
 ]

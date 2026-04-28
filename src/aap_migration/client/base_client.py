@@ -179,7 +179,9 @@ class BaseAPIClient:
             # Wrap in dict for consistent error_data structure
             error_data = {"detail": error_message, "_raw_list": error_data}
         else:
-            error_message = error_data.get("detail", error_data.get("message", "Unknown error"))
+            error_message = error_data.get(
+                "detail", error_data.get("message", error_data.get("error", "Unknown error"))
+            )
 
         # Map status codes to exceptions
         if status_code == 401:
@@ -193,6 +195,20 @@ class BaseAPIClient:
         elif status_code == 404:
             raise NotFoundError(
                 message="Resource not found", status_code=status_code, response=error_data
+            )
+        elif status_code == 400:
+            # Some resources return 400 instead of 409 for "already pending deletion"
+            error_detail = error_message.lower() if isinstance(error_message, str) else ""
+            if "already pending deletion" in error_detail or "pending deletion" in error_detail:
+                raise PendingDeletionError(
+                    message=error_message,
+                    status_code=status_code,
+                    response=error_data,
+                )
+            raise APIError(
+                message=f"API error: {error_message}",
+                status_code=status_code,
+                response=error_data,
             )
         elif status_code == 409:
             # Parse 409 errors to detect specific conflict types

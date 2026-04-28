@@ -544,6 +544,13 @@ class ResourceExporter:
                 message="API filter: pending_deletion=false (exclude deleted inventories)",
             )
 
+        if resource_type == "role_definitions":
+            params["managed"] = "false"
+            logger.info(
+                "export_parallel_applying_role_definition_filter",
+                message="API filter: managed=false (exclude built-in managed role definitions)",
+            )
+
         # Apply ID filtering for true checkpoint resume
         if self._resume_from_id is not None:
             params["id__gt"] = self._resume_from_id
@@ -1687,6 +1694,10 @@ class RoleDefinitionExporter(ResourceExporter):
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Export role definitions.
 
+        Only custom (non-managed) role definitions are exported. Built-in
+        managed role definitions (managed=true) are read-only and cannot be
+        imported, so they are excluded via the API filter.
+
         Args:
             filters: Optional query parameters for filtering
 
@@ -1694,11 +1705,14 @@ class RoleDefinitionExporter(ResourceExporter):
             Role definition dictionaries
         """
         logger.info("exporting_role_definitions")
+        effective_filters: dict[str, Any] = {"managed": "false"}
+        if filters:
+            effective_filters.update(filters)
         async for role_def in self.export_resources(
             resource_type="role_definitions",
             endpoint="role_definitions/",
             page_size=self.performance_config.batch_sizes.get("role_definitions", 50),
-            filters=filters,
+            filters=effective_filters,
         ):
             yield role_def
 

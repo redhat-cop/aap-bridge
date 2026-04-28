@@ -491,6 +491,13 @@ def export(
                         resource_type=rtype,
                         filter="pending_deletion=false",
                     )
+                if rtype == "role_definitions":
+                    count_filters["managed"] = "false"
+                    logger.info(
+                        "export_count_applying_role_definition_filter",
+                        resource_type=rtype,
+                        filter="managed=false (exclude built-in managed role definitions)",
+                    )
 
                 # Get count from API WITH FILTERS
                 count = await temp_exporter.get_count(

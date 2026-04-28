@@ -2028,11 +2028,7 @@ def import_cmd(
                         n = await user_importer.sync_user_resource_role_grants_from_xformed(
                             input_dir
                         )
-                        if n:
-                            echo_info(
-                                f"Applied {format_count(n)} user resource role grant(s) "
-                                "(org/project/JT/WF/… roles held by users)"
-                            )
+                        logger.info("user_resource_role_grants_applied", count=n)
                     except Exception as e:
                         echo_warning(f"User resource role grants sync failed: {e}")
                         logger.warning("user_resource_role_grants_sync_failed", error=str(e))
@@ -2050,11 +2046,7 @@ def import_cmd(
                         n = await team_importer.sync_team_resource_role_grants_from_xformed(
                             input_dir
                         )
-                        if n:
-                            echo_info(
-                                f"Applied {format_count(n)} team resource role grant(s) "
-                                "(org/project/JT/WF/… roles held by teams)"
-                            )
+                        logger.info("team_resource_role_grants_applied", count=n)
                     except Exception as e:
                         echo_warning(f"Team resource role grants sync failed: {e}")
                         logger.warning("team_resource_role_grants_sync_failed", error=str(e))

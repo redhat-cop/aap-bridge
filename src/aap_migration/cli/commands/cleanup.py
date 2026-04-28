@@ -44,8 +44,17 @@ NON_DELETABLE_RESOURCES = [
     "role_user_assignments",  # Assignments are removed when the role/user/resource is deleted
     "role_team_assignments",  # Assignments are removed when the role/team/resource is deleted
     "inventory_sources",  # Automatically removed when their parent inventory is deleted
+    "groups",  # Automatically removed when their parent inventory is deleted
+    "hosts",  # Automatically removed when their parent inventory is deleted
     "instances",  # Not managed by this tool; controller nodes must not be deleted
     "instance_groups",  # Not managed by this tool; must exist as a prerequisite on the target
+    # Job history is preserved so there is a record of what occurred on the target
+    "jobs",
+    "workflow_jobs",
+    "project_updates",
+    "inventory_updates",
+    "system_jobs",
+    "ad_hoc_commands",
 ]
 
 
@@ -90,7 +99,7 @@ def filter_cleanup_resources(discovered_types: list[str]) -> list[str]:
 
     Applies same logic as export command:
     - Skip read-only endpoints (ping, config, dashboard, metrics)
-    - Skip runtime data endpoints (jobs, workflow_jobs, project_updates)
+    - Skip runtime data endpoints (jobs, workflow_jobs, project_updates) - job history is preserved
     - Skip non-deletable resources (labels - API returns 405)
     - Skip manual migration endpoints (settings, roles)
 
@@ -347,10 +356,11 @@ def is_method_not_allowed_error(error: Exception) -> bool:
 async def cancel_all_jobs(
     client: AAPTargetClient, config: MigrationConfig
 ) -> tuple[int, int, int, int, int]:
-    """Cancel all running and pending jobs before cleanup.
+    """Cancel active running and pending jobs before cleanup.
 
     This prevents [409] Resource conflict errors when deleting projects/templates
-    that have active jobs.
+    that have active jobs. Job history (completed, failed, cancelled records) is
+    intentionally preserved so there is a record of what occurred.
 
     Attempts cancellation for all job types:
     - jobs (job template executions) - ✅ Supports /cancel/
@@ -380,9 +390,9 @@ async def cancel_all_jobs(
         Tuple of (jobs, workflow_jobs, project_updates, inventory_updates, system_jobs) canceled counts
     """
     from aap_migration.client.exceptions import APIError
-    from aap_migration.resources import JOB_TERMINAL_STATUSES
+    from aap_migration.resources import JOB_ACTIVE_STATUSES, JOB_TERMINAL_STATUSES, JOB_TRANSIENT_STATUSES
 
-    logger.info("Querying ALL jobs (will cancel active, delete all)...")
+    logger.info("Querying active jobs (will cancel running/pending)...")
 
     # Define all job types to query and cancel
     job_types = [
@@ -397,16 +407,15 @@ async def cancel_all_jobs(
     page_size = config.performance.default_page_size
 
     for endpoint, display_name in job_types:
-        # Query ALL jobs (no status filter) - we want to delete everything
+        # Query only active jobs - we cancel running/pending ones and leave history intact
         all_jobs = []
         page = 1
         while True:
             try:
-                # Query ALL jobs - no status filter
-                # We will cancel active ones and delete ALL of them
                 response = await client.get(
                     f"{endpoint}/",
                     params={
+                        "status__in": ",".join(JOB_ACTIVE_STATUSES + JOB_TRANSIENT_STATUSES),
                         "page_size": page_size,
                         "page": page,
                     },
@@ -423,10 +432,10 @@ async def cancel_all_jobs(
 
         if not all_jobs:
             canceled_counts[endpoint] = 0
-            logger.info(f"No {display_name} found")
+            logger.debug(f"No active {display_name} found")
             continue
 
-        logger.info(f"Found {len(all_jobs)} {display_name} (will cancel active, delete all)")
+        logger.info(f"Found {len(all_jobs)} active {display_name} (cancelling before cleanup)")
 
         # Cancel all jobs for this type CONCURRENTLY
         # Use config-driven concurrency to prevent Platform Gateway overload
@@ -507,15 +516,7 @@ async def cancel_all_jobs(
                     f"{still_running} {display_name} still running after timeout", timeout=timeout
                 )
 
-        # Step 2: Delete all job records (Cancel → Delete pattern)
-        # This removes the job history from AAP after cancellation
-        if all_jobs:
-            logger.info(f"Deleting {len(all_jobs)} {display_name} records...")
-            deleted, failed = await delete_active_jobs(client, endpoint, all_jobs, config)
-            if deleted > 0:
-                logger.info(f"Deleted {deleted} {display_name} records")
-            if failed > 0:
-                logger.warning(f"Failed to delete {failed} {display_name} records")
+        # Job history is intentionally preserved — jobs are not deleted after cancellation.
 
     # Calculate total
     total_canceled = sum(canceled_counts.values())
@@ -559,12 +560,13 @@ async def wait_for_jobs_to_finish(
     """
     import time
 
-    from aap_migration.resources import JOB_TERMINAL_STATUSES
+    from aap_migration.resources import JOB_ACTIVE_STATUSES, JOB_TRANSIENT_STATUSES
 
     logger.info(f"Waiting for {expected_count} {job_type} to finish...")
 
     start_time = time.time()
     last_count = expected_count
+    active_statuses = ",".join(JOB_ACTIVE_STATUSES + JOB_TRANSIENT_STATUSES)
 
     while True:
         elapsed = time.time() - start_time
@@ -577,12 +579,12 @@ async def wait_for_jobs_to_finish(
             )
             break
 
-        # Query jobs not in terminal status
+        # Query jobs still in active/transient status (i.e. not yet finished)
         try:
             response = await client.get(
                 f"{job_type}/",
                 params={
-                    "status__not__in": ",".join(JOB_TERMINAL_STATUSES),
+                    "status__in": active_statuses,
                     "page_size": 200,
                 },
             )

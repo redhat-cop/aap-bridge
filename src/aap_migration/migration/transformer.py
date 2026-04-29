@@ -1640,6 +1640,13 @@ class HostTransformer(DataTransformer):
         Returns:
             Transformed host data
         """
+        # Extract source group IDs from summary_fields BEFORE they are removed by
+        # the base transformer.  Stored as _source_group_ids so the importer can
+        # associate each host with its groups after creation.
+        sf_groups = data.get("summary_fields", {}).get("groups", {})
+        group_results = sf_groups.get("results", []) if isinstance(sf_groups, dict) else []
+        data["_source_group_ids"] = [g["id"] for g in group_results if g.get("id")]
+
         # Convert variables to JSON string if needed
         if "variables" in data:
             if isinstance(data["variables"], dict):

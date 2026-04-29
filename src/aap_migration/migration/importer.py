@@ -2907,10 +2907,15 @@ class HostImporter(ResourceImporter):
             source_name_by_id: dict[int, str] = {}
             batch_skipped = 0
 
+            source_group_ids_by_source_id: dict[int, list[int]] = {}
+
             for host in batch:
                 source_id = host.pop("_source_id", host.get("id"))
                 source_name = host.get("name", f"host_{source_id}")
                 source_name_by_id[source_id] = source_name
+
+                # Capture group memberships before preparing the bulk payload
+                source_group_ids_by_source_id[source_id] = host.get("_source_group_ids") or []
 
                 # Skip if already migrated
                 if self.state.is_migrated("hosts", source_id):
@@ -2968,6 +2973,45 @@ class HostImporter(ResourceImporter):
                             )
 
                     self.state.batch_create_mappings(mappings)
+
+                    # Associate each created host with its groups
+                    for idx, created_host in enumerate(created_hosts):
+                        if idx >= len(source_info):
+                            break
+                        source_id = source_info[idx]["source_id"]
+                        target_host_id = created_host["id"]
+                        source_group_ids = source_group_ids_by_source_id.get(source_id, [])
+
+                        for source_group_id in source_group_ids:
+                            target_group_id = self.state.get_mapped_id(
+                                "groups", source_group_id
+                            )
+                            if not target_group_id:
+                                logger.debug(
+                                    "host_group_association_skipped_unmapped",
+                                    host_name=created_host.get("name"),
+                                    source_group_id=source_group_id,
+                                )
+                                continue
+                            try:
+                                await self.client.post(
+                                    f"groups/{target_group_id}/hosts/",
+                                    json_data={"id": target_host_id},
+                                )
+                                logger.debug(
+                                    "host_added_to_group",
+                                    host_name=created_host.get("name"),
+                                    target_host_id=target_host_id,
+                                    target_group_id=target_group_id,
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    "host_group_association_failed",
+                                    host_name=created_host.get("name"),
+                                    target_host_id=target_host_id,
+                                    target_group_id=target_group_id,
+                                    error=str(e),
+                                )
 
                 created_count = len(created_hosts)
                 failed_count = len(failed_hosts)

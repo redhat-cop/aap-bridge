@@ -93,11 +93,7 @@ performance:
   # Project Patch (Phase 2)
   project_patch_batch_size: 100
   project_patch_batch_interval: 180
-  # Number of times to retry a failed project SCM sync before giving up (0 to disable retries)
   project_sync_max_retries: 2
-  # If true, abort the import when projects fail to sync after all retries.
-  # Projects are dependencies of job templates and workflows, so sync failures
-  # will cause downstream import errors if the import continues.
   project_sync_fail_on_sync_failure: true
 
   # Database write optimization

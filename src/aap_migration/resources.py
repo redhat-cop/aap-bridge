@@ -52,6 +52,16 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
         ],
     ),
     VersionPath(
+        source="2.2",
+        target="2.6",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+        ],
+    ),
+    VersionPath(
         source="2.3",
         target="2.6",
         status="supported",

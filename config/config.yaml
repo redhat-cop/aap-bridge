@@ -93,6 +93,8 @@ performance:
   # Project Patch (Phase 2)
   project_patch_batch_size: 100
   project_patch_batch_interval: 180
+  project_sync_max_retries: 2
+  project_sync_fail_on_sync_failure: true
 
   # Database write optimization
   mapping_batch_size: 100 # Batch size for ID mapping commits

@@ -29,6 +29,69 @@ from aap_migration.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class ProjectSyncFailedError(Exception):
+    """Raised when one or more projects fail to sync after all retries.
+
+    Projects are hard dependencies of job templates and workflow job templates.
+    Continuing the import after project sync failures would result in downstream
+    errors for any resource that references those projects.
+    """
+
+    def __init__(self, failed_names: list[str]) -> None:
+        self.failed_names = failed_names
+        names_str = ", ".join(f'"{n}"' for n in failed_names)
+        super().__init__(
+            f"{len(failed_names)} project(s) failed to sync after all retries and "
+            f"are required by downstream resources: {names_str}. "
+            "Fix the SCM configuration on the target and re-run Phase 2."
+        )
+
+
+async def _retry_project_sync(
+    ctx: MigrationContext,
+    failed_ids: list[int],
+    timeout: int,
+    poll_interval: int,
+) -> tuple[list[int], list[int]]:
+    """Trigger a manual sync for failed projects and wait for completion.
+
+    Args:
+        ctx: Migration context (provides client and config)
+        failed_ids: Target project IDs that previously failed
+        timeout: Seconds to wait for sync completion
+        poll_interval: Seconds between status polls
+
+    Returns:
+        Tuple of (still_failed_ids, recovered_ids)
+    """
+    triggered: list[int] = []
+    for project_id in failed_ids:
+        try:
+            await ctx.target_client.post(f"projects/{project_id}/update/", json_data={})
+            triggered.append(project_id)
+            logger.info("project_sync_retry_triggered", project_id=project_id)
+        except Exception as e:
+            logger.warning(
+                "project_sync_retry_trigger_failed",
+                project_id=project_id,
+                error=str(e),
+            )
+
+    if not triggered:
+        return failed_ids, []
+
+    _, retry_failed_count, retry_failed_ids = await wait_for_project_sync(
+        client=ctx.target_client,
+        project_ids=triggered,
+        timeout=timeout,
+        poll_interval=poll_interval,
+    )
+
+    still_failed = retry_failed_ids
+    recovered = [pid for pid in triggered if pid not in still_failed]
+    return still_failed, recovered
+
+
 async def patch_project_scm_details(
     ctx: MigrationContext,
     input_dir: Path,
@@ -41,8 +104,12 @@ async def patch_project_scm_details(
     1. Reads transformed project files.
     2. Identifies projects with _deferred_scm_details.
     3. PATCHes them in batches.
-    4. Sleeps between batches to space out sync jobs.
-    5. Waits for final sync completion before finishing.
+    4. Waits for each batch to sync, retrying failed projects up to
+       performance.project_sync_max_retries times.
+    5. If projects still fail after all retries and
+       performance.project_sync_fail_on_sync_failure is True, raises
+       ProjectSyncFailedError to abort the import (projects are dependencies
+       of job templates and workflows).
 
     Args:
         ctx: Migration context
@@ -89,6 +156,10 @@ async def patch_project_scm_details(
         return
 
     total_projects = len(projects_to_patch)
+    max_retries = ctx.config.performance.project_sync_max_retries
+    fail_on_failure = ctx.config.performance.project_sync_fail_on_sync_failure
+    poll_interval = ctx.config.performance.project_sync_poll_interval
+
     if not progress_display:
         echo_info(f"Found {total_projects} projects requiring SCM activation.")
         echo_info(f"Starting Phase 2: Patching {batch_size} projects every {interval}s")
@@ -120,6 +191,10 @@ async def patch_project_scm_details(
         patched_count = 0
         failed_patch_count = 0
         all_target_ids = []
+        # Maps target_id → project name for human-readable error messages
+        target_id_to_name: dict[int, str] = {}
+        # Accumulates target IDs that failed sync across all batches after all retries
+        permanently_failed_ids: list[int] = []
 
         # Process in batches
         for i in range(0, total_projects, batch_size):
@@ -180,6 +255,7 @@ async def patch_project_scm_details(
                     patched_count += 1
                     batch_target_ids.append(target_id)
                     all_target_ids.append(target_id)
+                    target_id_to_name[target_id] = name or f"project_{target_id}"
 
                     logger.info(
                         "project_patched_scm",
@@ -199,9 +275,7 @@ async def patch_project_scm_details(
 
                 progress.update_phase("patching", patched_count, failed_patch_count)
 
-            # After batch is done, wait for sync completion
-            # This allows early exit if all projects reach terminal state (success/fail)
-            # and prevents phase completion while projects are still syncing
+            # After batch is patched, wait for SCM sync and retry failures
             if batch_target_ids:
                 logger.info(
                     "phase2_batch_wait",
@@ -210,33 +284,62 @@ async def patch_project_scm_details(
                     message=f"Waiting up to {interval}s for batch sync to complete.",
                 )
 
-                # Wait for batch to complete (with interval as timeout)
-                # This exits early if all projects reach terminal state
-                batch_synced, batch_failed, _ = await wait_for_project_sync(
+                _, batch_failed_count, batch_failed_ids = await wait_for_project_sync(
                     client=ctx.target_client,
                     project_ids=batch_target_ids,
                     timeout=interval,
-                    poll_interval=ctx.config.performance.project_sync_poll_interval,
+                    poll_interval=poll_interval,
                 )
 
-                # Log results
-                if batch_synced + batch_failed >= len(batch_target_ids):
-                    logger.info(
-                        "phase2_batch_complete_early",
-                        synced=batch_synced,
-                        failed=batch_failed,
-                        message="Batch sync complete, continuing to next batch.",
+                batch_synced = len(batch_target_ids) - batch_failed_count
+                logger.info(
+                    "phase2_batch_complete",
+                    synced=batch_synced,
+                    failed=batch_failed_count,
+                )
+
+                # Retry failed syncs
+                still_failed_ids = batch_failed_ids
+                for attempt in range(1, max_retries + 1):
+                    if not still_failed_ids:
+                        break
+                    failed_names = [
+                        target_id_to_name.get(pid, str(pid)) for pid in still_failed_ids
+                    ]
+                    logger.warning(
+                        "project_sync_retrying",
+                        attempt=attempt,
+                        max_retries=max_retries,
+                        failed_count=len(still_failed_ids),
+                        failed_names=failed_names,
                     )
-                    # Small delay to not overwhelm controller
-                    await asyncio.sleep(5)
-                else:
-                    logger.info(
-                        "phase2_batch_timeout",
-                        synced=batch_synced,
-                        failed=batch_failed,
-                        pending=len(batch_target_ids) - batch_synced - batch_failed,
-                        message="Batch timeout reached, continuing to next batch.",
+                    still_failed_ids, recovered = await _retry_project_sync(
+                        ctx=ctx,
+                        failed_ids=still_failed_ids,
+                        timeout=interval,
+                        poll_interval=poll_interval,
                     )
+                    if recovered:
+                        logger.info(
+                            "project_sync_retry_recovered",
+                            attempt=attempt,
+                            recovered_count=len(recovered),
+                        )
+
+                if still_failed_ids:
+                    failed_names = [
+                        target_id_to_name.get(pid, str(pid)) for pid in still_failed_ids
+                    ]
+                    logger.error(
+                        "project_sync_permanently_failed",
+                        failed_count=len(still_failed_ids),
+                        failed_names=failed_names,
+                        retries_attempted=max_retries,
+                    )
+                    permanently_failed_ids.extend(still_failed_ids)
+
+                # Small delay before next batch to avoid overwhelming controller
+                await asyncio.sleep(5)
 
         progress.complete_phase("patching")
 
@@ -246,6 +349,27 @@ async def patch_project_scm_details(
         else:
             if not progress_display:
                 echo_warning("Phase 2 completed but no projects were patched.")
+
+        # Abort if any projects permanently failed and fail_on_failure is set
+        if permanently_failed_ids and fail_on_failure:
+            failed_names = [
+                target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
+            ]
+            echo_error(
+                f"{len(permanently_failed_ids)} project(s) failed to sync after "
+                f"{max_retries} retries. Aborting import — fix SCM configuration "
+                "on the target and re-run Phase 2."
+            )
+            raise ProjectSyncFailedError(failed_names)
+        elif permanently_failed_ids:
+            failed_names = [
+                target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
+            ]
+            echo_warning(
+                f"{len(permanently_failed_ids)} project(s) failed to sync after "
+                f"{max_retries} retries. Downstream resources that depend on these "
+                "projects may fail to import."
+            )
 
 
 @click.command(name="patch-projects")

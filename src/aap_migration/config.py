@@ -303,6 +303,20 @@ class PerformanceConfig(BaseModel):
         le=1800,
         description="Seconds to wait between project patch batches",
     )
+    project_sync_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        description="Number of times to retry a failed project SCM sync before giving up",
+    )
+    project_sync_fail_on_sync_failure: bool = Field(
+        default=True,
+        description=(
+            "If true, abort the import when one or more projects fail to sync after all "
+            "retries. Projects are dependencies of job templates and workflows, so sync "
+            "failures will cause downstream import errors."
+        ),
+    )
     http_max_connections: int = Field(
         default=50,
         ge=10,

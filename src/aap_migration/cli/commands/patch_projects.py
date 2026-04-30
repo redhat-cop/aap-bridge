@@ -355,21 +355,29 @@ async def patch_project_scm_details(
             failed_names = [
                 target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
             ]
-            echo_error(
-                f"{len(permanently_failed_ids)} project(s) failed to sync after "
-                f"{max_retries} retries. Aborting import — fix SCM configuration "
-                "on the target and re-run Phase 2."
-            )
+            # Only echo_error when running standalone (no Live display active).
+            # When called from run_import(), the Live display is active and a raw
+            # stderr write here races with the auto-refresh cycle, leaving an orphan
+            # header fragment in the scroll buffer. The calling code's exception
+            # handler (echo_error("Import failed: ...")) prints the message after the
+            # Live context exits cleanly.
+            if not progress_display:
+                echo_error(
+                    f"{len(permanently_failed_ids)} project(s) failed to sync after "
+                    f"{max_retries} retries. Aborting import — fix SCM configuration "
+                    "on the target and re-run Phase 2."
+                )
             raise ProjectSyncFailedError(failed_names)
         elif permanently_failed_ids:
             failed_names = [
                 target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
             ]
-            echo_warning(
-                f"{len(permanently_failed_ids)} project(s) failed to sync after "
-                f"{max_retries} retries. Downstream resources that depend on these "
-                "projects may fail to import."
-            )
+            if not progress_display:
+                echo_warning(
+                    f"{len(permanently_failed_ids)} project(s) failed to sync after "
+                    f"{max_retries} retries. Downstream resources that depend on these "
+                    "projects may fail to import."
+                )
 
 
 @click.command(name="patch-projects")

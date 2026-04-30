@@ -143,7 +143,6 @@ def main() -> int:
         cli(standalone_mode=False)
         return 0
     except click.ClickException as e:
-        e.show()
         return e.exit_code
     except Exception as e:
         logger.error("Unexpected error", error=str(e), exc_info=True)

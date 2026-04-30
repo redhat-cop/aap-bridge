@@ -115,8 +115,7 @@ def configure_logging(
         show_time=False,  # structlog already adds timestamps
         show_path=False,  # We add logger names via structlog
         markup=True,
-        rich_tracebacks=True,
-        tracebacks_show_locals=True,
+        rich_tracebacks=False,
     )
     rich_handler.setLevel(console_level)
 

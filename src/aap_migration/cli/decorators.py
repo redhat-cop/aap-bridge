@@ -71,6 +71,11 @@ def handle_errors(f: Callable) -> Callable:
             # Let Exit exceptions pass through (they're intentional exits)
             raise
 
+        except click.ClickException:
+            # Let ClickException pass through — it's an intentional user-facing error
+            # already formatted by the command. main() will display it via e.show().
+            raise
+
         except ConfigurationError as e:
             logger.error("Configuration error", error=str(e))
             click.echo(f"Configuration Error: {e}", err=True)

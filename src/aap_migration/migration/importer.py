@@ -855,6 +855,57 @@ class ResourceImporter:
         """
         return self.import_errors.copy()
 
+    async def _associate_notification_templates(
+        self,
+        resource_type: str,
+        target_id: int,
+        source_nt_ids: list[int],
+        trigger: str,
+        template_name: str | None = None,
+    ) -> None:
+        """Associate notification templates with a template via POST.
+
+        Args:
+            resource_type: e.g. ``"job_templates"`` or ``"workflow_job_templates"``
+            target_id: Target template ID
+            source_nt_ids: Source notification template IDs to associate
+            trigger: One of ``"started"``, ``"success"``, ``"error"``, ``"approvals"``
+            template_name: Template name for logging
+        """
+        endpoint = f"{resource_type}/{target_id}/notification_templates_{trigger}/"
+        for source_nt_id in source_nt_ids:
+            target_nt_id = self.state.get_mapped_id("notification_templates", source_nt_id)
+            if not target_nt_id:
+                logger.warning(
+                    "notification_template_mapping_missing",
+                    resource_type=resource_type,
+                    target_id=target_id,
+                    trigger=trigger,
+                    source_nt_id=source_nt_id,
+                    template_name=template_name,
+                )
+                continue
+            try:
+                await self.client.post(endpoint, json_data={"id": target_nt_id})
+                logger.debug(
+                    "notification_template_associated",
+                    resource_type=resource_type,
+                    target_id=target_id,
+                    trigger=trigger,
+                    target_nt_id=target_nt_id,
+                    template_name=template_name,
+                )
+            except Exception as e:
+                logger.warning(
+                    "notification_template_association_failed",
+                    resource_type=resource_type,
+                    target_id=target_id,
+                    trigger=trigger,
+                    target_nt_id=target_nt_id,
+                    template_name=template_name,
+                    error=str(e),
+                )
+
 
 class LabelImporter(ResourceImporter):
     """Importer for label resources."""
@@ -3651,6 +3702,10 @@ class JobTemplateImporter(ResourceImporter):
         survey_spec = data.pop("_survey_spec", None)
         # Extract credentials before import (they're not valid API fields)
         credentials = data.pop("credentials", [])
+        # Extract notification template IDs before import (not valid API fields)
+        nt_ids: dict[str, list[int]] = {}
+        for trigger in ("started", "success", "error"):
+            nt_ids[trigger] = data.pop(f"_nt_{trigger}_ids", []) or []
         template_name = data.get("name")
 
         # Call base import_resource
@@ -3675,6 +3730,11 @@ class JobTemplateImporter(ResourceImporter):
                     survey_spec,
                     template_name=template_name,
                 )
+            for trigger, ids in nt_ids.items():
+                if ids:
+                    await self._associate_notification_templates(
+                        "job_templates", result["id"], ids, trigger, template_name
+                    )
 
         return result
 
@@ -3808,6 +3868,7 @@ class JobTemplateImporter(ResourceImporter):
                 )
 
 
+
 class WorkflowImporter(ResourceImporter):
     """Importer for workflow job template resources."""
 
@@ -3823,18 +3884,30 @@ class WorkflowImporter(ResourceImporter):
         data: dict[str, Any],
         resolve_dependencies: bool = True,
     ) -> dict[str, Any] | None:
-        """Import a workflow; apply ``_survey_spec`` via POST after create."""
+        """Import a workflow; apply ``_survey_spec`` and notification associations via POST after create."""
         survey_spec = data.pop("_survey_spec", None)
+        # Extract notification template IDs before import (not valid API fields)
+        nt_ids: dict[str, list[int]] = {}
+        for trigger in ("started", "success", "error", "approvals"):
+            nt_ids[trigger] = data.pop(f"_nt_{trigger}_ids", []) or []
+        template_name = data.get("name")
+
         result = await super().import_resource(
             resource_type, source_id, data, resolve_dependencies=resolve_dependencies
         )
-        if result and result.get("id") and survey_spec is not None:
-            await self._post_survey_spec_after_create(
-                "workflow_job_templates",
-                result["id"],
-                survey_spec,
-                template_name=result.get("name") or data.get("name"),
-            )
+        if result and result.get("id"):
+            if survey_spec is not None:
+                await self._post_survey_spec_after_create(
+                    "workflow_job_templates",
+                    result["id"],
+                    survey_spec,
+                    template_name=template_name,
+                )
+            for trigger, ids in nt_ids.items():
+                if ids:
+                    await self._associate_notification_templates(
+                        "workflow_job_templates", result["id"], ids, trigger, template_name
+                    )
         return result
 
     async def import_workflows(

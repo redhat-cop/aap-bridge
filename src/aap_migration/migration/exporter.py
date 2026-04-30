@@ -45,6 +45,39 @@ async def _fetch_template_survey_spec(
         return {}
 
 
+async def _fetch_notification_template_ids(
+    client: AAPSourceClient,
+    resource_type: str,
+    resource_id: int,
+    trigger: str,
+) -> list[int]:
+    """GET ``{resource_type}/{id}/notification_templates_{trigger}/`` and return IDs.
+
+    Args:
+        client: Source API client
+        resource_type: e.g. ``"job_templates"`` or ``"workflow_job_templates"``
+        resource_id: Source ID of the template
+        trigger: One of ``"started"``, ``"success"``, ``"error"``, ``"approvals"``
+
+    Returns:
+        List of source notification template IDs assigned to this trigger.
+    """
+    base = get_endpoint(resource_type).rstrip("/")
+    endpoint = f"{base}/{resource_id}/notification_templates_{trigger}/"
+    try:
+        rows = await client.get_paginated(endpoint, page_size=200)
+        return [row["id"] for row in rows if row.get("id")]
+    except Exception as e:
+        logger.warning(
+            "notification_templates_fetch_failed",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            trigger=trigger,
+            error=str(e),
+        )
+        return []
+
+
 @runtime_checkable
 class ExporterProtocol(Protocol):
     """Protocol defining the interface for resource exporters.
@@ -1504,6 +1537,8 @@ class JobTemplateExporter(ResourceExporter):
                 self.client, "job_templates", template["id"]
             )
 
+            await self._attach_notification_template_ids(template, "job_templates")
+
             yield template
 
     async def export_parallel(
@@ -1558,7 +1593,27 @@ class JobTemplateExporter(ResourceExporter):
                 self.client, "job_templates", template["id"]
             )
 
+            await self._attach_notification_template_ids(template, "job_templates")
+
             yield template
+
+    async def _attach_notification_template_ids(
+        self, template: dict[str, Any], resource_type: str
+    ) -> None:
+        """Fetch and attach notification template IDs for all triggers.
+
+        Stores source IDs as ``_nt_started_ids``, ``_nt_success_ids``,
+        and ``_nt_error_ids`` so the importer can re-associate them after
+        creating the template on the target.
+        """
+        tid = template.get("id") or template.get("_source_id")
+        if not tid:
+            return
+        for trigger in ("started", "success", "error"):
+            ids = await _fetch_notification_template_ids(
+                self.client, resource_type, int(tid), trigger
+            )
+            template[f"_nt_{trigger}_ids"] = ids
 
 
 class WorkflowExporter(ResourceExporter):
@@ -1671,6 +1726,8 @@ class WorkflowExporter(ResourceExporter):
                 self.client, "workflow_job_templates", workflow["id"]
             )
 
+            await self._attach_notification_template_ids(workflow, "workflow_job_templates")
+
             yield workflow
 
     async def export_parallel(
@@ -1714,7 +1771,27 @@ class WorkflowExporter(ResourceExporter):
                 self.client, "workflow_job_templates", workflow["id"]
             )
 
+            await self._attach_notification_template_ids(workflow, "workflow_job_templates")
+
             yield workflow
+
+    async def _attach_notification_template_ids(
+        self, workflow: dict[str, Any], resource_type: str
+    ) -> None:
+        """Fetch and attach notification template IDs for all triggers.
+
+        Stores source IDs as ``_nt_started_ids``, ``_nt_success_ids``,
+        ``_nt_error_ids``, and ``_nt_approvals_ids`` so the importer can
+        re-associate them after creating the workflow on the target.
+        """
+        wid = workflow.get("id") or workflow.get("_source_id")
+        if not wid:
+            return
+        for trigger in ("started", "success", "error", "approvals"):
+            ids = await _fetch_notification_template_ids(
+                self.client, resource_type, int(wid), trigger
+            )
+            workflow[f"_nt_{trigger}_ids"] = ids
 
 
 class SystemJobTemplateExporter(ResourceExporter):

@@ -130,6 +130,20 @@ def _parse_role_grant(
     rtype_str = str(rtype_str).strip().lower()
 
     flat_rid = summary.get("resource_id")
+
+    # 3b) AAP 1.0 omits resource_id from summary_fields; fall back to the
+    # related URL for the same resource type key (e.g. related["organization"]
+    # = "/api/v2/organizations/1/") and extract the trailing numeric ID.
+    if rtype_str and flat_rid is None:
+        related = role.get("related") or {}
+        rel_url = related.get(rtype_str)
+        if rel_url:
+            parts = str(rel_url).rstrip("/").split("/")
+            for part in reversed(parts):
+                if part.isdigit():
+                    flat_rid = int(part)
+                    break
+
     if rtype_str and flat_rid is not None:
         canonical_raw = _TYPE_MAP.get(rtype_str)
         if canonical_raw:

@@ -1962,6 +1962,11 @@ class InventoryGroupImporter(ResourceImporter):
                     )
                     return {"_skipped": True, "policy_skip": True, "name": data.get("name")}
 
+            # Extract resolved parent ID before creation — the parent-child
+            # relationship is established via POST groups/<parent_id>/children/
+            # after both groups exist, not via a field in the create payload.
+            resolved_parent_id = data.pop("parent", None)
+
             # Use correct API endpoint
             result = await self.client.create_resource(
                 resource_type=api_resource_type,
@@ -1983,6 +1988,28 @@ class InventoryGroupImporter(ResourceImporter):
                 source_id=source_id,
                 target_id=target_id,
             )
+
+            # Assign this group as a child of its parent group
+            if resolved_parent_id:
+                try:
+                    await self.client.post(
+                        f"groups/{resolved_parent_id}/children/",
+                        json_data={"id": target_id},
+                    )
+                    logger.debug(
+                        "group_added_to_parent",
+                        group_name=data.get("name"),
+                        target_group_id=target_id,
+                        target_parent_id=resolved_parent_id,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "group_child_association_failed",
+                        group_name=data.get("name"),
+                        target_group_id=target_id,
+                        target_parent_id=resolved_parent_id,
+                        error=str(e),
+                    )
 
             return result
 

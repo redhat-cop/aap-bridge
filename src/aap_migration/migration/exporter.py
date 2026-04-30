@@ -953,19 +953,38 @@ class InventoryGroupExporter(ResourceExporter):
     Inventory groups can have nested hierarchies (parent-child relationships).
     """
 
+    async def _fetch_child_group_ids(self, group_id: int) -> list[int]:
+        """GET ``groups/<id>/children/`` and return child group source IDs.
+
+        The group list/detail response does not include a top-level ``children``
+        array — it is only accessible via the related endpoint.
+        """
+        endpoint = f"groups/{group_id}/children/"
+        try:
+            rows = await self.client.get_paginated(endpoint, page_size=200)
+        except Exception as e:
+            logger.warning(
+                "group_children_fetch_failed",
+                group_id=group_id,
+                error=str(e),
+            )
+            return []
+        return [row["id"] for row in rows if row.get("id")]
+
     async def export(
         self, filters: dict[str, Any] | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Export inventory groups.
+        """Export inventory groups with parent-child relationship data.
 
-        Groups may have parent-child relationships indicated by the 'children' field.
-        Group variables are stored as JSON strings and must be preserved.
+        For each group, fetches ``groups/<id>/children/`` and stores the child
+        source IDs as a ``children`` list so the importer can topologically sort
+        groups and establish nesting via ``POST groups/<parent_id>/children/``.
 
         Args:
             filters: Optional query parameters for filtering
 
         Yields:
-            Inventory group dictionaries
+            Inventory group dictionaries with ``children`` list of source IDs
         """
         logger.info("exporting_inventory_groups")
         async for group in self.export_resources(
@@ -974,6 +993,51 @@ class InventoryGroupExporter(ResourceExporter):
             page_size=self.performance_config.batch_sizes.get("groups", 100),
             filters=filters,
         ):
+            group_id = group.get("id") or group.get("_source_id")
+            if group_id and not group.get("_skipped"):
+                child_ids = await self._fetch_child_group_ids(int(group_id))
+                if child_ids:
+                    group["children"] = child_ids
+                    logger.debug(
+                        "group_children_attached",
+                        group_id=group_id,
+                        group_name=group.get("name"),
+                        child_count=len(child_ids),
+                    )
+            yield group
+
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Parallel export with children enrichment.
+
+        The CLI uses this path; after each group is yielded from the base
+        parallel fetcher, ``groups/<id>/children/`` is fetched and the child
+        source IDs are attached as a ``children`` list.
+        """
+        async for group in super().export_parallel(
+            resource_type=resource_type,
+            endpoint=endpoint,
+            page_size=page_size,
+            max_concurrent_pages=max_concurrent_pages,
+            filters=filters,
+        ):
+            group_id = group.get("id") or group.get("_source_id")
+            if group_id and not group.get("_skipped"):
+                child_ids = await self._fetch_child_group_ids(int(group_id))
+                if child_ids:
+                    group["children"] = child_ids
+                    logger.debug(
+                        "group_children_attached",
+                        group_id=group_id,
+                        group_name=group.get("name"),
+                        child_count=len(child_ids),
+                    )
             yield group
 
 

@@ -2,7 +2,7 @@ import pytest
 
 from aap_migration.resources import COMPATIBILITY_MATRIX, get_version_path
 
-SOURCE_VERSIONS = ["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3", "2.4", "2.5"]
+SOURCE_VERSIONS = ["1.0", "1.1", "1.2", "2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6"]
 
 
 @pytest.mark.parametrize("source_version", SOURCE_VERSIONS)

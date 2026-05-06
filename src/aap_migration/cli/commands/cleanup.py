@@ -25,7 +25,7 @@ from aap_migration.cli.utils import (
 )
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.bulk_operations import BulkOperations
-from aap_migration.client.exceptions import NotFoundError, PendingDeletionError, ResourceInUseError
+from aap_migration.client.exceptions import APIError, NotFoundError, PendingDeletionError, ResourceInUseError
 from aap_migration.config import MigrationConfig, normalized_execution_environment_skip_names
 from aap_migration.migration.database import get_session
 from aap_migration.migration.models import IDMapping, MigrationProgress
@@ -40,7 +40,6 @@ logger = get_logger(__name__)
 NON_DELETABLE_RESOURCES = [
     "labels",  # Labels don't support DELETE via API (405 Method Not Allowed)
     "system_job_templates",  # System job templates are built-in and cannot be deleted
-    "role_definitions",  # System-managed roles cannot be deleted (400: Role is managed by the system)
     "role_user_assignments",  # Assignments are removed when the role/user/resource is deleted
     "role_team_assignments",  # Assignments are removed when the role/team/resource is deleted
     "inventory_sources",  # Automatically removed when their parent inventory is deleted
@@ -1040,6 +1039,18 @@ async def delete_resources_parallel(
                     resource_type=endpoint,
                 )
                 deleted_count += 1  # Count as success - goal achieved
+
+            except APIError as e:
+                # Some role_definitions are system-managed and return 400 on DELETE
+                if e.status_code == 400 and "managed by the system" in str(e).lower():
+                    logger.debug(
+                        f"Skipped {res_name} (system-managed, cannot be deleted)",
+                        resource_id=res_id,
+                        resource_type=endpoint,
+                    )
+                    skipped_count += 1
+                else:
+                    raise
 
             except ResourceInUseError as e:
                 # Resource blocked by jobs even after retries - log details

@@ -84,7 +84,6 @@ sudo postgresql-setup --initdb
 
 # If you have kerberos, you likely need to change the IPv4 and IPv6 local connections to a newer METHOD, such as scram-sha-256.
 sudo vi /var/lib/pgsql/data/pg_hba.conf
-
 # IPv4 local connections:
 host    all             all             127.0.0.1/32            scram-sha-256
 # IPv6 local connections:
@@ -95,6 +94,8 @@ systemctl status postgresql # Check it's good.
 
 # Create database and user locally as the postgres user.
 psql -c "CREATE DATABASE aap_migration;"
+# If encryption was changed, update the password method for postgres prior to assigning a password
+psql -c "SET password_encryption = 'scram-sha-256';"
 psql -c "CREATE USER aap_migration_user WITH PASSWORD 'your_secure_password';"
 psql -c "GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;"
 # Ensure the user owns the schema/tables (Postgres 15+)

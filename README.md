@@ -120,6 +120,11 @@ Edit `.env` with your AAP instance details and database connection string.
 
 **Critical AAP 2.6 Note:** The Target URL must point to the **Platform Gateway** (`/api/controller/v2`), not the direct controller API.
 
+To get your tokens easily, you can get them through the API with a curl command
+* For AAP 2.4 and earlier, `curl -k -X POST -u "<<username>>:<<password>>" -H "Content-Type: application/json" -d '{"description": "CLI Token", "scope": "write"}' https://<<aap_base_url>>/api/v2/tokens/`
+* For AAP 2.6 and later,  `curl -k -X POST -u "<<username>>:<<password>>" -H "Content-Type: application/json" -d '{"description": "CLI Token", "scope": "write"}' https://<<aap_base_url>>/api/gateway/v1/tokens/`
+
+
 ```bash
 
 # Source AAP instance

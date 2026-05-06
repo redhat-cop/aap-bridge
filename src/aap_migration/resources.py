@@ -122,6 +122,15 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
             "Instance groups referenced by RBAC assignments must exist on the target with the same name",
         ],
     ),
+    VersionPath(
+        source="2.6",
+        target="2.6",
+        status="supported",
+        notes="Same-version migration path. Schema fully compatible.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
 ]
 
 

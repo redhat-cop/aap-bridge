@@ -3232,116 +3232,34 @@ class CredentialImporter(ResourceImporter):
         data.pop("_needs_vault_lookup", None)
 
         try:
-            # Find existing credential in target by name AND credential_type.
-            # AAP allows multiple credentials with the same name when they have
-            # different credential types, so we must filter by type to avoid
-            # mapping this credential to the wrong same-name credential.
-            query_params: dict[str, Any] = {"name": name}
-            source_cred_type_id = data.get("credential_type")
-            if source_cred_type_id:
-                target_cred_type_id = self.state.get_mapped_id(
-                    "credential_types", source_cred_type_id
-                )
-                if target_cred_type_id is None and source_cred_type_id <= self.BUILTIN_CREDENTIAL_TYPE_MAX_ID:
-                    # Built-in types keep the same ID across environments.
-                    target_cred_type_id = source_cred_type_id
-                if target_cred_type_id is not None:
-                    query_params["credential_type"] = target_cred_type_id
+            # AAP permits credentials with identical (name, organization, credential_type),
+            # so there is no reliable composite key to match a source credential against an
+            # existing target credential.  Always CREATE a new credential; idempotency on
+            # re-runs is handled by the is_migrated() check above (MigrationProgress) and
+            # by batch_precheck_resources restoring IDMapping from MigrationProgress.
+            logger.info(
+                "credential_creating",
+                name=name,
+                source_id=source_id,
+            )
 
-            results = await self.client.get("credentials/", params=query_params)
-            resources = results.get("results", [])
+            # Resolve dependencies
+            if resolve_dependencies:
+                data = await self._resolve_dependencies(resource_type, data)
 
-            if resources:
-                # Credential exists - PATCH it
-                target_id = resources[0]["id"]
-                is_managed = resources[0].get("managed", False)
+            result = await self.client.create_resource(
+                resource_type="credentials",
+                data=data,
+                check_exists=False,
+            )
 
-                # Skip PATCH for managed (built-in) credentials - AAP doesn't allow modifications
-                if is_managed:
-                    logger.info(
-                        "credential_managed_skip_patch",
-                        name=name,
-                        source_id=source_id,
-                        target_id=target_id,
-                        message="Skipping PATCH for managed credential - saving mapping only",
-                    )
-                    # Save mapping without patching
-                    self.state.save_id_mapping(
-                        resource_type=resource_type,
-                        source_id=source_id,
-                        target_id=target_id,
-                        source_name=name,
-                        target_name=name,
-                    )
-                    self.state.mark_completed(
-                        resource_type=resource_type,
-                        source_id=source_id,
-                        target_id=target_id,
-                        target_name=name,
-                    )
-                    self.stats["skipped_count"] += 1
-                    # Return skipped signal
-                    return {"id": target_id, "name": name, "_skipped": True}
-
-                # Resolve dependencies
-                if resolve_dependencies:
-                    data = await self._resolve_dependencies(resource_type, data)
-
-                # Build PATCH payload (organization, description only)
-                patch_data = {}
-                if data.get("organization"):
-                    patch_data["organization"] = data["organization"]
-                if data.get("description"):
-                    patch_data["description"] = data["description"]
-
-                # PATCH the credential
-                if patch_data:
-                    await self.client.update_resource("credentials", target_id, patch_data)
-                    logger.info(
-                        "credential_patched",
-                        name=name,
-                        source_id=source_id,
-                        target_id=target_id,
-                        patched_fields=list(patch_data.keys()),
-                    )
-                else:
-                    logger.info(
-                        "credential_mapped_no_patch",
-                        name=name,
-                        source_id=source_id,
-                        target_id=target_id,
-                        message="No fields to patch - mapping only",
-                    )
-
-                result = {"id": target_id, "name": name, "_patched": bool(patch_data)}
-
-            else:
-                # Credential does not exist - CREATE it
-                logger.info(
-                    "credential_creating",
-                    name=name,
-                    source_id=source_id,
-                    message="Creating new credential with temporary values",
-                )
-
-                # Resolve dependencies
-                if resolve_dependencies:
-                    data = await self._resolve_dependencies(resource_type, data)
-
-                # Create resource
-                result = await self.client.create_resource(
-                    resource_type="credentials",
-                    data=data,
-                    check_exists=False,  # We already checked
-                )
-
-                target_id = result["id"]
-                logger.info(
-                    "credential_created",
-                    name=name,
-                    source_id=source_id,
-                    target_id=target_id,
-                )
+            target_id = result["id"]
+            logger.info(
+                "credential_created",
+                name=name,
+                source_id=source_id,
+                target_id=target_id,
+            )
 
             # Save mapping
             self.state.save_id_mapping(

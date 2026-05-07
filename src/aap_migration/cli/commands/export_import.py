@@ -1272,6 +1272,53 @@ def import_cmd(
             source_id_count=len(source_ids_for_reset),
         )
 
+        # Step 2 (credentials only): Credentials have no reliable composite unique key in
+        # AAP — the same name, organization, and credential_type can all be shared by
+        # multiple credentials.  Name-based target matching is therefore fundamentally
+        # unreliable.  Instead, restore IDMapping entries from MigrationProgress (which
+        # is never cleared) for credentials that were already imported in a previous run,
+        # and send everything else straight to the importer as a fresh CREATE.
+        if resource_type == "credentials":
+            to_import = []
+            found_count = 0
+            for resource in resources:
+                source_id = resource.get("_source_id")
+                name = resource.get("name")
+                if source_id is None:
+                    to_import.append(resource)
+                    continue
+                target_id = state.get_progress_target_id("credentials", source_id)
+                if target_id is not None:
+                    # Already imported in a previous run — restore the IDMapping row that
+                    # was cleared by reset_target_ids_for_source_ids above.
+                    state.save_id_mapping(
+                        resource_type="credentials",
+                        source_id=source_id,
+                        target_id=target_id,
+                        source_name=name,
+                        target_name=name,
+                    )
+                    found_count += 1
+                    logger.debug(
+                        "credential_mapping_restored_from_progress",
+                        source_id=source_id,
+                        target_id=target_id,
+                        name=name,
+                    )
+                else:
+                    to_import.append(resource)
+
+            if found_count > 0:
+                progress.update_phase(phase_id, 0, 0, found_count)
+                logger.info(
+                    "pre_existing_resources_found",
+                    resource_type=resource_type,
+                    already_existing=found_count,
+                    to_import=len(to_import),
+                    total=len(resources),
+                )
+            return to_import
+
         # Step 2: Get identifier field from importer
         identifier_field = getattr(importer, "IDENTIFIER_FIELD", "name")
 
@@ -1284,15 +1331,7 @@ def import_cmd(
             source_id = resource.get("_source_id")
             if identifier and source_id:
                 resource_identifiers.append(identifier)
-                # Credentials are unique by (name, organization, credential_type) in AAP,
-                # so two credentials can share a name if they have different types.
-                # Use a composite dict key to prevent same-name credentials from
-                # overwriting each other and being silently dropped.
-                if resource_type == "credentials":
-                    dict_key = (identifier, resource.get("credential_type"))
-                else:
-                    dict_key = identifier
-                resource_by_identifier[dict_key] = {"source_id": source_id, "data": resource}
+                resource_by_identifier[identifier] = {"source_id": source_id, "data": resource}
 
         if not resource_identifiers:
             logger.warning(
@@ -1358,16 +1397,7 @@ def import_cmd(
                 # Index by identifier for fast lookup
                 # For organization-scoped resources, use composite key (name, organization)
                 for existing_resource in existing_batch:
-                    if resource_type == "credentials":
-                        # Credentials are unique by (name, organization, credential_type).
-                        # Two credentials can share a name when they have different types.
-                        name = existing_resource.get("name")
-                        org = existing_resource.get("organization")
-                        cred_type = existing_resource.get("credential_type")
-                        if name is not None:
-                            key = (name, org, cred_type)
-                            existing_by_identifier[key] = existing_resource
-                    elif resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                    if resource_type in ORGANIZATION_SCOPED_RESOURCES:
                         # Use (name, organization) as composite key
                         name = existing_resource.get("name")
                         org = existing_resource.get("organization")
@@ -1395,39 +1425,12 @@ def import_cmd(
         found_count = 0
         to_import = []
 
-        # Built-in AAP credential type IDs are stable across environments (same IDs in source
-        # and target).  Custom types (above this threshold) require an ID-mapping lookup.
-        _BUILTIN_CRED_TYPE_MAX_ID = 27
-
         for identifier, resource_info in resource_by_identifier.items():
             source_id = resource_info["source_id"]
             resource_data = resource_info["data"]
 
-            # Derive the plain resource name regardless of whether identifier is a
-            # simple string (most resource types) or a composite tuple (credentials).
-            resource_name = resource_data.get("name") or (
-                identifier[0] if isinstance(identifier, tuple) else identifier
-            )
-
             # Build lookup key based on resource scope
-            if resource_type == "credentials":
-                # Credentials are unique by (name, organization, credential_type).
-                # Resolve the source credential_type ID to the target ID so the lookup
-                # key matches what was indexed from the target API response.
-                name = resource_data.get("name")
-                org = resource_data.get("organization")
-                source_cred_type_id = resource_data.get("credential_type")
-                if source_cred_type_id is not None:
-                    target_cred_type_id = state.get_mapped_id(
-                        "credential_types", source_cred_type_id
-                    )
-                    if target_cred_type_id is None and source_cred_type_id <= _BUILTIN_CRED_TYPE_MAX_ID:
-                        # Built-in types keep the same ID across environments.
-                        target_cred_type_id = source_cred_type_id
-                else:
-                    target_cred_type_id = None
-                lookup_key = (name, org, target_cred_type_id)
-            elif resource_type in ORGANIZATION_SCOPED_RESOURCES:
+            if resource_type in ORGANIZATION_SCOPED_RESOURCES:
                 # For org-scoped resources, use (name, organization) as key
                 name = resource_data.get("name")
                 org = resource_data.get("organization")
@@ -1454,7 +1457,7 @@ def import_cmd(
                     resource_type=mapping_resource_type,
                     source_id=source_id,
                     target_id=existing["id"],
-                    source_name=resource_name,
+                    source_name=identifier,
                     target_name=existing.get(identifier_field),
                 )
 

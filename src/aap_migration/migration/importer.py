@@ -3270,9 +3270,11 @@ class CredentialImporter(ResourceImporter):
                 # The source (2.4) may have had multiple credentials with the same
                 # composite key; on the target we can only map them all to the one
                 # existing credential.
-                if create_err.status_code == 400 and "duplicate key" in str(
-                    create_err
-                ).lower():
+                err_str = str(create_err).lower()
+                if create_err.status_code == 400 and (
+                    "duplicate key" in err_str  # PostgreSQL DB-level error
+                    or "already exists" in err_str  # Django validation-level error
+                ):
                     params: dict[str, Any] = {"name": name}
                     if data.get("credential_type"):
                         params["credential_type"] = data["credential_type"]

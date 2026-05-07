@@ -1254,7 +1254,7 @@
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>Resources can be filtered or skipped for several reasons:</p>
 <ul>
-<li><strong>Intentional exclusion</strong>: Dynamic hosts, smart inventories, and disabled schedules are excluded by design</li>
+<li><strong>Intentional exclusion</strong>: Dynamic hosts, smart inventories, installer-created default credentials, and disabled schedules are excluded by design</li>
 <li><strong>Dependency validation</strong>: Resources with missing dependencies cannot be migrated</li>
 <li><strong>Idempotency</strong>: Already-migrated resources are skipped to prevent duplicates</li>
 <li><strong>System constraints</strong>: Some resources are read-only or non-deletable</li>
@@ -1298,6 +1298,12 @@
 <td>Hosts</td>
 <td>Same as <code>skip_dynamic_hosts</code> - excludes hosts with <code>has_inventory_sources=true</code>.</td>
 </tr>
+<tr>
+<td><code>skip_credential_names</code></td>
+<td><code>["Ansible Galaxy", "Default Execution Environment Registry Credential"]</code></td>
+<td>Credentials</td>
+<td>Excludes installer-created default credentials by name (case-insensitive). The target installer recreates these automatically. Use <code>[]</code> to migrate all credentials.</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Example configuration:</strong></p>
@@ -1305,6 +1311,10 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">skip_dynamic_hosts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">skip_smart_inventories</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">skip_pending_deletion_inventories</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="c1"># Remove entries or use [] to migrate these credentials</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">skip_credential_names</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ansible Galaxy</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Default Execution Environment Registry Credential</span>
 </code></pre></div>
 <h3 id="built-in-filters-not-configurable">Built-in Filters (Not Configurable)<a class="headerlink" href="#built-in-filters-not-configurable" title="Permanent link">&para;</a></h3>
 <table>
@@ -1521,6 +1531,12 @@
 </tr>
 <tr>
 <td>Export</td>
+<td>Installer-created default credentials</td>
+<td>Yes</td>
+<td>Check <code>skip_credential_names</code> setting</td>
+</tr>
+<tr>
+<td>Export</td>
 <td>Disabled schedules</td>
 <td>No</td>
 <td>Only enabled schedules are exported</td>
@@ -1583,7 +1599,7 @@
 <li><strong>Hosts</strong>: If <code>skip_dynamic_hosts=true</code> (default), dynamic hosts won't be counted</li>
 <li><strong>Inventories</strong>: Smart inventories and pending deletion inventories are excluded</li>
 <li><strong>Schedules</strong>: Disabled schedules are not exported</li>
-<li><strong>Credentials</strong>: Some may be skipped due to unmapped external types</li>
+<li><strong>Credentials</strong>: Installer-created defaults (<code>Ansible Galaxy</code>, <code>Default Execution Environment Registry Credential</code>) are skipped by default; others may be skipped due to unmapped external types</li>
 </ol>
 <h3 id="investigating-discrepancies">Investigating Discrepancies<a class="headerlink" href="#investigating-discrepancies" title="Permanent link">&para;</a></h3>
 <ol>
@@ -1623,6 +1639,9 @@
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="c1"># Include inventories pending deletion</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">skip_pending_deletion_inventories</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="c1"># Include installer-created default credentials (normally recreated by the target installer)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">skip_credential_names</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Changing Defaults</p>

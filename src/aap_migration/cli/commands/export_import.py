@@ -1470,8 +1470,15 @@ def import_cmd(
                 parent_field = PARENT_SCOPED_RESOURCES[resource_type]
                 name = resource_data.get("name")
                 source_parent_id = resource_data.get(parent_field)
+                # Schedules have a polymorphic parent: the concrete resource type is
+                # stored in _ujt_resource_type by ScheduleTransformer.  All other
+                # parent-scoped resources use the parent_field name as the resource type.
+                if parent_field == "unified_job_template":
+                    parent_resource_type = resource_data.get("_ujt_resource_type") or parent_field
+                else:
+                    parent_resource_type = parent_field
                 target_parent_id = (
-                    state.get_mapped_id(parent_field, source_parent_id)
+                    state.get_mapped_id(parent_resource_type, source_parent_id)
                     if source_parent_id is not None
                     else None
                 )

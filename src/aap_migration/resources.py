@@ -566,15 +566,21 @@ ORGANIZATION_SCOPED_RESOURCES = {
     "credentials",
     "job_templates",
     "workflow_job_templates",
+    "notification_templates",
     "teams",
 }
 
 # Parent-scoped resources: unique within parent resource
 # Format: {resource_type: parent_field_name}
+#
+# Note: schedules use a polymorphic parent (unified_job_template) whose concrete
+# resource type is stored in the _ujt_resource_type field added by ScheduleTransformer.
+# The precheck resolves it via that field rather than a fixed resource type name.
 PARENT_SCOPED_RESOURCES = {
     "hosts": "inventory",
     "groups": "inventory",
     "inventory_sources": "inventory",
+    "schedules": "unified_job_template",
 }
 
 

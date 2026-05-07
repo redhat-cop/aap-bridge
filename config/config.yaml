@@ -224,6 +224,12 @@ export:
     - Hub Default execution environment
     - Hub Minimal execution environment
     - Minimal execution environment
+  # Omit these installer-created credential names from export/import (case-insensitive).
+  # The AAP installer recreates them automatically in the target environment.
+  # Use [] to migrate all credentials.
+  skip_credential_names:
+    - Ansible Galaxy
+    - Default Execution Environment Registry Credential
   skip_pending_deletion_inventories: true
   skip_hosts_with_inventory_sources: false
   records_per_file: 1000

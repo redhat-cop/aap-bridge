@@ -578,6 +578,21 @@ def normalized_execution_environment_skip_names(names: list[str] | None) -> froz
     return frozenset(s.strip().casefold() for s in names if s and str(s).strip())
 
 
+# Default credential names created by the AAP installer that should not be migrated
+# because the installer in the target environment recreates them automatically.
+DEFAULT_SKIP_CREDENTIAL_NAMES: tuple[str, ...] = (
+    "Ansible Galaxy",
+    "Default Execution Environment Registry Credential",
+)
+
+
+def normalized_credential_skip_names(names: list[str] | None) -> frozenset[str]:
+    """Normalize credential display names for case-insensitive matching."""
+    if not names:
+        return frozenset()
+    return frozenset(s.strip().casefold() for s in names if s and str(s).strip())
+
+
 class ExportConfig(BaseModel):
     """Export configuration options."""
 
@@ -625,6 +640,14 @@ class ExportConfig(BaseModel):
         description=(
             "Execution environment `name` values to omit from export and import "
             "(case-insensitive). Edit this list in config; use [] to include all EEs."
+        ),
+    )
+    skip_credential_names: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_SKIP_CREDENTIAL_NAMES),
+        description=(
+            "Credential `name` values to omit from export and import "
+            "(case-insensitive). These are installer-created defaults that are "
+            "recreated automatically in the target environment. Use [] to migrate all."
         ),
     )
     records_per_file: int = Field(

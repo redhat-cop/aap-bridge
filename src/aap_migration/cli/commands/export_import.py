@@ -40,6 +40,7 @@ from aap_migration.migration.state import ExportRunContext, MigrationState
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.resources import (
     ORGANIZATION_SCOPED_RESOURCES,
+    PARENT_SCOPED_RESOURCES,
     RESOURCE_REGISTRY,
     ResourceCategory,
     get_endpoint,
@@ -1331,12 +1332,15 @@ def import_cmd(
             source_id = resource.get("_source_id")
             if identifier and source_id:
                 resource_identifiers.append(identifier)
-                # For org-scoped resources, two resources can share the same name as
-                # long as they belong to different organizations.  Key the dict on
-                # (name, source_org_id) so same-name resources in different orgs don't
-                # overwrite each other and get silently dropped.
+                # Resources that share a name across different parent scopes must use
+                # a composite key so same-name entries don't overwrite each other.
                 if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                    # Unique per (name, organization)
                     dict_key = (identifier, resource.get("organization"))
+                elif resource_type in PARENT_SCOPED_RESOURCES:
+                    # Unique per (name, parent) e.g. inventory_sources per inventory
+                    parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                    dict_key = (identifier, resource.get(parent_field))
                 else:
                     dict_key = identifier
                 resource_by_identifier[dict_key] = {"source_id": source_id, "data": resource}
@@ -1402,19 +1406,27 @@ def import_cmd(
                     resource_type=resource_type, filters=filters
                 )
 
-                # Index by identifier for fast lookup
-                # For organization-scoped resources, use composite key (name, organization)
+                # Index by identifier for fast lookup using the same scoping rules as
+                # resource_by_identifier (but with target-side IDs from the API response).
                 for existing_resource in existing_batch:
                     if resource_type in ORGANIZATION_SCOPED_RESOURCES:
-                        # Use (name, organization) as composite key
+                        # Unique per (name, organization)
                         name = existing_resource.get("name")
                         org = existing_resource.get("organization")
                         if name is not None:
                             # Handle null organization (some credentials can have null org)
                             key = (name, org) if org is not None else name
                             existing_by_identifier[key] = existing_resource
+                    elif resource_type in PARENT_SCOPED_RESOURCES:
+                        # Unique per (name, parent) e.g. inventory_sources per inventory
+                        parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                        name = existing_resource.get("name")
+                        parent_id = existing_resource.get(parent_field)
+                        if name is not None:
+                            key = (name, parent_id) if parent_id is not None else name
+                            existing_by_identifier[key] = existing_resource
                     else:
-                        # Use name only for globally unique resources
+                        # Globally unique resources — key by name/username/hostname
                         existing_identifier = existing_resource.get(identifier_field)
                         if existing_identifier:
                             existing_by_identifier[existing_identifier] = existing_resource
@@ -1443,20 +1455,31 @@ def import_cmd(
                 identifier[0] if isinstance(identifier, tuple) else identifier
             )
 
-            # Build lookup key based on resource scope
+            # Build lookup key based on resource scope.  Source-side IDs must be
+            # resolved to target-side IDs so the key matches existing_by_identifier.
             if resource_type in ORGANIZATION_SCOPED_RESOURCES:
-                # existing_by_identifier is keyed by (name, target_org_id).  The source
-                # data carries the source-side org ID, so we must resolve it to the
-                # target-side ID before the lookup; otherwise the keys will never match.
                 name = resource_data.get("name")
                 source_org_id = resource_data.get("organization")
-                if source_org_id is not None:
-                    target_org_id = state.get_mapped_id("organizations", source_org_id)
-                else:
-                    target_org_id = None
+                target_org_id = (
+                    state.get_mapped_id("organizations", source_org_id)
+                    if source_org_id is not None
+                    else None
+                )
                 lookup_key = (name, target_org_id) if target_org_id is not None else name
+            elif resource_type in PARENT_SCOPED_RESOURCES:
+                parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                name = resource_data.get("name")
+                source_parent_id = resource_data.get(parent_field)
+                target_parent_id = (
+                    state.get_mapped_id(parent_field, source_parent_id)
+                    if source_parent_id is not None
+                    else None
+                )
+                lookup_key = (
+                    (name, target_parent_id) if target_parent_id is not None else name
+                )
             else:
-                # For globally unique resources, use identifier (name/username/etc.)
+                # Globally unique resources — identifier is the plain name/username/etc.
                 lookup_key = identifier
 
             # Debug: Log lookup key being used

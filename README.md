@@ -84,7 +84,6 @@ sudo postgresql-setup --initdb
 
 # If you have kerberos, you likely need to change the IPv4 and IPv6 local connections to a newer METHOD, such as scram-sha-256.
 sudo vi /var/lib/pgsql/data/pg_hba.conf
-
 # IPv4 local connections:
 host    all             all             127.0.0.1/32            scram-sha-256
 # IPv6 local connections:
@@ -95,6 +94,8 @@ systemctl status postgresql # Check it's good.
 
 # Create database and user locally as the postgres user.
 psql -c "CREATE DATABASE aap_migration;"
+# If encryption was changed, update the password method for postgres prior to assigning a password
+psql -c "SET password_encryption = 'scram-sha-256';"
 psql -c "CREATE USER aap_migration_user WITH PASSWORD 'your_secure_password';"
 psql -c "GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;"
 # Ensure the user owns the schema/tables (Postgres 15+)
@@ -118,6 +119,11 @@ cp .env.example .env
 Edit `.env` with your AAP instance details and database connection string.
 
 **Critical AAP 2.6 Note:** The Target URL must point to the **Platform Gateway** (`/api/controller/v2`), not the direct controller API.
+
+To get your tokens easily, you can get them through the API with a curl command
+* For AAP 2.4 and earlier, `curl -k -X POST -u "<<username>>:<<password>>" -H "Content-Type: application/json" -d '{"description": "CLI Token", "scope": "write"}' https://<<aap_base_url>>/api/v2/tokens/ | jq -r '.token'`
+* For AAP 2.6 and later,  `curl -k -X POST -u "<<username>>:<<password>>" -H "Content-Type: application/json" -d '{"description": "CLI Token", "scope": "write"}' https://<<aap_base_url>>/api/gateway/v1/tokens/ | jq -r '.token'`
+
 
 ```bash
 

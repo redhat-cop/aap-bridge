@@ -12,7 +12,11 @@ from typing import Any, Protocol, runtime_checkable
 
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.client.exceptions import APIError
-from aap_migration.config import PerformanceConfig, normalized_execution_environment_skip_names
+from aap_migration.config import (
+    PerformanceConfig,
+    normalized_credential_skip_names,
+    normalized_execution_environment_skip_names,
+)
 from aap_migration.migration.state import MigrationState
 from aap_migration.resources import get_endpoint
 from aap_migration.utils.inventory_fk import parse_inventory_id_from_api_value
@@ -1193,6 +1197,7 @@ class CredentialExporter(ResourceExporter):
         client: AAPSourceClient,
         state: MigrationState,
         performance_config: PerformanceConfig,
+        skip_credential_names: list[str] | None = None,
     ):
         """Initialize credential exporter with credential type cache.
 
@@ -1200,10 +1205,37 @@ class CredentialExporter(ResourceExporter):
             client: AAP source client instance
             state: Migration state manager
             performance_config: Performance configuration
+            skip_credential_names: Credential names to skip (case-insensitive)
         """
         super().__init__(client, state, performance_config)
         self._credential_type_cache: dict[int, dict[str, Any]] = {}
         self._cache_loaded = False
+        self._skip_credential_names = normalized_credential_skip_names(skip_credential_names)
+
+    def _skip_credential(self, data: dict[str, Any]) -> bool:
+        if not self._skip_credential_names:
+            return False
+        name = data.get("name")
+        if not name or not isinstance(name, str):
+            return False
+        return name.strip().casefold() in self._skip_credential_names
+
+    async def _process_resource(
+        self, resource: dict[str, Any], resource_type: str
+    ) -> dict[str, Any] | None:
+        """Skip configured credential names during export."""
+        processed = await super()._process_resource(resource, resource_type)
+        if processed is None:
+            return None
+        if resource_type == "credentials" and self._skip_credential(processed):
+            self.stats["skipped_count"] += 1
+            logger.info(
+                "credential_skipped_by_config",
+                name=processed.get("name"),
+                source_id=processed.get("id"),
+            )
+            return None
+        return processed
 
     async def _load_credential_type_cache(self) -> None:
         """Pre-fetch all credential types into cache.
@@ -2443,6 +2475,7 @@ def create_exporter(
     state: MigrationState,
     performance_config: PerformanceConfig,
     skip_execution_environment_names: list[str] | None = None,
+    skip_credential_names: list[str] | None = None,
 ) -> ExporterProtocol:
     """Create appropriate exporter for resource type.
 
@@ -2452,6 +2485,7 @@ def create_exporter(
         state: Migration state manager
         performance_config: Performance configuration
         skip_execution_environment_names: Optional EE names to skip (export); defaults to no filter
+        skip_credential_names: Optional credential names to skip (export); defaults to no filter
 
     Returns:
         Exporter instance implementing ExporterProtocol
@@ -2504,6 +2538,14 @@ def create_exporter(
             state,
             performance_config,
             skip_execution_environment_names=skip_execution_environment_names,
+        )
+
+    if canonical_type == "credentials":
+        return CredentialExporter(
+            client,
+            state,
+            performance_config,
+            skip_credential_names=skip_credential_names,
         )
 
     return exporter_class(client, state, performance_config)

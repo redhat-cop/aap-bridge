@@ -110,6 +110,7 @@ class ParallelExportCoordinator:
                     self.migration_state,
                     self.performance_config,
                     skip_execution_environment_names=self.export_config.skip_execution_environment_names,
+                    skip_credential_names=self.export_config.skip_credential_names,
                 )
             except NotImplementedError as e:
                 # No exporter for this resource type - skip it gracefully

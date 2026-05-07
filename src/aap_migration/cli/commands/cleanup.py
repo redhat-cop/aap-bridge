@@ -26,7 +26,11 @@ from aap_migration.cli.utils import (
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.bulk_operations import BulkOperations
 from aap_migration.client.exceptions import APIError, NotFoundError, PendingDeletionError, ResourceInUseError
-from aap_migration.config import MigrationConfig, normalized_execution_environment_skip_names
+from aap_migration.config import (
+    MigrationConfig,
+    normalized_credential_skip_names,
+    normalized_execution_environment_skip_names,
+)
 from aap_migration.migration.database import get_session
 from aap_migration.migration.models import IDMapping, MigrationProgress
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
@@ -1147,6 +1151,9 @@ async def delete_resources(
         ee_skip_names = normalized_execution_environment_skip_names(
             config.export.skip_execution_environment_names
         )
+        cred_skip_names = normalized_credential_skip_names(
+            config.export.skip_credential_names
+        )
 
         # Filter resources to determine what to skip vs delete
         resources_to_delete = []
@@ -1174,6 +1181,14 @@ async def delete_resources(
                 if not skip_resource and is_managed:
                     skip_resource = True
                     skip_reason = "managed execution environment"
+
+            # Credentials: always respect the skip-name list regardless of --full / skip_default.
+            # These are installer-created defaults that should not be deleted from the target.
+            if resource_type == "credentials" and cred_skip_names:
+                rn = resource.get("name")
+                if rn and isinstance(rn, str) and rn.strip().casefold() in cred_skip_names:
+                    skip_resource = True
+                    skip_reason = "export.skip_credential_names"
 
             if skip_default:
                 # Skip Default organization (by name or by ID=1)

@@ -6,7 +6,7 @@ This document explains why resource counts in the target environment may be lowe
 
 Resources can be filtered or skipped for several reasons:
 
-- **Intentional exclusion**: Dynamic hosts, smart inventories, and disabled schedules are excluded by design
+- **Intentional exclusion**: Dynamic hosts, smart inventories, installer-created default credentials, and disabled schedules are excluded by design
 - **Dependency validation**: Resources with missing dependencies cannot be migrated
 - **Idempotency**: Already-migrated resources are skipped to prevent duplicates
 - **System constraints**: Some resources are read-only or non-deletable
@@ -27,6 +27,7 @@ These filters are controlled via `config.yaml` under the `export:` section:
 | `skip_smart_inventories` | `true` | Inventories | Excludes smart inventories (computed inventories). Only static inventories are exported. |
 | `skip_pending_deletion_inventories` | `true` | Inventories | Excludes inventories marked for deletion in the source. |
 | `skip_hosts_with_inventory_sources` | `true` | Hosts | Same as `skip_dynamic_hosts` - excludes hosts with `has_inventory_sources=true`. |
+| `skip_credential_names` | `["Ansible Galaxy", "Default Execution Environment Registry Credential"]` | Credentials | Excludes installer-created default credentials by name (case-insensitive). The target installer recreates these automatically. Use `[]` to migrate all credentials. |
 
 **Example configuration:**
 
@@ -35,6 +36,10 @@ export:
   skip_dynamic_hosts: true
   skip_smart_inventories: true
   skip_pending_deletion_inventories: true
+  # Remove entries or use [] to migrate these credentials
+  skip_credential_names:
+    - Ansible Galaxy
+    - Default Execution Environment Registry Credential
 ```
 
 ### Built-in Filters (Not Configurable)
@@ -137,6 +142,7 @@ The cleanup command excludes certain resources that cannot be deleted.
 |-------|--------|---------------|-----------------|
 | Export | Dynamic hosts (inventory source managed) | Yes | Check `skip_dynamic_hosts` setting |
 | Export | Smart/pending deletion inventories | Yes | Check `skip_smart_inventories` setting |
+| Export | Installer-created default credentials | Yes | Check `skip_credential_names` setting |
 | Export | Disabled schedules | No | Only enabled schedules are exported |
 | Transform | Missing organization | No | Check export logs for organization |
 | Transform | Missing credential type | No | Ensure credential types exported first |
@@ -158,7 +164,7 @@ When comparing source and target counts, consider:
 1. **Hosts**: If `skip_dynamic_hosts=true` (default), dynamic hosts won't be counted
 2. **Inventories**: Smart inventories and pending deletion inventories are excluded
 3. **Schedules**: Disabled schedules are not exported
-4. **Credentials**: Some may be skipped due to unmapped external types
+4. **Credentials**: Installer-created defaults (`Ansible Galaxy`, `Default Execution Environment Registry Credential`) are skipped by default; others may be skipped due to unmapped external types
 
 ### Investigating Discrepancies
 
@@ -201,6 +207,9 @@ export:
 
   # Include inventories pending deletion
   skip_pending_deletion_inventories: false
+
+  # Include installer-created default credentials (normally recreated by the target installer)
+  skip_credential_names: []
 ```
 
 !!! warning "Changing Defaults"

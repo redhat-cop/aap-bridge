@@ -460,6 +460,7 @@ def export(
                         ctx.migration_state,
                         ctx.config.performance,
                         skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                        skip_credential_names=ctx.config.export.skip_credential_names,
                     )
                 except NotImplementedError as e:
                     # Exporter not implemented yet
@@ -595,6 +596,7 @@ def export(
                             ctx.migration_state,
                             ctx.config.performance,
                             skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                            skip_credential_names=ctx.config.export.skip_credential_names,
                         )
 
                         # Apply skip_dynamic_hosts filter for hosts
@@ -1728,6 +1730,7 @@ def import_cmd(
                                 ctx.config.performance,
                                 ctx.config.resource_mappings,
                                 skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                                skip_credential_names=ctx.config.export.skip_credential_names,
                             )
                         except NotImplementedError:
                             logger.info(
@@ -1910,6 +1913,7 @@ def import_cmd(
                                         ctx.config.performance,
                                         ctx.config.resource_mappings,
                                         skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                                        skip_credential_names=ctx.config.export.skip_credential_names,
                                     )
                                     if hasattr(user_importer, "sync_team_memberships_for_existing_users"):
                                         await user_importer.sync_team_memberships_for_existing_users(
@@ -2120,6 +2124,7 @@ def import_cmd(
                             ctx.config.performance,
                             ctx.config.resource_mappings,
                             skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                            skip_credential_names=ctx.config.export.skip_credential_names,
                         )
                         n = await user_importer.sync_user_resource_role_grants_from_xformed(
                             input_dir
@@ -2138,6 +2143,7 @@ def import_cmd(
                             ctx.config.performance,
                             ctx.config.resource_mappings,
                             skip_execution_environment_names=ctx.config.export.skip_execution_environment_names,
+                            skip_credential_names=ctx.config.export.skip_credential_names,
                         )
                         n = await team_importer.sync_team_resource_role_grants_from_xformed(
                             input_dir

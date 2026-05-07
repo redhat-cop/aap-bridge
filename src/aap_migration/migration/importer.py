@@ -3231,16 +3231,18 @@ class CredentialImporter(ResourceImporter):
         data.pop("_encrypted_fields", None)
         data.pop("_needs_vault_lookup", None)
 
+        original_name = name  # preserved for save_id_mapping if a rename occurs
         try:
             # AAP 2.6 enforces a unique constraint on (organization_id, name,
             # credential_type_id) at the database level, even though AAP 2.4 on the
             # source did not always do so.  There is therefore no reliable composite key
             # to match a source credential to an existing target credential before
             # attempting the CREATE.  Always try to CREATE; if the target rejects it
-            # with a 400 "duplicate key" error we fall back to finding the already-
-            # existing credential and mapping to it.  Idempotency on re-runs is handled
-            # by the is_migrated() check above (MigrationProgress) and by
-            # batch_precheck_resources restoring IDMapping from MigrationProgress.
+            # with a 400 "duplicate key" error we rename the credential so that every
+            # source credential gets its own distinct target credential, which preserves
+            # correct dependency resolution for downstream objects.  Idempotency on
+            # re-runs is handled by the is_migrated() check above (MigrationProgress)
+            # and by batch_precheck_resources restoring IDMapping from MigrationProgress.
             logger.info(
                 "credential_creating",
                 name=name,
@@ -3266,46 +3268,68 @@ class CredentialImporter(ResourceImporter):
                     target_id=target_id,
                 )
             except APIError as create_err:
-                # AAP 2.6 returns 400 when (org, name, credential_type) already exists.
-                # The source (2.4) may have had multiple credentials with the same
-                # composite key; on the target we can only map them all to the one
-                # existing credential.
+                # AAP 2.6 enforces a unique (org, name, credential_type) constraint that
+                # the source AAP 2.4 did not always enforce.  When two source credentials
+                # share an identical composite key, rename the duplicate so that every
+                # source credential maps to its own distinct target credential.  This
+                # preserves correct dependency resolution for any job templates, projects,
+                # etc. that referenced the duplicate source credential.
+                #
+                # Naming convention: "<original name> [src:<source_id>]"
+                # The source ID is appended to the description as well so the rename
+                # is self-documenting on the target.
                 err_str = str(create_err).lower()
                 if create_err.status_code == 400 and (
                     "duplicate key" in err_str  # PostgreSQL DB-level error
                     or "already exists" in err_str  # Django validation-level error
                 ):
-                    params: dict[str, Any] = {"name": name}
-                    if data.get("credential_type"):
-                        params["credential_type"] = data["credential_type"]
-                    if data.get("organization"):
-                        params["organization"] = data["organization"]
-                    lookup = await self.client.get("credentials/", params=params)
-                    existing = lookup.get("results", [])
-                    if existing:
-                        target_id = existing[0]["id"]
-                        logger.warning(
-                            "credential_duplicate_mapped_to_existing",
-                            name=name,
-                            source_id=source_id,
-                            target_id=target_id,
-                            message=(
-                                "Source had duplicate credentials with the same "
-                                "(name, org, type); mapped to the single target credential"
-                            ),
-                        )
-                        result = {"id": target_id, "name": name, "_duplicate": True}
-                    else:
-                        raise
+                    original_name = name
+                    renamed = f"{original_name} [src:{source_id}]"
+                    original_description = data.get("description") or ""
+                    rename_note = (
+                        f"Renamed from '{original_name}' during migration: source "
+                        f"environment had a duplicate credential with the same name, "
+                        f"organization, and type (source id: {source_id})."
+                    )
+                    data["name"] = renamed
+                    data["description"] = (
+                        f"{original_description}\n{rename_note}".strip()
+                    )
+                    logger.warning(
+                        "credential_duplicate_renamed",
+                        original_name=original_name,
+                        renamed_to=renamed,
+                        source_id=source_id,
+                        message=(
+                            "Source had a duplicate credential with the same "
+                            "(name, org, type); renamed on target to preserve "
+                            "distinct mapping for dependency resolution"
+                        ),
+                    )
+                    result = await self.client.create_resource(
+                        resource_type="credentials",
+                        data=data,
+                        check_exists=False,
+                    )
+                    target_id = result["id"]
+                    name = renamed  # keep target_name in sync for mapping below
+                    logger.info(
+                        "credential_created_with_rename",
+                        original_name=original_name,
+                        renamed_to=renamed,
+                        source_id=source_id,
+                        target_id=target_id,
+                    )
                 else:
                     raise
 
-            # Save mapping
+            # Save mapping (source_name is the original pre-rename name; target_name
+            # reflects whatever name the credential actually has on the target).
             self.state.save_id_mapping(
                 resource_type=resource_type,
                 source_id=source_id,
                 target_id=target_id,
-                source_name=name,
+                source_name=original_name,
                 target_name=name,
             )
             self.state.mark_completed(

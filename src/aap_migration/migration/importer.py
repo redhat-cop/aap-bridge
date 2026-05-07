@@ -3232,8 +3232,23 @@ class CredentialImporter(ResourceImporter):
         data.pop("_needs_vault_lookup", None)
 
         try:
-            # Find existing credential in target by name
-            results = await self.client.get("credentials/", params={"name": name})
+            # Find existing credential in target by name AND credential_type.
+            # AAP allows multiple credentials with the same name when they have
+            # different credential types, so we must filter by type to avoid
+            # mapping this credential to the wrong same-name credential.
+            query_params: dict[str, Any] = {"name": name}
+            source_cred_type_id = data.get("credential_type")
+            if source_cred_type_id:
+                target_cred_type_id = self.state.get_mapped_id(
+                    "credential_types", source_cred_type_id
+                )
+                if target_cred_type_id is None and source_cred_type_id <= self.BUILTIN_CREDENTIAL_TYPE_MAX_ID:
+                    # Built-in types keep the same ID across environments.
+                    target_cred_type_id = source_cred_type_id
+                if target_cred_type_id is not None:
+                    query_params["credential_type"] = target_cred_type_id
+
+            results = await self.client.get("credentials/", params=query_params)
             resources = results.get("results", [])
 
             if resources:

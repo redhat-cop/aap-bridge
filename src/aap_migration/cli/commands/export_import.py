@@ -40,6 +40,7 @@ from aap_migration.migration.state import ExportRunContext, MigrationState
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.resources import (
     ORGANIZATION_SCOPED_RESOURCES,
+    PARENT_SCOPED_RESOURCES,
     RESOURCE_REGISTRY,
     ResourceCategory,
     get_endpoint,
@@ -1272,6 +1273,53 @@ def import_cmd(
             source_id_count=len(source_ids_for_reset),
         )
 
+        # Step 2 (credentials only): Credentials have no reliable composite unique key in
+        # AAP — the same name, organization, and credential_type can all be shared by
+        # multiple credentials.  Name-based target matching is therefore fundamentally
+        # unreliable.  Instead, restore IDMapping entries from MigrationProgress (which
+        # is never cleared) for credentials that were already imported in a previous run,
+        # and send everything else straight to the importer as a fresh CREATE.
+        if resource_type == "credentials":
+            to_import = []
+            found_count = 0
+            for resource in resources:
+                source_id = resource.get("_source_id")
+                name = resource.get("name")
+                if source_id is None:
+                    to_import.append(resource)
+                    continue
+                target_id = state.get_progress_target_id("credentials", source_id)
+                if target_id is not None:
+                    # Already imported in a previous run — restore the IDMapping row that
+                    # was cleared by reset_target_ids_for_source_ids above.
+                    state.save_id_mapping(
+                        resource_type="credentials",
+                        source_id=source_id,
+                        target_id=target_id,
+                        source_name=name,
+                        target_name=name,
+                    )
+                    found_count += 1
+                    logger.debug(
+                        "credential_mapping_restored_from_progress",
+                        source_id=source_id,
+                        target_id=target_id,
+                        name=name,
+                    )
+                else:
+                    to_import.append(resource)
+
+            if found_count > 0:
+                progress.update_phase(phase_id, 0, 0, found_count)
+                logger.info(
+                    "pre_existing_resources_found",
+                    resource_type=resource_type,
+                    already_existing=found_count,
+                    to_import=len(to_import),
+                    total=len(resources),
+                )
+            return to_import
+
         # Step 2: Get identifier field from importer
         identifier_field = getattr(importer, "IDENTIFIER_FIELD", "name")
 
@@ -1284,12 +1332,15 @@ def import_cmd(
             source_id = resource.get("_source_id")
             if identifier and source_id:
                 resource_identifiers.append(identifier)
-                # Credentials are unique by (name, organization, credential_type) in AAP,
-                # so two credentials can share a name if they have different types.
-                # Use a composite dict key to prevent same-name credentials from
-                # overwriting each other and being silently dropped.
-                if resource_type == "credentials":
-                    dict_key = (identifier, resource.get("credential_type"))
+                # Resources that share a name across different parent scopes must use
+                # a composite key so same-name entries don't overwrite each other.
+                if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                    # Unique per (name, organization)
+                    dict_key = (identifier, resource.get("organization"))
+                elif resource_type in PARENT_SCOPED_RESOURCES:
+                    # Unique per (name, parent) e.g. inventory_sources per inventory
+                    parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                    dict_key = (identifier, resource.get(parent_field))
                 else:
                     dict_key = identifier
                 resource_by_identifier[dict_key] = {"source_id": source_id, "data": resource}
@@ -1355,28 +1406,27 @@ def import_cmd(
                     resource_type=resource_type, filters=filters
                 )
 
-                # Index by identifier for fast lookup
-                # For organization-scoped resources, use composite key (name, organization)
+                # Index by identifier for fast lookup using the same scoping rules as
+                # resource_by_identifier (but with target-side IDs from the API response).
                 for existing_resource in existing_batch:
-                    if resource_type == "credentials":
-                        # Credentials are unique by (name, organization, credential_type).
-                        # Two credentials can share a name when they have different types.
-                        name = existing_resource.get("name")
-                        org = existing_resource.get("organization")
-                        cred_type = existing_resource.get("credential_type")
-                        if name is not None:
-                            key = (name, org, cred_type)
-                            existing_by_identifier[key] = existing_resource
-                    elif resource_type in ORGANIZATION_SCOPED_RESOURCES:
-                        # Use (name, organization) as composite key
+                    if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                        # Unique per (name, organization)
                         name = existing_resource.get("name")
                         org = existing_resource.get("organization")
                         if name is not None:
                             # Handle null organization (some credentials can have null org)
                             key = (name, org) if org is not None else name
                             existing_by_identifier[key] = existing_resource
+                    elif resource_type in PARENT_SCOPED_RESOURCES:
+                        # Unique per (name, parent) e.g. inventory_sources per inventory
+                        parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                        name = existing_resource.get("name")
+                        parent_id = existing_resource.get(parent_field)
+                        if name is not None:
+                            key = (name, parent_id) if parent_id is not None else name
+                            existing_by_identifier[key] = existing_resource
                     else:
-                        # Use name only for globally unique resources
+                        # Globally unique resources — key by name/username/hostname
                         existing_identifier = existing_resource.get(identifier_field)
                         if existing_identifier:
                             existing_by_identifier[existing_identifier] = existing_resource
@@ -1395,46 +1445,48 @@ def import_cmd(
         found_count = 0
         to_import = []
 
-        # Built-in AAP credential type IDs are stable across environments (same IDs in source
-        # and target).  Custom types (above this threshold) require an ID-mapping lookup.
-        _BUILTIN_CRED_TYPE_MAX_ID = 27
-
         for identifier, resource_info in resource_by_identifier.items():
             source_id = resource_info["source_id"]
             resource_data = resource_info["data"]
 
-            # Derive the plain resource name regardless of whether identifier is a
-            # simple string (most resource types) or a composite tuple (credentials).
-            resource_name = resource_data.get("name") or (
+            # Derive the plain resource name regardless of whether the dict key is a
+            # simple string (globally unique resources) or a (name, org_id) tuple.
+            resource_name = resource_data.get(identifier_field) or (
                 identifier[0] if isinstance(identifier, tuple) else identifier
             )
 
-            # Build lookup key based on resource scope
-            if resource_type == "credentials":
-                # Credentials are unique by (name, organization, credential_type).
-                # Resolve the source credential_type ID to the target ID so the lookup
-                # key matches what was indexed from the target API response.
+            # Build lookup key based on resource scope.  Source-side IDs must be
+            # resolved to target-side IDs so the key matches existing_by_identifier.
+            if resource_type in ORGANIZATION_SCOPED_RESOURCES:
                 name = resource_data.get("name")
-                org = resource_data.get("organization")
-                source_cred_type_id = resource_data.get("credential_type")
-                if source_cred_type_id is not None:
-                    target_cred_type_id = state.get_mapped_id(
-                        "credential_types", source_cred_type_id
-                    )
-                    if target_cred_type_id is None and source_cred_type_id <= _BUILTIN_CRED_TYPE_MAX_ID:
-                        # Built-in types keep the same ID across environments.
-                        target_cred_type_id = source_cred_type_id
+                source_org_id = resource_data.get("organization")
+                target_org_id = (
+                    state.get_mapped_id("organizations", source_org_id)
+                    if source_org_id is not None
+                    else None
+                )
+                lookup_key = (name, target_org_id) if target_org_id is not None else name
+            elif resource_type in PARENT_SCOPED_RESOURCES:
+                parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                name = resource_data.get("name")
+                source_parent_id = resource_data.get(parent_field)
+                # Schedules have a polymorphic parent: the concrete resource type is
+                # stored in _ujt_resource_type by ScheduleTransformer.  All other
+                # parent-scoped resources use the parent_field name as the resource type.
+                if parent_field == "unified_job_template":
+                    parent_resource_type = resource_data.get("_ujt_resource_type") or parent_field
                 else:
-                    target_cred_type_id = None
-                lookup_key = (name, org, target_cred_type_id)
-            elif resource_type in ORGANIZATION_SCOPED_RESOURCES:
-                # For org-scoped resources, use (name, organization) as key
-                name = resource_data.get("name")
-                org = resource_data.get("organization")
-                # Handle null organization (some credentials can have null org)
-                lookup_key = (name, org) if org is not None else name
+                    parent_resource_type = parent_field
+                target_parent_id = (
+                    state.get_mapped_id(parent_resource_type, source_parent_id)
+                    if source_parent_id is not None
+                    else None
+                )
+                lookup_key = (
+                    (name, target_parent_id) if target_parent_id is not None else name
+                )
             else:
-                # For globally unique resources, use identifier (name)
+                # Globally unique resources — identifier is the plain name/username/etc.
                 lookup_key = identifier
 
             # Debug: Log lookup key being used

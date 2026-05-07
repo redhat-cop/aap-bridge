@@ -971,6 +971,48 @@ class MigrationState:
                 )
                 raise StateError(f"Failed to get mapped ID: {e}") from e
 
+    def get_progress_target_id(
+        self,
+        resource_type: str,
+        source_id: int,
+    ) -> int | None:
+        """Get the target ID stored in MigrationProgress for a source resource.
+
+        Unlike get_mapped_id() which reads IDMapping (reset between runs), this
+        reads MigrationProgress which is never cleared, making it safe to call
+        after reset_target_ids_for_source_ids() has nulled out IDMapping rows.
+
+        Args:
+            resource_type: Type of resource
+            source_id: Source system resource ID
+
+        Returns:
+            Target ID recorded when the resource was last completed, or None
+        """
+        resource_type = self._normalize(resource_type)
+        with self._lock:
+            try:
+                with get_session(self.database_url) as session:
+                    progress = (
+                        session.query(MigrationProgress)
+                        .filter_by(
+                            resource_type=resource_type,
+                            source_id=source_id,
+                            status="completed",
+                        )
+                        .first()
+                    )
+                    return progress.target_id if progress else None
+
+            except Exception as e:
+                logger.error(
+                    "failed_to_get_progress_target_id",
+                    resource_type=resource_type,
+                    source_id=source_id,
+                    error=str(e),
+                )
+                raise StateError(f"Failed to get progress target ID: {e}") from e
+
     def get_mapped_id_by_name(
         self,
         resource_type: str,

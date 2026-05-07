@@ -1331,7 +1331,15 @@ def import_cmd(
             source_id = resource.get("_source_id")
             if identifier and source_id:
                 resource_identifiers.append(identifier)
-                resource_by_identifier[identifier] = {"source_id": source_id, "data": resource}
+                # For org-scoped resources, two resources can share the same name as
+                # long as they belong to different organizations.  Key the dict on
+                # (name, source_org_id) so same-name resources in different orgs don't
+                # overwrite each other and get silently dropped.
+                if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                    dict_key = (identifier, resource.get("organization"))
+                else:
+                    dict_key = identifier
+                resource_by_identifier[dict_key] = {"source_id": source_id, "data": resource}
 
         if not resource_identifiers:
             logger.warning(
@@ -1429,15 +1437,26 @@ def import_cmd(
             source_id = resource_info["source_id"]
             resource_data = resource_info["data"]
 
+            # Derive the plain resource name regardless of whether the dict key is a
+            # simple string (globally unique resources) or a (name, org_id) tuple.
+            resource_name = resource_data.get(identifier_field) or (
+                identifier[0] if isinstance(identifier, tuple) else identifier
+            )
+
             # Build lookup key based on resource scope
             if resource_type in ORGANIZATION_SCOPED_RESOURCES:
-                # For org-scoped resources, use (name, organization) as key
+                # existing_by_identifier is keyed by (name, target_org_id).  The source
+                # data carries the source-side org ID, so we must resolve it to the
+                # target-side ID before the lookup; otherwise the keys will never match.
                 name = resource_data.get("name")
-                org = resource_data.get("organization")
-                # Handle null organization (some credentials can have null org)
-                lookup_key = (name, org) if org is not None else name
+                source_org_id = resource_data.get("organization")
+                if source_org_id is not None:
+                    target_org_id = state.get_mapped_id("organizations", source_org_id)
+                else:
+                    target_org_id = None
+                lookup_key = (name, target_org_id) if target_org_id is not None else name
             else:
-                # For globally unique resources, use identifier (name)
+                # For globally unique resources, use identifier (name/username/etc.)
                 lookup_key = identifier
 
             # Debug: Log lookup key being used
@@ -1457,7 +1476,7 @@ def import_cmd(
                     resource_type=mapping_resource_type,
                     source_id=source_id,
                     target_id=existing["id"],
-                    source_name=identifier,
+                    source_name=resource_name,
                     target_name=existing.get(identifier_field),
                 )
 

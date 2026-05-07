@@ -3232,34 +3232,71 @@ class CredentialImporter(ResourceImporter):
         data.pop("_needs_vault_lookup", None)
 
         try:
-            # AAP permits credentials with identical (name, organization, credential_type),
-            # so there is no reliable composite key to match a source credential against an
-            # existing target credential.  Always CREATE a new credential; idempotency on
-            # re-runs is handled by the is_migrated() check above (MigrationProgress) and
-            # by batch_precheck_resources restoring IDMapping from MigrationProgress.
+            # AAP 2.6 enforces a unique constraint on (organization_id, name,
+            # credential_type_id) at the database level, even though AAP 2.4 on the
+            # source did not always do so.  There is therefore no reliable composite key
+            # to match a source credential to an existing target credential before
+            # attempting the CREATE.  Always try to CREATE; if the target rejects it
+            # with a 400 "duplicate key" error we fall back to finding the already-
+            # existing credential and mapping to it.  Idempotency on re-runs is handled
+            # by the is_migrated() check above (MigrationProgress) and by
+            # batch_precheck_resources restoring IDMapping from MigrationProgress.
             logger.info(
                 "credential_creating",
                 name=name,
                 source_id=source_id,
             )
 
-            # Resolve dependencies
+            # Resolve dependencies first so we have the target-side IDs for any
+            # duplicate-key fallback query below.
             if resolve_dependencies:
                 data = await self._resolve_dependencies(resource_type, data)
 
-            result = await self.client.create_resource(
-                resource_type="credentials",
-                data=data,
-                check_exists=False,
-            )
-
-            target_id = result["id"]
-            logger.info(
-                "credential_created",
-                name=name,
-                source_id=source_id,
-                target_id=target_id,
-            )
+            try:
+                result = await self.client.create_resource(
+                    resource_type="credentials",
+                    data=data,
+                    check_exists=False,
+                )
+                target_id = result["id"]
+                logger.info(
+                    "credential_created",
+                    name=name,
+                    source_id=source_id,
+                    target_id=target_id,
+                )
+            except APIError as create_err:
+                # AAP 2.6 returns 400 when (org, name, credential_type) already exists.
+                # The source (2.4) may have had multiple credentials with the same
+                # composite key; on the target we can only map them all to the one
+                # existing credential.
+                if create_err.status_code == 400 and "duplicate key" in str(
+                    create_err
+                ).lower():
+                    params: dict[str, Any] = {"name": name}
+                    if data.get("credential_type"):
+                        params["credential_type"] = data["credential_type"]
+                    if data.get("organization"):
+                        params["organization"] = data["organization"]
+                    lookup = await self.client.get("credentials/", params=params)
+                    existing = lookup.get("results", [])
+                    if existing:
+                        target_id = existing[0]["id"]
+                        logger.warning(
+                            "credential_duplicate_mapped_to_existing",
+                            name=name,
+                            source_id=source_id,
+                            target_id=target_id,
+                            message=(
+                                "Source had duplicate credentials with the same "
+                                "(name, org, type); mapped to the single target credential"
+                            ),
+                        )
+                        result = {"id": target_id, "name": name, "_duplicate": True}
+                    else:
+                        raise
+                else:
+                    raise
 
             # Save mapping
             self.state.save_id_mapping(

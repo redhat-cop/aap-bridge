@@ -341,6 +341,13 @@ def export(
             if nt not in DEFAULT_MIGRATION_EXCLUDED_TYPES:
                 types_to_export.append(nt)
 
+    # Sort by migration_order so export display matches transform and import order
+    types_to_export.sort(
+        key=lambda rt: RESOURCE_REGISTRY[rt].migration_order
+        if rt in RESOURCE_REGISTRY
+        else 999
+    )
+
     # Check if parallel resource type export is enabled
     parallel_types_enabled = ctx.config.performance.parallel_resource_types
     if not resume:

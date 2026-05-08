@@ -3038,6 +3038,26 @@ class HostImporter(ResourceImporter):
                     self.stats["skipped_count"] += 1
                     batch_skipped += 1
                     continue
+                mapped_target_id = self.state.get_mapped_id("hosts", source_id)
+                if mapped_target_id is not None:
+                    # Host already has an id_mapping from a prior run; treat as migrated.
+                    self.state.mark_completed(
+                        resource_type="hosts",
+                        source_id=source_id,
+                        target_id=mapped_target_id,
+                        source_name=source_name,
+                        target_name=source_name,
+                    )
+                    self.stats["skipped_count"] += 1
+                    batch_skipped += 1
+                    continue
+
+                self.state.mark_in_progress(
+                    resource_type="hosts",
+                    source_id=source_id,
+                    source_name=source_name,
+                    phase="import",
+                )
 
                 source_ids.append(source_id)
                 source_info.append(
@@ -3078,17 +3098,29 @@ class HostImporter(ResourceImporter):
                     mappings = []
                     for idx, created_host in enumerate(created_hosts):
                         if idx < len(source_info):
+                            source_id = source_info[idx]["source_id"]
+                            source_name = source_info[idx]["source_name"]
+                            target_id = created_host["id"]
                             mappings.append(
                                 {
                                     "resource_type": "hosts",
-                                    "source_id": source_info[idx]["source_id"],
-                                    "target_id": created_host["id"],
-                                    "source_name": source_info[idx]["source_name"],
+                                    "source_id": source_id,
+                                    "target_id": target_id,
+                                    "source_name": source_name,
                                     "target_name": created_host.get("name"),
                                 }
                             )
 
                     self.state.batch_create_mappings(mappings)
+                    for idx, created_host in enumerate(created_hosts):
+                        if idx >= len(source_info):
+                            break
+                        self.state.mark_completed(
+                            resource_type="hosts",
+                            source_id=source_info[idx]["source_id"],
+                            target_id=created_host["id"],
+                            target_name=created_host.get("name"),
+                        )
 
                     # Associate each created host with its groups
                     for idx, created_host in enumerate(created_hosts):

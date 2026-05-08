@@ -341,6 +341,8 @@ class TestHostImporter:
         assert result["total_created"] == 2
         assert result["total_failed"] == 0
         assert host_importer.stats["imported_count"] == 2
+        assert mock_state.mark_in_progress.call_count == 2
+        assert mock_state.mark_completed.call_count == 2
 
     @pytest.mark.asyncio
     async def test_import_hosts_bulk_partial_failure(self, host_importer, mock_state):
@@ -392,6 +394,22 @@ class TestHostImporter:
 
         # No hosts should be created
         assert host_importer.stats["skipped_count"] == 1
+        mock_state.mark_in_progress.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_import_hosts_skips_when_mapping_exists(self, host_importer, mock_state):
+        """Mapped hosts should be treated as already imported on rerun."""
+        mock_state.is_migrated.return_value = False
+        mock_state.get_mapped_id.return_value = 777
+        host_importer.bulk_ops.bulk_create_hosts = AsyncMock(return_value={"hosts": [], "failed": []})
+
+        hosts = [{"_source_id": 1, "name": "host-1", "enabled": True}]
+
+        await host_importer.import_hosts_bulk(inventory_id=100, hosts=hosts)
+
+        assert host_importer.stats["skipped_count"] == 1
+        host_importer.bulk_ops.bulk_create_hosts.assert_not_called()
+        mock_state.mark_completed.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_import_hosts_bulk_skips_smart_inventory(self, host_importer, mock_client):

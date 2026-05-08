@@ -1114,6 +1114,8 @@ in the repository.</p>
 <li>Import dispatch table corrected for <code>notification_templates</code>, <code>credential_input_sources</code>,
   <code>rbac</code>, and <code>workflow_job_templates</code></li>
 <li>400 "pending deletion" responses treated as idempotent skips</li>
+<li>Credential type reruns now map "already exists" conflicts and mark completed state</li>
+<li>Host bulk import reruns now skip already-mapped hosts and persist host progress state</li>
 </ul>
 <h3 id="v010">v0.1.0<a class="headerlink" href="#v010" title="Permanent link">&para;</a></h3>
 <p>Initial release of AAP Bridge.</p>

@@ -1442,6 +1442,8 @@ credential type cannot be mapped to the target environment.</p>
 <ul>
 <li>The state database tracks <code>source_id → target_id</code> mappings</li>
 <li>On subsequent runs, migrated resources are skipped</li>
+<li>Host bulk imports also consult existing host mappings to avoid duplicate creates</li>
+<li>Credential type create conflicts are reconciled to existing targets and marked completed</li>
 <li><strong>Stats:</strong> Increments <code>skipped_count</code></li>
 </ul>
 <h3 id="managed-resources">Managed Resources<a class="headerlink" href="#managed-resources" title="Permanent link">&para;</a></h3>

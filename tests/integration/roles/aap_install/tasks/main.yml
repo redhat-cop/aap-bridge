@@ -1,0 +1,106 @@
+---
+- name: Load version matrix
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Set version config
+  ansible.builtin.set_fact:
+    ver_config: "{{ aap_versions[aap_version] }}"
+
+- name: Check for subscription manifest
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/../files/manifest"
+    patterns: "*.zip"
+  register: manifest_preflight
+
+- name: Warn if no subscription manifest found
+  ansible.builtin.debug:
+    msg: >
+      NOTE: No subscription manifest found in tests/integration/files/manifest/*.zip.
+      The AAP instance will be unlicensed after install. See docs/developer-guide/testing.md
+      for instructions on obtaining and placing a manifest file.
+  when: manifest_preflight.files | length == 0
+
+- name: Download installer bundle if needed
+  ansible.builtin.include_tasks: download-bundle.yml
+
+- name: Register RHEL subscription inside container
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        subscription-manager register
+          --username={{ rhsm_username }}
+          --password={{ rhsm_password }}
+          --auto-attach
+  no_log: true
+  when:
+    - (rhsm_username | default('', true) | length) > 0
+    - (rhsm_password | default('', true) | length) > 0
+  register: rhsm_result
+  failed_when:
+    - rhsm_result.rc != 0
+    - "'already registered' not in (rhsm_result.stderr | default(''))"
+
+- name: Enable required repos
+  ansible.builtin.command:
+    cmd: "podman exec {{ container_name }} subscription-manager repos --enable={{ item }}"
+  loop: "{{ ver_config.repos }}"
+  when:
+    - (rhsm_username | default('', true) | length) > 0
+    - (rhsm_password | default('', true) | length) > 0
+
+- name: Copy installer bundle into container
+  ansible.builtin.command:
+    cmd: "podman cp {{ bundle_file }} {{ container_name }}:/tmp/"
+
+- name: Extract installer bundle
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        tar xzf /tmp/{{ bundle_filename }} -C /opt/
+
+- name: Find installer directory
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        find /opt -maxdepth 1 -name 'ansible-automation-platform-*setup*' -type d
+  register: installer_dir_result
+  changed_when: false
+
+- name: Set installer directory
+  ansible.builtin.set_fact:
+    installer_dir: "{{ installer_dir_result.stdout_lines[0] }}"
+
+- name: Get container hostname for installer inventory
+  ansible.builtin.command:
+    cmd: "podman exec {{ container_name }} hostname"
+  register: container_hostname_result
+  changed_when: false
+
+- name: Set container hostname fact
+  ansible.builtin.set_fact:
+    container_hostname: "{{ container_hostname_result.stdout | trim }}"
+
+- name: Generate installer inventory
+  ansible.builtin.template:
+    src: "{{ ver_config.inventory_template }}"
+    dest: "/tmp/aap-inventory-{{ container_name }}"
+    mode: "0644"
+
+- name: Copy inventory into container
+  ansible.builtin.command:
+    cmd: >
+      podman cp
+        /tmp/aap-inventory-{{ container_name }}
+        {{ container_name }}:{{ installer_dir }}/inventory
+
+- name: Run AAP installer (RPM method)
+  ansible.builtin.include_tasks: install-rpm.yml
+  when: ver_config.installer.method == 'rpm'
+
+- name: Run AAP installer (containerized method)
+  ansible.builtin.include_tasks: install-containerized.yml
+  when: ver_config.installer.method == 'containerized'
+
+- name: Run post-install tasks
+  ansible.builtin.include_tasks: post-install.yml

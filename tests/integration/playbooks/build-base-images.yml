@@ -1,0 +1,42 @@
+---
+- name: Build UBI base images for AAP testing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Build UBI 8 base image
+      ansible.builtin.command:
+        cmd: >
+          podman build
+            -f {{ playbook_dir }}/../containerfiles/Containerfile.ubi8-init
+            -t localhost/aap-bridge-base-ubi8:latest
+            {{ playbook_dir }}/../containerfiles
+      register: build_ubi8
+
+    - name: Show UBI 8 build result
+      ansible.builtin.debug:
+        msg: "UBI 8 base image built: {{ build_ubi8.stdout_lines[-1] | default('done') }}"
+
+    - name: Build UBI 9 base image
+      ansible.builtin.command:
+        cmd: >
+          podman build
+            -f {{ playbook_dir }}/../containerfiles/Containerfile.ubi9-init
+            -t localhost/aap-bridge-base-ubi9:latest
+            {{ playbook_dir }}/../containerfiles
+      register: build_ubi9
+
+    - name: Show UBI 9 build result
+      ansible.builtin.debug:
+        msg: "UBI 9 base image built: {{ build_ubi9.stdout_lines[-1] | default('done') }}"
+
+    - name: List built images
+      ansible.builtin.command:
+        cmd: "podman images --filter 'reference=localhost/aap-bridge-base-*' --format 'table {{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}  {{ '{{' }}.Size{{ '}}' }}  {{ '{{' }}.Created{{ '}}' }}'"
+      register: images_list
+      changed_when: false
+
+    - name: Show built images
+      ansible.builtin.debug:
+        msg: "{{ images_list.stdout_lines }}"

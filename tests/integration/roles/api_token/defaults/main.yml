@@ -1,0 +1,3 @@
+---
+token_retries: 10
+token_delay: 10

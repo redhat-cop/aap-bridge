@@ -1,0 +1,39 @@
+FROM registry.redhat.io/ubi9/ubi-minimal:latest AS base
+
+RUN microdnf install -y \
+        python3.12 \
+        python3.12-pip \
+        python3.12-devel \
+        libpq-devel \
+        gcc \
+        less \
+        procps-ng \
+        tar \
+        vim-enhanced \
+        which \
+        shadow-utils \
+    && microdnf clean all
+
+RUN ln -sf /usr/bin/python3.12 /usr/local/bin/python3 && \
+    ln -sf /usr/bin/python3.12 /usr/local/bin/python && \
+    ln -sf /usr/bin/pip3.12 /usr/local/bin/pip3 && \
+    ln -sf /usr/bin/pip3.12 /usr/local/bin/pip && \
+    ln -sf /usr/bin/vim /usr/local/bin/vi
+
+COPY requirements.txt requirements-dev.txt ./
+RUN pip3.12 install --no-cache-dir -r requirements-dev.txt
+
+RUN useradd -r -m -d /app bridge
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY src/ src/
+COPY config/ config/
+COPY tests/unit/ tests/unit/
+
+RUN pip3.12 install --no-cache-dir -e .
+
+RUN mkdir -p exports reports logs && \
+    chown -R bridge:bridge exports reports logs
+
+USER bridge

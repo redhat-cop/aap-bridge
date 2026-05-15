@@ -1,0 +1,86 @@
+---
+# Create an API token for an AAP instance.
+#
+# Required vars:
+#   aap_version     - AAP version (e.g. "2.4")
+#   container_name  - podman container name (e.g. "aap-24-src")
+#   pair_id         - pair identifier (e.g. "24-to-26")
+#   token_label     - "src" or "tgt"
+
+- name: Set installer method
+  ansible.builtin.set_fact:
+    _installer_method: "{{ aap_versions[aap_version].installer.method }}"
+
+# RPM installs: try create_oauth2_token first (AAP 2.4+), fall back to
+# create_preauth_token (AAP 2.3 and earlier).
+- name: Create API token via create_oauth2_token (RPM)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        awx-manage create_oauth2_token --user admin
+  register: _token_result
+  retries: "{{ token_retries }}"
+  delay: "{{ token_delay }}"
+  until: _token_result.rc == 0 and (_token_result.stdout | default('') | trim | length > 0)
+  failed_when: false
+  changed_when: false
+  when: _installer_method != 'containerized'
+
+- name: Fall back to create_preauth_token (RPM, older AAP)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        awx-manage create_preauth_token --scope write --user admin
+  register: _token_result_fallback
+  retries: "{{ token_retries }}"
+  delay: "{{ token_delay }}"
+  until: _token_result_fallback.rc == 0 and (_token_result_fallback.stdout | default('') | trim | length > 0)
+  failed_when: false
+  changed_when: false
+  when:
+    - _installer_method != 'containerized'
+    - _token_result.rc | default(1) != 0 or (_token_result.stdout | default('') | trim | length == 0)
+
+- name: Pick RPM token result
+  ansible.builtin.set_fact:
+    _token_result: "{{ _token_result_fallback }}"
+  when:
+    - _installer_method != 'containerized'
+    - _token_result.rc | default(1) != 0 or (_token_result.stdout | default('') | trim | length == 0)
+    - _token_result_fallback is defined
+
+- name: Create API token (containerized)
+  ansible.builtin.command:
+    cmd: >
+      podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000
+        {{ container_name }}
+        podman exec automation-controller-web
+          awx-manage create_oauth2_token --user admin
+  register: _token_result_c
+  retries: "{{ token_retries }}"
+  delay: "{{ token_delay }}"
+  until: _token_result_c.rc == 0 and (_token_result_c.stdout | default('') | trim | length > 0)
+  failed_when: false
+  changed_when: false
+  when: _installer_method == 'containerized'
+
+- name: Resolve token result
+  ansible.builtin.set_fact:
+    _api_token_value: >-
+      {{ ((_token_result_c if _installer_method == 'containerized' else _token_result).stdout
+          | default('')) | trim }}
+
+- name: Save token to file
+  ansible.builtin.copy:
+    content: "{{ _api_token_value }}"
+    dest: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/{{ token_label }}_token"
+    mode: "0600"
+  when: _api_token_value | length > 0
+
+- name: Warn if token creation failed
+  ansible.builtin.debug:
+    msg: >
+      WARNING: Could not create API token for {{ container_name }} (AAP {{ aap_version }}).
+      The container is running but you will need to create a token manually:
+        podman exec {{ container_name }} awx-manage create_oauth2_token --user admin
+  when: _api_token_value | length == 0

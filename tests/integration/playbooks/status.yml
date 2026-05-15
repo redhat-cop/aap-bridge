@@ -1,0 +1,90 @@
+---
+# Show status of all AAP testing infrastructure.
+#
+# Usage:
+#   ansible-playbook playbooks/status.yml
+#
+- name: Show AAP testing infrastructure status
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: List running containers
+      ansible.builtin.command:
+        cmd: >
+          podman ps -a
+            --filter label=io.aap-bridge.role=aap-instance
+            --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}\t{{ "{{" }}index .Labels "io.aap-bridge.version"{{ "}}" }}\t{{ "{{" }}index .Labels "io.aap-bridge.suffix"{{ "}}" }}'
+      register: containers
+      changed_when: false
+      failed_when: false
+
+    - name: Show containers
+      ansible.builtin.debug:
+        msg: |
+          === Running AAP Test Containers ===
+          {{ containers.stdout | default('(none)') }}
+
+    - name: List golden images
+      ansible.builtin.command:
+        cmd: >
+          podman images
+            --filter reference=localhost/aap-golden-*
+            --format 'table {{ "{{" }}.Repository{{ "}}" }}:{{ "{{" }}.Tag{{ "}}" }}\t{{ "{{" }}.Size{{ "}}" }}\t{{ "{{" }}.Created{{ "}}" }}'
+      register: golden_images
+      changed_when: false
+      failed_when: false
+
+    - name: Show golden images
+      ansible.builtin.debug:
+        msg: |
+          === Golden Images (for fast resets) ===
+          {{ golden_images.stdout | default('(none)') }}
+
+    - name: List base images
+      ansible.builtin.command:
+        cmd: >
+          podman images
+            --filter reference=localhost/aap-bridge-base-*
+            --format 'table {{ "{{" }}.Repository{{ "}}" }}:{{ "{{" }}.Tag{{ "}}" }}\t{{ "{{" }}.Size{{ "}}" }}\t{{ "{{" }}.Created{{ "}}" }}'
+      register: base_images
+      changed_when: false
+      failed_when: false
+
+    - name: Show base images
+      ansible.builtin.debug:
+        msg: |
+          === Base Images ===
+          {{ base_images.stdout | default('(none)') }}
+
+    - name: List pair networks
+      ansible.builtin.command:
+        cmd: "podman network ls --filter name=aap-pair-"
+      register: networks
+      changed_when: false
+      failed_when: false
+
+    - name: Show networks
+      ansible.builtin.debug:
+        msg: |
+          === Pair Networks ===
+          {{ networks.stdout | default('(none)') }}
+
+    - name: Find generated configs
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../generated/pairs"
+        patterns: ".env"
+        recurse: true
+      register: configs
+
+    - name: Show generated configs
+      ansible.builtin.debug:
+        msg: |
+          === Generated Pair Configs ===
+          {% for f in configs.files | default([]) %}
+          - {{ f.path | dirname | basename }}
+          {% endfor %}
+          {% if configs.files | default([]) | length == 0 %}
+          (none)
+          {% endif %}

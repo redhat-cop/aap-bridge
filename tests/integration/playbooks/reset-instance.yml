@@ -1,0 +1,25 @@
+---
+# Reset a single AAP instance from its golden image.
+#
+# Usage:
+#   ansible-playbook playbooks/reset-instance.yml \
+#     -e aap_version=2.3 \
+#     -e role_suffix=src
+#
+- name: Reset AAP instance from golden image
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix | default('src') }}"
+
+  tasks:
+    - name: Reset instance
+      ansible.builtin.include_role:
+        name: lifecycle
+      vars:
+        lifecycle_action: reset
+        aap_version: "{{ aap_version }}"
+        role_suffix: "{{ role_suffix | default('src') }}"
+        pair_id: "{{ pair_id | default('') }}"

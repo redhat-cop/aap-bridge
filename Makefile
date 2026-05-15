@@ -1,8 +1,19 @@
 .PHONY: help install install-dev clean format lint typecheck test test-unit test-integration \
        test-performance test-cov check docs docs-serve \
        init-env setup version venv install-editable all \
+<<<<<<< HEAD
        build build-api build-ui build-all up up-dev down shell shell-engine logs \
        ensure-bridge-dev-image ensure-api-ui-images web-install web-dev web-build serve
+=======
+       build build-api build-ui build-all prepare-pgdata up up-dev down shell shell-engine logs \
+       ensure-bridge-dev-image ensure-api-ui-images \
+       c-test c-lint c-format c-typecheck c-check \
+       web-install web-dev web-build serve \
+       build-builder build-aap-bases build-aap build-aap-all \
+       push-aap pull-aap list-golden \
+       run-pair stop-pair reset-pair destroy-pair destroy-all \
+       test-bridge test-all status shell-src shell-tgt
+>>>>>>> ff01ed7 (feat(testing): add container-first AAP integration infrastructure)
 
 .DEFAULT_GOAL := help
 
@@ -56,6 +67,7 @@ help: ## Show this help message
 	@echo "    make build                         # Build the CLI container images"
 	@echo "    make up-dev                        # Start db + bridge container"
 	@echo "    make shell                         # Open a shell in the bridge container"
+	@echo "    make c-check                       # Run checks inside the bridge container"
 	@echo "    make down                          # Stop the running containers"
 	@echo ""
 	@echo "  Web UI workflow (optional):"
@@ -63,6 +75,15 @@ help: ## Show this help message
 	@echo "    make up                            # Start db + engine + ui"
 	@echo "    make shell-engine                  # Open a shell in the engine container"
 	@echo "    make web-dev                       # Start the Vite dev server"
+	@echo ""
+	@echo "  Integration testing:"
+	@echo "    make build-builder                 # Build ansible runner (once)"
+	@echo "    make build-aap-bases               # Build UBI base images (once)"
+	@echo "    make build-aap VERSION=2.4         # Build AAP golden image (~45 min)"
+	@echo "    make run-pair SOURCE=2.4 TARGET=2.6"
+	@echo "    make test-bridge SOURCE=2.4 TARGET=2.6"
+	@echo "    make test-all                      # Test all versions -> 2.6"
+	@echo "    make reset-pair SOURCE=2.4 TARGET=2.6   # Reset instantly"
 	@echo ""
 	@echo "  All targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -203,6 +224,12 @@ BRIDGE_IMAGE     := localhost/aap-bridge:latest
 BRIDGE_DEV_IMAGE := localhost/aap-bridge-dev:latest
 BRIDGE_API_IMAGE := localhost/aap-bridge-api:latest
 UI_IMAGE         := localhost/aap-bridge-ui:latest
+PROJECT_DIR      := $(shell pwd)
+TESTING_DIR      := $(PROJECT_DIR)/tests/integration
+
+define run-bridge
+	$(COMPOSE) exec $(BRIDGE_SVC)
+endef
 
 build: ## Build aap-bridge container image (base + dev)
 	podman build -t $(BRIDGE_IMAGE) --target base .
@@ -250,6 +277,21 @@ shell-engine: ## Shell into engine container
 logs: ## Tail all container logs
 	$(COMPOSE) logs -f
 
+c-test: ## Run unit tests inside bridge container
+	$(run-bridge) python3.12 -m pytest tests/unit/ -v
+
+c-lint: ## Run ruff linter inside bridge container
+	$(run-bridge) python3.12 -m ruff check src/ tests/unit/
+
+c-format: ## Run black + isort inside bridge container
+	$(run-bridge) python3.12 -m black src/ tests/unit/
+	$(run-bridge) python3.12 -m isort src/ tests/unit/
+
+c-typecheck: ## Run mypy inside bridge container
+	$(run-bridge) python3.12 -m mypy src/
+
+c-check: c-lint c-typecheck c-test ## Run all checks inside bridge container
+
 web-install: ## Install frontend dependencies
 	cd web && npm ci
 
@@ -261,3 +303,158 @@ web-build: ## Build frontend for production
 
 serve: ## Start FastAPI API server (requires pip install '.[api]')
 	aap-bridge serve --host 0.0.0.0 --port 8000
+
+# ===========================================================================
+#  Integration testing - AAP golden images and test pairs (requires podman)
+# ===========================================================================
+
+BUILDER_IMAGE   := localhost/aap-bridge-builder:latest
+
+# Auto-detect active pair from generated state; fall back to 2.4 -> 2.6
+_PAIRS := $(wildcard tests/integration/generated/pairs/*-to-*)
+ifeq ($(words $(_PAIRS)),1)
+  _PAIR_NAME := $(notdir $(_PAIRS))
+  SOURCE ?= $(shell echo '$(_PAIR_NAME)' | sed 's/\(.\)\(.*\)-to-.*/\1.\2/')
+  TARGET ?= $(shell echo '$(_PAIR_NAME)' | sed 's/.*-to-\(.\)\(.*\)/\1.\2/')
+else
+  SOURCE ?= 2.4
+  TARGET ?= 2.6
+endif
+VERSION  ?= 2.4
+REGISTRY ?= localhost
+V        ?= 0
+DEBUG    ?= 0
+
+VERBOSITY := $(if $(filter 1,$(V)),-v,$(if $(filter 2,$(V)),-vv,$(if $(filter 3,$(V)),-vvv,$(if $(filter 4,$(V)),-vvvv,))))
+DEBUG_ARGS := $(if $(filter 1,$(DEBUG)),-e secure_logging=false,)
+
+PODMAN_SOCK := $(shell echo $${XDG_RUNTIME_DIR}/podman/podman.sock)
+VAULT_PASS_FILE := $(TESTING_DIR)/.vault_pass
+VAULT_VARS_FILE := $(TESTING_DIR)/inventory/group_vars/vault.yml
+
+ifneq (,$(wildcard $(VAULT_PASS_FILE)))
+  VAULT_ARGS := --vault-password-file $(VAULT_PASS_FILE)
+  ifneq (,$(wildcard $(VAULT_VARS_FILE)))
+    VAULT_ARGS += -e @$(VAULT_VARS_FILE)
+  endif
+endif
+
+define run-builder
+	podman run --rm \
+		-v $(PODMAN_SOCK):/run/podman/podman.sock \
+		-v $(TESTING_DIR):$(TESTING_DIR) \
+		-w $(TESTING_DIR) \
+		--network host \
+		--security-opt label=disable \
+		$(if $(RHSM_USER),-e RHSM_USER=$(RHSM_USER)) \
+		$(if $(RHSM_PASS),-e RHSM_PASS) \
+		$(if $(RH_TOKEN),-e RH_TOKEN) \
+		$(BUILDER_IMAGE) $(VERBOSITY) $(DEBUG_ARGS) $(VAULT_ARGS)
+endef
+
+build-builder: ## Build the ansible builder image
+	podman build \
+		-t $(BUILDER_IMAGE) \
+		-f tests/integration/Containerfile.builder \
+		tests/integration/
+
+build-aap-bases: ## Build UBI base images for AAP containers
+	$(run-builder) playbooks/build-base-images.yml
+
+build-aap: ## Build AAP golden image (VERSION=2.4)
+	@sudo sysctl -w kernel.keys.maxkeys=5000 2>/dev/null || true
+	$(run-builder) playbooks/build-instance.yml \
+		-e aap_version=$(VERSION)
+
+build-aap-all: ## Build golden images for ALL versions
+	@for v in 1.0 1.1 1.2 2.0 2.1 2.2 2.3 2.4 2.5 2.6; do \
+		echo "=== Building AAP $$v ==="; \
+		$(MAKE) build-aap VERSION=$$v || echo "WARN: AAP $$v build failed (may be best-effort)"; \
+	done
+
+push-aap: ## Push golden image to registry (VERSION=2.4 REGISTRY=quay.io/myorg)
+	$(run-builder) playbooks/push-image.yml \
+		-e aap_version=$(VERSION) \
+		-e image_registry=$(REGISTRY)
+
+pull-aap: ## Pull golden image from registry (VERSION=2.4 REGISTRY=quay.io/myorg)
+	$(run-builder) playbooks/pull-image.yml \
+		-e aap_version=$(VERSION) \
+		-e image_registry=$(REGISTRY)
+
+list-golden: ## List all golden images
+	@podman images --filter 'reference=*aap-golden-*' \
+		--format 'table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.Created}}'
+
+run-pair: ## Start AAP pair from golden images (SOURCE=2.4 TARGET=2.6)
+	$(run-builder) playbooks/run-pair.yml \
+		-e source_version=$(SOURCE) \
+		-e target_version=$(TARGET)
+
+stop-pair: ## Stop AAP pair containers (SOURCE=2.4 TARGET=2.6)
+	-podman stop aap-$(subst .,,$(SOURCE))-src aap-$(subst .,,$(TARGET))-tgt
+
+reset-pair: ## Reset pair to clean state (SOURCE=2.4 TARGET=2.6)
+	$(run-builder) playbooks/reset-pair.yml \
+		-e source_version=$(SOURCE) \
+		-e target_version=$(TARGET)
+
+destroy-pair: ## Remove pair containers and network (SOURCE=2.4 TARGET=2.6)
+	$(run-builder) playbooks/destroy-pair.yml \
+		-e source_version=$(SOURCE) \
+		-e target_version=$(TARGET)
+
+destroy-all: ## Remove ALL test containers, images, and networks
+	$(run-builder) playbooks/destroy-all.yml
+
+status: ## Show all test containers and golden images
+	$(run-builder) playbooks/status.yml
+
+test-bridge: up-dev ## Run aap-bridge against pair (dry-run) (SOURCE=2.4 TARGET=2.6)
+	@PAIR_ID="$(subst .,,$(SOURCE))-to-$(subst .,,$(TARGET))"; \
+	ENV_FILE_HOST="tests/integration/generated/pairs/$$PAIR_ID/.env"; \
+	ENV_FILE_CONTAINER="/app/tests/integration/generated/pairs/$$PAIR_ID/.env"; \
+	if [ ! -f "$$ENV_FILE_HOST" ]; then \
+		echo "Error: No config at $$ENV_FILE_HOST. Run 'make run-pair' first."; \
+		exit 1; \
+	fi; \
+	echo "Using config: $$ENV_FILE_HOST"; \
+	$(run-bridge) bash -lc "set -a && source $$ENV_FILE_CONTAINER && set +a && aap-bridge migrate full --dry-run"
+
+test-all: ## Run migration test for all source versions -> 2.6
+	@PASS=""; FAIL=""; SKIP=""; \
+	for v in 1.0 1.1 1.2 2.0 2.1 2.2 2.3 2.4 2.5; do \
+		echo ""; \
+		echo "============================================================"; \
+		echo "  Testing migration: AAP $$v -> 2.6"; \
+		echo "============================================================"; \
+		if ! podman image exists localhost/aap-golden-$$v:latest 2>/dev/null; then \
+			echo "SKIP: No golden image for AAP $$v"; \
+			SKIP="$$SKIP $$v"; \
+			continue; \
+		fi; \
+		$(MAKE) run-pair SOURCE=$$v TARGET=2.6 || { echo "FAIL: Could not start pair $$v -> 2.6"; FAIL="$$FAIL $$v"; continue; }; \
+		if $(MAKE) test-bridge SOURCE=$$v TARGET=2.6; then \
+			echo "PASS: AAP $$v -> 2.6"; \
+			PASS="$$PASS $$v"; \
+		else \
+			echo "FAIL: AAP $$v -> 2.6"; \
+			FAIL="$$FAIL $$v"; \
+		fi; \
+		$(MAKE) destroy-pair SOURCE=$$v TARGET=2.6; \
+	done; \
+	echo ""; \
+	echo "============================================================"; \
+	echo "  Results"; \
+	echo "============================================================"; \
+	echo "  PASS:$$PASS"; \
+	echo "  FAIL:$$FAIL"; \
+	echo "  SKIP:$$SKIP"; \
+	echo "============================================================"; \
+	[ -z "$$FAIL" ]
+
+shell-src: ## Shell into source AAP container (SOURCE=2.4)
+	podman exec -it aap-$(subst .,,$(SOURCE))-src /bin/bash
+
+shell-tgt: ## Shell into target AAP container (TARGET=2.6)
+	podman exec -it aap-$(subst .,,$(TARGET))-tgt /bin/bash

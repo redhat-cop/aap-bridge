@@ -1,0 +1,205 @@
+---
+- name: Load version matrix
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Set version config
+  ansible.builtin.set_fact:
+    ver_config: "{{ aap_versions[aap_version] }}"
+
+- name: Set base image tag
+  ansible.builtin.set_fact:
+    base_image_tag: "localhost/aap-bridge-base-ubi{{ ver_config.rhel_version }}:latest"
+
+- name: Set golden image tag
+  ansible.builtin.set_fact:
+    golden_image_tag: "{{ golden_image_prefix }}-{{ aap_version }}:latest"
+
+- name: Check if golden image exists locally
+  ansible.builtin.command:
+    cmd: "podman image exists {{ golden_image_tag }}"
+  register: golden_local
+  failed_when: false
+  changed_when: false
+
+- name: Try pulling golden image from registry if not local
+  ansible.builtin.command:
+    cmd: "podman pull {{ golden_image_tag }}"
+  register: golden_pull
+  failed_when: false
+  changed_when: golden_pull.rc == 0
+  when:
+    - golden_local.rc != 0
+    - image_registry != 'localhost'
+
+- name: Determine if golden image is available (local or pulled)
+  ansible.builtin.set_fact:
+    golden_available: "{{ golden_local.rc == 0 or (golden_pull.rc | default(1)) == 0 }}"
+
+- name: Build base image if no golden image and we need to build from scratch
+  when: not golden_available
+  block:
+    - name: Check if base image exists
+      ansible.builtin.command:
+        cmd: "podman image exists {{ base_image_tag }}"
+      register: base_image_check
+      failed_when: false
+      changed_when: false
+
+    - name: Build base image if missing
+      ansible.builtin.command:
+        cmd: >
+          podman build
+            -f {{ playbook_dir }}/../containerfiles/Containerfile.ubi{{ ver_config.rhel_version }}-init
+            -t {{ base_image_tag }}
+            {{ playbook_dir }}/../containerfiles
+      when: base_image_check.rc != 0
+
+- name: Set image to use
+  ansible.builtin.set_fact:
+    container_image: "{{ golden_image_tag if golden_available else base_image_tag }}"
+
+- name: Check if container already exists
+  ansible.builtin.command:
+    cmd: "podman container exists {{ container_name }}"
+  register: container_exists
+  failed_when: false
+  changed_when: false
+
+- name: Remove existing container if present
+  ansible.builtin.command:
+    cmd: "podman rm -f {{ container_name }}"
+  when: container_exists.rc == 0
+
+- name: Create podman network for pair
+  ansible.builtin.command:
+    cmd: "podman network create aap-pair-{{ pair_id }}"
+  register: network_create
+  failed_when: false
+  changed_when: network_create.rc == 0
+  when: pair_id | length > 0
+
+- name: Calculate version index for port mapping
+  ansible.builtin.set_fact:
+    ver_index: "{{ version_index[aap_version] }}"
+
+- name: Calculate port base
+  ansible.builtin.set_fact:
+    port_base: "{{ ({'src': port_base_source, 'tgt': port_base_target}.get(role_suffix, 30000)) | int + (ver_index | int * 100) }}"
+
+- name: Build port mapping list
+  ansible.builtin.set_fact:
+    port_mappings:
+      - "{{ port_base | int + port_offset_controller }}:{{ '8443' if ver_config.installer.method | default('rpm') == 'containerized' else '443' }}"
+      - "{{ port_base | int + port_offset_hub }}:8444"
+      - "{{ port_base | int + port_offset_eda }}:8445"
+      - "{{ port_base | int + port_offset_gateway }}:8446"
+      - "{{ port_base | int + port_offset_envoy }}:{{ '9443' if ver_config.installer.method | default('rpm') == 'containerized' else '8443' }}"
+
+- name: Determine privileged mode
+  ansible.builtin.set_fact:
+    run_privileged: "{{ force_privileged | default(false) or ver_config.container.privileged | default(false) }}"
+
+- name: Create and start container
+  ansible.builtin.command:
+    cmd: >
+      podman run -d
+        --name {{ container_name }}
+        --hostname {{ ver_config.container.hostname_prefix }}-build
+        --systemd always
+        {{ '--privileged' if run_privileged else '' }}
+        --cap-add SYS_ADMIN
+        --cap-add MKNOD
+        --cap-add NET_ADMIN
+        --device /dev/fuse
+        --security-opt label=disable
+        --security-opt unmask=/sys/fs/cgroup
+        --userns=host
+        --cgroupns=host
+        --tmpfs /run
+        --tmpfs /run/lock
+        -v {{ container_name }}-storage:/home/aap/.local/share/containers/storage
+        --memory {{ ver_config.resource_requirements.ram_gb | default(default_ram_gb) }}g
+        --cpus {{ ver_config.resource_requirements.cpus | default(default_cpus) }}
+        {% for pm in port_mappings %}
+        -p {{ pm }}
+        {% endfor %}
+        {% if pair_id | length > 0 %}
+        --network aap-pair-{{ pair_id }}
+        {% endif %}
+        -e container=podman
+        --label io.aap-bridge.role=aap-instance
+        --label io.aap-bridge.version={{ aap_version }}
+        --label io.aap-bridge.suffix={{ role_suffix }}
+        --label io.aap-bridge.pair={{ pair_id | default('standalone') }}
+        {{ container_image }}
+  register: container_run
+
+- name: Seed storage volume from golden image (containerized installs)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        bash -c "
+          if [ -d /home/aap/.local/share/containers/storage-baked ] && \
+             [ ! -f /home/aap/.local/share/containers/storage/.seeded ]; then
+            rsync -a /home/aap/.local/share/containers/storage-baked/ /home/aap/.local/share/containers/storage/;
+            touch /home/aap/.local/share/containers/storage/.seeded;
+            chown -R aap:aap /home/aap/.local/share/containers/storage;
+            echo SEEDED;
+          else
+            echo SKIPPED;
+          fi
+        "
+  register: seed_result
+  changed_when: "'SEEDED' in seed_result.stdout"
+  when: ver_config.installer.method | default('rpm') == 'containerized'
+
+- name: Fix container storage volume ownership
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        chown -R aap:aap /home/aap/.local/share/containers/storage
+  failed_when: false
+  changed_when: false
+  when:
+    - ver_config.installer.method | default('rpm') == 'containerized'
+    - seed_result is not defined or 'SEEDED' not in (seed_result.stdout | default(''))
+
+- name: Wait for systemd to initialize
+  ansible.builtin.command:
+    cmd: "podman exec {{ container_name }} systemctl is-system-running"
+  register: systemd_status
+  retries: 30
+  delay: 2
+  until: systemd_status.stdout | default('') in ['running', 'degraded']
+  changed_when: false
+  failed_when: systemd_status.stdout | default('') not in ['running', 'degraded']
+
+- name: Recreate nested containers to fix stale overlay state (golden image startup)
+  ansible.builtin.shell:
+    cmd: |
+      podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} bash -c '
+        for ctr in postgresql redis-unix redis-tcp automation-gateway automation-gateway-proxy receptor automation-controller-web automation-controller-task automation-controller-rsyslog; do
+          STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null) || continue
+          if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ] || [ "$STATUS" = "configured" ]; then
+            CREATE_CMD=$(podman inspect "$ctr" --format "{{ '{{' }}json .Config.CreateCommand{{ '}}' }}")
+            podman rm -f "$ctr" 2>/dev/null
+            echo "$CREATE_CMD" | python3 -c "import sys,json,subprocess; subprocess.run(json.load(sys.stdin))"
+            podman start "$ctr"
+            echo "recreated $ctr"
+          fi
+        done
+      '
+  failed_when: false
+  changed_when: false
+  when:
+    - ver_config.installer.method | default('rpm') == 'containerized'
+    - golden_available
+
+- name: Report container created
+  ansible.builtin.debug:
+    msg: >
+      Container '{{ container_name }}' running AAP {{ aap_version }}
+      ({{ 'from golden image' if golden_available else 'from base image - AAP not yet installed' }}).
+      {{ 'Envoy port: ' + ((port_base | int + port_offset_envoy) | string) + ' (UI + API)' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}
+      Controller port: {{ port_base | int + port_offset_controller }}

@@ -1,0 +1,143 @@
+---
+# Register source and target connections in the bridge web UI.
+#
+# Required vars (set by pair_networking before this role runs):
+#   source_version, target_version, pair_id
+#   src_controller_port, tgt_controller_port, tgt_envoy_port
+#   src_config, tgt_config
+#   source_token, target_token
+
+- name: Check if bridge API is available
+  ansible.builtin.uri:
+    url: "{{ bridge_api_url }}/api/connections"
+    method: GET
+    timeout: "{{ bridge_api_timeout }}"
+  register: _api_probe
+  failed_when: false
+  changed_when: false
+
+- name: Skip if bridge API is not running
+  ansible.builtin.debug:
+    msg: >
+      Bridge API not reachable at {{ bridge_api_url }}.
+      Connections will not be registered in the UI.
+      Run 'make up' to start the bridge UI, then re-run this playbook.
+  when: _api_probe.status | default(-1) != 200
+
+- name: Register connections in bridge UI
+  when: _api_probe.status | default(-1) == 200
+  block:
+    - name: Build connection URLs
+      ansible.builtin.set_fact:
+        _src_url: "https://localhost:{{ src_controller_port }}{{ src_config.api.controller_path }}"
+        _tgt_url: >-
+          {{ 'https://localhost:' ~ tgt_envoy_port ~ tgt_config.api.controller_path
+             if tgt_config.components.gateway.enabled | default(false)
+             else 'https://localhost:' ~ tgt_controller_port ~ tgt_config.api.controller_path }}
+
+    - name: Find existing connections by name
+      ansible.builtin.set_fact:
+        _existing_src_list: >-
+          {{ _api_probe.json | selectattr('role', 'equalto', 'source')
+             | selectattr('name', 'equalto', 'AAP ' ~ source_version ~ ' (source)')
+             | list }}
+        _existing_tgt_list: >-
+          {{ _api_probe.json | selectattr('role', 'equalto', 'destination')
+             | selectattr('name', 'equalto', 'AAP ' ~ target_version ~ ' (target)')
+             | list }}
+
+    # --- Source connection ---
+    - name: Create source connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections"
+        method: POST
+        body_format: json
+        body:
+          name: "AAP {{ source_version }} (source)"
+          type: "aap"
+          role: "source"
+          url: "{{ _src_url }}"
+          token: "{{ source_token }}"
+          verify_ssl: false
+        status_code: 201
+      register: _src_created
+      when: _existing_src_list | length == 0
+
+    - name: Update source connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections/{{ (_existing_src_list | first).id }}"
+        method: PUT
+        body_format: json
+        body:
+          url: "{{ _src_url }}"
+          token: "{{ source_token }}"
+          verify_ssl: false
+        status_code: 200
+      when: _existing_src_list | length > 0
+
+    - name: Set source connection ID
+      ansible.builtin.set_fact:
+        _src_conn_id: >-
+          {{ _src_created.json.id if _existing_src_list | length == 0
+             else (_existing_src_list | first).id }}
+
+    # --- Target connection ---
+    - name: Create target connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections"
+        method: POST
+        body_format: json
+        body:
+          name: "AAP {{ target_version }} (target)"
+          type: "aap"
+          role: "destination"
+          url: "{{ _tgt_url }}"
+          token: "{{ target_token }}"
+          verify_ssl: false
+        status_code: 201
+      register: _tgt_created
+      when: _existing_tgt_list | length == 0
+
+    - name: Update target connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections/{{ (_existing_tgt_list | first).id }}"
+        method: PUT
+        body_format: json
+        body:
+          url: "{{ _tgt_url }}"
+          token: "{{ target_token }}"
+          verify_ssl: false
+        status_code: 200
+      when: _existing_tgt_list | length > 0
+
+    - name: Set target connection ID
+      ansible.builtin.set_fact:
+        _tgt_conn_id: >-
+          {{ _tgt_created.json.id if _existing_tgt_list | length == 0
+             else (_existing_tgt_list | first).id }}
+
+    # --- Test connections ---
+    - name: Test source connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections/{{ _src_conn_id | trim }}/test"
+        method: POST
+        timeout: 15
+      register: _src_test
+      failed_when: false
+      changed_when: false
+
+    - name: Test target connection
+      ansible.builtin.uri:
+        url: "{{ bridge_api_url }}/api/connections/{{ _tgt_conn_id | trim }}/test"
+        method: POST
+        timeout: 15
+      register: _tgt_test
+      failed_when: false
+      changed_when: false
+
+    - name: Report connection status
+      ansible.builtin.debug:
+        msg: |
+          Bridge UI connections registered:
+            Source (AAP {{ source_version }}): {{ 'OK' if (_src_test.json.ok | default(false)) else 'PING/AUTH ISSUE — check the dashboard' }}
+            Target (AAP {{ target_version }}): {{ 'OK' if (_tgt_test.json.ok | default(false)) else 'PING/AUTH ISSUE — check the dashboard' }}

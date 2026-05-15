@@ -1,0 +1,114 @@
+---
+- name: Ensure bundles directory exists
+  ansible.builtin.file:
+    path: "{{ installer_bundles_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Set bundle type prefix
+  ansible.builtin.set_fact:
+    __bundle_prefix: "{{ 'ansible-automation-platform-containerized-setup-bundle' if ver_config.installer.method == 'containerized' else 'ansible-automation-platform-setup-bundle' }}"
+
+- name: Check if bundle already exists for this version
+  ansible.builtin.find:
+    paths: "{{ installer_bundles_dir }}"
+    patterns: "{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz"
+  register: initial_bundle_check
+
+- name: Download bundle from Red Hat API
+  when:
+    - initial_bundle_check.files | length == 0
+    - rh_api_offline_token is defined
+    - rh_api_offline_token | length > 0
+  block:
+    - name: Get access token from Red Hat SSO
+      ansible.builtin.uri:
+        url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: refresh_token
+          client_id: rhsm-api
+          refresh_token: "{{ rh_api_offline_token }}"
+      register: __rh_login
+      no_log: "{{ secure_logging | default(true) }}"
+
+    - name: Set download parameters
+      ansible.builtin.set_fact:
+        __dl_rhel_version: "{{ ver_config.installer.download_rhel_version | default(ver_config.rhel_version) }}"
+        __dl_arch: "x86_64"
+
+    - name: Build release string
+      ansible.builtin.set_fact:
+        __dl_release: "ansible-automation-platform-{{ aap_version }}-for-rhel-{{ __dl_rhel_version }}-{{ __dl_arch }}-files"
+
+    - name: Show download URL
+      ansible.builtin.debug:
+        msg: "Querying: https://api.access.redhat.com/management/v1/images/cset/{{ __dl_release }}"
+
+    - name: Collect available installers
+      ansible.builtin.uri:
+        url: "https://api.access.redhat.com/management/v1/images/cset/{{ __dl_release }}?limit=100"
+        method: GET
+        return_content: true
+        headers:
+          Authorization: "Bearer {{ __rh_login.json.access_token }}"
+      register: __available_images
+      no_log: "{{ secure_logging | default(true) }}"
+
+    - name: Show available installers
+      ansible.builtin.debug:
+        msg: "{{ __available_images.json.body | map(attribute='filename') | list }}"
+
+    - name: Find matching bundle
+      ansible.builtin.set_fact:
+        __matching_images: >-
+          {{ __available_images.json.body
+             | selectattr('filename', 'match', __bundle_prefix + '-' + aap_version)
+             | sort(attribute='datePublished', reverse=True)
+             | list }}
+
+    - name: Fail if no matching installer found
+      ansible.builtin.fail:
+        msg: >
+          No {{ __bundle_prefix }} found for AAP {{ aap_version }} on RHEL {{ __dl_rhel_version }}.
+          Available files: {{ __available_images.json.body | map(attribute='filename') | list }}
+      when: __matching_images | length == 0
+
+    - name: Download installer bundle
+      ansible.builtin.get_url:
+        url: "{{ __matching_images[0].downloadHref }}"
+        dest: "{{ installer_bundles_dir }}/{{ __matching_images[0].filename }}"
+        mode: "0644"
+        headers:
+          Authorization: "Bearer {{ __rh_login.json.access_token }}"
+      register: __download_result
+      no_log: "{{ secure_logging | default(true) }}"
+
+    - name: Report downloaded file
+      ansible.builtin.debug:
+        msg: "Downloaded: {{ __matching_images[0].filename }}"
+
+- name: Scan for bundle
+  ansible.builtin.find:
+    paths: "{{ installer_bundles_dir }}"
+    patterns: "{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz"
+  register: found_bundles
+
+- name: Fail if no bundle found
+  ansible.builtin.fail:
+    msg: >
+      No {{ __bundle_prefix }} found for AAP {{ aap_version }} in {{ installer_bundles_dir }}.
+      Either provide rh_api_offline_token for automatic download,
+      or manually place a bundle matching
+      '{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz' in that directory.
+  when: found_bundles.files | length == 0
+
+- name: Set bundle filename from discovered file
+  ansible.builtin.set_fact:
+    bundle_file: "{{ (found_bundles.files | sort(attribute='mtime', reverse=true) | first).path }}"
+    bundle_filename: "{{ (found_bundles.files | sort(attribute='mtime', reverse=true) | first).path | basename }}"
+
+- name: Report bundle found
+  ansible.builtin.debug:
+    msg: "Using bundle: {{ bundle_filename }}"

@@ -1,0 +1,56 @@
+---
+- name: Run AAP RPM installer
+  block:
+    - name: Run setup.sh
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "cd {{ installer_dir }} && ./setup.sh"
+      register: install_result
+      timeout: 3600
+      failed_when: false
+
+    - name: Check if controller installed successfully
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            systemctl is-active automation-controller.service
+      register: controller_service
+      failed_when: false
+      changed_when: false
+
+    - name: Fail if controller did not install (non-best-effort version)
+      ansible.builtin.fail:
+        msg: "AAP {{ aap_version }} controller installation failed (exit code: {{ install_result.rc }})"
+      when:
+        - controller_service.stdout | default('') != 'active'
+        - not (ver_config.best_effort | default(false))
+
+  rescue:
+    - name: Dump installer setup log
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "cat /var/log/tower/setup-*.log 2>/dev/null || cat {{ installer_dir }}/setup.log 2>/dev/null || echo 'No setup log found'"
+      register: setup_log
+      failed_when: false
+      changed_when: false
+
+    - name: Show installer log (last 150 lines)
+      ansible.builtin.debug:
+        msg: "{{ setup_log.stdout_lines[-150:] | default(['No log output']) }}"
+
+    - name: Dump installer stdout
+      ansible.builtin.debug:
+        msg: "{{ install_result.stdout_lines[-50:] | default(['No stdout']) }}"
+      when: install_result is defined
+
+    - name: Re-raise failure
+      ansible.builtin.fail:
+        msg: "AAP {{ aap_version }} controller installation failed. See log output above."
+      when: not (ver_config.best_effort | default(false))
+
+    - name: Warn (best-effort version)
+      ansible.builtin.debug:
+        msg: "WARNING: AAP {{ aap_version }} install failed but best_effort=true, continuing."
+      when: ver_config.best_effort | default(false)

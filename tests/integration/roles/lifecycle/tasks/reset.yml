@@ -1,0 +1,52 @@
+---
+- name: Check if golden image exists
+  ansible.builtin.command:
+    cmd: "podman image exists {{ golden_image_prefix }}-{{ aap_version }}:latest"
+  register: golden_exists
+  failed_when: false
+  changed_when: false
+
+- name: Fail if no golden image to reset from
+  ansible.builtin.fail:
+    msg: >
+      No golden image found for AAP {{ aap_version }}.
+      Run 'make build-aap VERSION={{ aap_version }}' first.
+  when: golden_exists.rc != 0
+
+- name: Remove existing container
+  ansible.builtin.command:
+    cmd: "podman rm -f {{ container_name }}"
+  register: rm_result
+  failed_when: false
+  changed_when: rm_result.rc == 0
+
+- name: Remove stale storage volume (containerized installs)
+  ansible.builtin.command:
+    cmd: "podman volume rm {{ container_name }}-storage"
+  register: vol_rm_result
+  failed_when: false
+  changed_when: vol_rm_result.rc == 0
+  when: ver_config.installer.method | default('rpm') == 'containerized'
+
+- name: Recreate container from golden image
+  ansible.builtin.include_role:
+    name: base_container
+
+- name: Wait for Controller API after reset
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        curl -sk -o /dev/null -w '%{http_code}'
+        https://localhost{{ ':8443' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}{{ ver_config.api.controller_path }}/ping/
+  register: api_check
+  retries: 30
+  delay: 5
+  until: api_check.stdout | default('') == '200'
+  changed_when: false
+  failed_when: false
+
+- name: Report reset status
+  ansible.builtin.debug:
+    msg: >
+      {{ container_name }} reset from golden image.
+      Controller API: {{ 'AVAILABLE' if api_check.stdout | default('') == '200' else 'STARTING (may need more time)' }}

@@ -1,7 +1,8 @@
 .PHONY: help install install-dev clean format lint typecheck test test-unit test-integration \
        test-performance test-cov check docs docs-serve \
        init-env setup version venv install-editable all \
-       build up-dev down shell logs
+       build build-api build-ui build-all up up-dev down shell shell-engine logs \
+       ensure-bridge-dev-image ensure-api-ui-images web-install web-dev web-build serve
 
 .DEFAULT_GOAL := help
 
@@ -56,6 +57,12 @@ help: ## Show this help message
 	@echo "    make up-dev                        # Start db + bridge container"
 	@echo "    make shell                         # Open a shell in the bridge container"
 	@echo "    make down                          # Stop the running containers"
+	@echo ""
+	@echo "  Web UI workflow (optional):"
+	@echo "    make build-all                     # Build API + UI images"
+	@echo "    make up                            # Start db + engine + ui"
+	@echo "    make shell-engine                  # Open a shell in the engine container"
+	@echo "    make web-dev                       # Start the Vite dev server"
 	@echo ""
 	@echo "  All targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -194,13 +201,42 @@ COMPOSE          := podman compose
 BRIDGE_SVC       := bridge
 BRIDGE_IMAGE     := localhost/aap-bridge:latest
 BRIDGE_DEV_IMAGE := localhost/aap-bridge-dev:latest
+BRIDGE_API_IMAGE := localhost/aap-bridge-api:latest
+UI_IMAGE         := localhost/aap-bridge-ui:latest
 
 build: ## Build aap-bridge container image (base + dev)
-	podman build -t $(BRIDGE_IMAGE) .
+	podman build -t $(BRIDGE_IMAGE) --target base .
 	podman build -t $(BRIDGE_DEV_IMAGE) -f Containerfile.dev .
 
-up-dev: ## Start db + bridge (CLI dev container)
-	$(COMPOSE) up -d db bridge
+build-api: ## Build engine+API container image
+	podman build -t $(BRIDGE_API_IMAGE) --target api .
+
+build-ui: ## Build UI container image
+	podman build -t $(UI_IMAGE) -f Containerfile.ui .
+
+build-all: build-api build-ui ## Build engine + UI container images
+
+ensure-bridge-dev-image:
+	@podman image exists $(BRIDGE_DEV_IMAGE) || { \
+		echo "Missing $(BRIDGE_DEV_IMAGE). Run 'make build' first."; \
+		exit 1; \
+	}
+
+ensure-api-ui-images:
+	@podman image exists $(BRIDGE_API_IMAGE) || { \
+		echo "Missing $(BRIDGE_API_IMAGE). Run 'make build-all' first."; \
+		exit 1; \
+	}
+	@podman image exists $(UI_IMAGE) || { \
+		echo "Missing $(UI_IMAGE). Run 'make build-all' first."; \
+		exit 1; \
+	}
+
+up: ensure-api-ui-images ## Start db + engine + ui using prebuilt images
+	$(COMPOSE) up -d --no-build db engine ui
+
+up-dev: ensure-bridge-dev-image ## Start db + bridge using prebuilt images
+	$(COMPOSE) up -d --no-build db bridge
 
 down: ## Stop all containers
 	$(COMPOSE) down
@@ -208,5 +244,20 @@ down: ## Stop all containers
 shell: ## Shell into bridge container
 	$(COMPOSE) exec $(BRIDGE_SVC) /bin/bash
 
+shell-engine: ## Shell into engine container
+	$(COMPOSE) exec engine /bin/bash
+
 logs: ## Tail all container logs
 	$(COMPOSE) logs -f
+
+web-install: ## Install frontend dependencies
+	cd web && npm ci
+
+web-dev: ## Start Vite dev server (proxies API to localhost:8000)
+	cd web && npm run dev
+
+web-build: ## Build frontend for production
+	cd web && npm run build
+
+serve: ## Start FastAPI API server (requires pip install '.[api]')
+	aap-bridge serve --host 0.0.0.0 --port 8000

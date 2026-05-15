@@ -1340,7 +1340,7 @@ async def delete_resources(
 
     except Exception as e:
         logger.error(f"Failed to fetch/delete {resource_type}: {e}")
-        return 0, 0, 0, []
+        return 0, 0, 1, [(0, resource_type, str(e))]
 
 
 def clear_database(database_url: str) -> tuple[int, int]:

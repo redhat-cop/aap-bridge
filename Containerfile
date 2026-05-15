@@ -36,3 +36,16 @@ RUN mkdir -p exports reports logs && \
 USER bridge
 
 ENTRYPOINT ["aap-bridge"]
+
+
+FROM base AS api
+
+USER root
+
+RUN pip3.12 install --no-cache-dir '.[api]'
+
+USER bridge
+
+EXPOSE 8000
+
+ENTRYPOINT ["aap-bridge", "serve", "--host", "0.0.0.0", "--port", "8000"]

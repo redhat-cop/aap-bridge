@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+# AAP {{ aap_version }} (Tower era) installer inventory
+
+[tower]
+{{ container_hostname }} ansible_connection=local
+
+[database]
+{{ container_hostname }} ansible_connection=local
+
+[all:vars]
+admin_password='{{ aap_admin_password }}'
+
+pg_host='localhost'
+pg_port='5432'
+pg_database='awx'
+pg_username='awx'
+pg_password='{{ aap_pg_password }}'
+pg_sslmode='prefer'

@@ -88,6 +88,7 @@ services:
       - ./config:/app/config:ro
       - bridge-exports:/app/exports
       - bridge-reports:/app/reports
+      - ./tests/integration/generated:/app/tests/integration/generated
       - bridge-logs:/app/logs
     working_dir: /app
     entrypoint: ["sleep", "infinity"]

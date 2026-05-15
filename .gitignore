@@ -230,6 +230,15 @@ GEMINI.md
 # Workflow / Plane / Outline staging artifacts (local-only)
 workflow/
 
+# Integration testing infrastructure (ephemeral AAP containers)
+tests/integration/files/aap-installer-bundles/
+tests/integration/generated/
+tests/integration/.vault_pass
+tests/integration/inventory/group_vars/vault.yml
+
+# AAP subscription manifest (user-provided)
+tests/integration/files/manifest/*.zip
+
 # Local-only project metadata
 project.yaml
 

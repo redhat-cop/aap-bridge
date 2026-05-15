@@ -1,0 +1,81 @@
+FROM registry.redhat.io/ubi9/ubi-init:latest
+
+LABEL maintainer="aap-bridge testing" \
+      description="UBI 9 base for AAP 2.5-2.6 installation" \
+      io.aap-bridge.role="aap-base" \
+      io.aap-bridge.rhel="9"
+
+RUN dnf install -y \
+        openssh-server \
+        openssh-clients \
+        python3 \
+        python3-pip \
+        sudo \
+        which \
+        hostname \
+        procps-ng \
+        iproute \
+        net-tools \
+        rsync \
+        tar \
+        gzip \
+        findutils \
+        openssl \
+        sshpass \
+        glibc-langpack-en \
+        policycoreutils \
+        policycoreutils-python-utils \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+RUN ssh-keygen -A \
+    && mkdir -p /root/.ssh \
+    && chmod 700 /root/.ssh \
+    && ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -N "" \
+    && cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys \
+    && chmod 600 /root/.ssh/authorized_keys
+
+# Create non-root user for the containerized installer (AAP 2.5+ requires it)
+# Enable lingering so the user gets a systemd user session at boot,
+# and set up XDG_RUNTIME_DIR for podman socket and D-Bus.
+RUN useradd -m -s /bin/bash aap && \
+    echo "aap ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/aap && \
+    mkdir -p /home/aap/.ssh && \
+    cp /root/.ssh/authorized_keys /home/aap/.ssh/ && \
+    chown -R aap:aap /home/aap/.ssh && \
+    chmod 700 /home/aap/.ssh && \
+    chmod 600 /home/aap/.ssh/authorized_keys && \
+    mkdir -p /var/lib/systemd/linger && \
+    touch /var/lib/systemd/linger/aap && \
+    mkdir -p /run/user/1000 && \
+    chown aap:aap /run/user/1000
+
+RUN systemctl mask \
+        systemd-remount-fs.service \
+        dev-hugepages.mount \
+        sys-fs-fuse-connections.mount \
+        getty.target \
+        console-getty.service
+
+RUN systemctl unmask systemd-logind.service
+
+RUN systemctl enable sshd
+
+RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/root
+
+# Install fuse-overlayfs for nested podman overlay support
+RUN dnf install -y fuse-overlayfs && dnf clean all
+
+# Pre-configure rootless podman storage for the aap user
+RUN mkdir -p /home/aap/.config/containers && \
+    printf '[storage]\ndriver = "overlay"\n\n[storage.options.overlay]\nmount_program = "/usr/bin/fuse-overlayfs"\n' \
+    > /home/aap/.config/containers/storage.conf && \
+    chown -R aap:aap /home/aap/.config
+
+RUN echo "aap-bridge-testing-base-ubi9" > /etc/aap-bridge-base
+
+EXPOSE 22 80 443 5432 8443 8446 9443
+
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/sbin/init"]

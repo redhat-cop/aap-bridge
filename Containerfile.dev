@@ -30,6 +30,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ src/
 COPY config/ config/
+COPY tests/unit/ tests/unit/
 
 RUN pip3.12 install --no-cache-dir -e .
 

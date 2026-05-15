@@ -1,0 +1,66 @@
+---
+# Reset a source + target pair from their golden images.
+# Destroys running containers and recreates them fresh.
+#
+# Usage:
+#   ansible-playbook playbooks/reset-pair.yml \
+#     -e source_version=2.3 \
+#     -e target_version=2.6
+#
+- name: Reset AAP migration test pair
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    pair_id: "{{ source_version | replace('.', '') }}-to-{{ target_version | replace('.', '') }}"
+
+  tasks:
+    - name: Load version matrix
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+    - name: Reset source instance
+      ansible.builtin.include_role:
+        name: lifecycle
+      vars:
+        lifecycle_action: reset
+        aap_version: "{{ source_version }}"
+        role_suffix: "src"
+        container_name: "aap-{{ source_version | replace('.', '') }}-src"
+
+    - name: Reset target instance
+      ansible.builtin.include_role:
+        name: lifecycle
+      vars:
+        lifecycle_action: reset
+        aap_version: "{{ target_version }}"
+        role_suffix: "tgt"
+        container_name: "aap-{{ target_version | replace('.', '') }}-tgt"
+
+    - name: Create source API token
+      ansible.builtin.include_role:
+        name: api_token
+      vars:
+        aap_version: "{{ source_version }}"
+        container_name: "aap-{{ source_version | replace('.', '') }}-src"
+        token_label: src
+
+    - name: Create target API token
+      ansible.builtin.include_role:
+        name: api_token
+      vars:
+        aap_version: "{{ target_version }}"
+        container_name: "aap-{{ target_version | replace('.', '') }}-tgt"
+        token_label: tgt
+
+    - name: Regenerate bridge config with fresh tokens
+      ansible.builtin.include_role:
+        name: pair_networking
+      vars:
+        source_version: "{{ source_version }}"
+        target_version: "{{ target_version }}"
+
+    - name: Register connections in bridge UI
+      ansible.builtin.include_role:
+        name: bridge_connections

@@ -1,0 +1,11 @@
+---
+- name: Load version matrix
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Set version config
+  ansible.builtin.set_fact:
+    ver_config: "{{ aap_versions[aap_version] }}"
+
+- name: Dispatch to requested lifecycle action
+  ansible.builtin.include_tasks: "{{ lifecycle_action }}.yml"

@@ -28,6 +28,7 @@ export function Dashboard() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editConn, setEditConn] = useState<Connection | null>(null);
+  const [newFormInstance, setNewFormInstance] = useState(0);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
 
@@ -72,6 +73,17 @@ export function Dashboard() {
       setTesting(null);
       loadConnections();
     }
+  };
+
+  const openCreateForm = () => {
+    setEditConn(null);
+    setNewFormInstance(prev => prev + 1);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditConn(null);
   };
 
   const dropdownItems = (conn: Connection) => [
@@ -173,7 +185,7 @@ export function Dashboard() {
       </TextContent>
 
       <Title headingLevel="h2" size="xl" style={{ marginTop: 8, marginBottom: 8 }}>Connections</Title>
-      <Button variant="primary" onClick={() => { setEditConn(null); setShowForm(true); }} style={{ marginBottom: 16 }}>
+      <Button variant="primary" onClick={openCreateForm} style={{ marginBottom: 16 }}>
         Add Connection
       </Button>
 
@@ -200,11 +212,11 @@ export function Dashboard() {
       )}
 
       <ConnectionForm
-        key={editConn?.id || 'new'}
+        key={editConn?.id || `new-${newFormInstance}`}
         isOpen={showForm}
         initial={editConn || undefined}
         onSave={handleSave}
-        onClose={() => { setShowForm(false); setEditConn(null); }}
+        onClose={closeForm}
       />
     </>
   );

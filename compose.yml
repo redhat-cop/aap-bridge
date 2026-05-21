@@ -1,0 +1,99 @@
+services:
+  db-init:
+    image: registry.redhat.io/ubi9/ubi-minimal:latest
+    user: "0"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /var/lib/pgsql/data
+        chown -R 26:26 /var/lib/pgsql/data
+        touch /tmp/ready
+        exec sleep infinity
+    volumes:
+      - pgdata:/var/lib/pgsql/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  db:
+    image: registry.redhat.io/rhel9/postgresql-15
+    depends_on:
+      db-init:
+        condition: service_healthy
+    environment:
+      POSTGRESQL_USER: ${POSTGRESQL_USER:?Set POSTGRESQL_USER in .env}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE:-aap_migration}
+      POSTGRESQL_ADMIN_PASSWORD: ${POSTGRESQL_ADMIN_PASSWORD:?Set POSTGRESQL_ADMIN_PASSWORD in .env}
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/pgsql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USER:-aap_migration_user} -d ${POSTGRESQL_DATABASE:-aap_migration}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  bridge-init:
+    image: localhost/aap-bridge-dev:latest
+    build:
+      context: .
+      dockerfile: Containerfile.dev
+    user: "0"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /app/exports /app/reports /app/logs
+        chown -R 998:998 /app/exports /app/reports /app/logs
+        touch /tmp/ready
+        exec sleep infinity
+    security_opt:
+      - label=disable
+    volumes:
+      - bridge-exports:/app/exports
+      - bridge-reports:/app/reports
+      - bridge-logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  bridge:
+    image: localhost/aap-bridge-dev:latest
+    build:
+      context: .
+      dockerfile: Containerfile.dev
+    depends_on:
+      db:
+        condition: service_healthy
+      bridge-init:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      MIGRATION_STATE_DB_PATH: "postgresql://${POSTGRESQL_USER:?Set POSTGRESQL_USER in .env}:${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}@db:5432/${POSTGRESQL_DATABASE:-aap_migration}"
+      AAP_BRIDGE_CONFIG: /app/config/config.yaml
+      AAP_BRIDGE_LOG_LEVEL: ${AAP_BRIDGE_LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+    security_opt:
+      - label=disable
+    volumes:
+      - ./config:/app/config:ro
+      - bridge-exports:/app/exports
+      - bridge-reports:/app/reports
+      - bridge-logs:/app/logs
+    working_dir: /app
+    entrypoint: ["sleep", "infinity"]
+
+volumes:
+  pgdata:
+  bridge-exports:
+  bridge-reports:
+  bridge-logs:

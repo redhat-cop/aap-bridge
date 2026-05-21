@@ -6,6 +6,8 @@ migrations (e.g., 80,000+ hosts).
 
 ## Key Features
 
+- **Flexible Setup** - Run AAP Bridge directly on the host or use the optional
+  containerized CLI workflow
 - **Bulk Operations** - Leverages AAP bulk APIs for high-performance migrations
 - **State Management** - PostgreSQL-backed state tracking with checkpoint/resume
   capability
@@ -42,7 +44,8 @@ migrations (e.g., 80,000+ hosts).
 
 ## Architecture Overview
 
-AAP Bridge follows an ETL (Export, Transform, Load) architecture:
+AAP Bridge follows an ETL (Export, Transform, Load) architecture. The CLI/TUI
+can run directly on the host or inside the optional containerized workflow:
 
 ```mermaid
 graph LR
@@ -62,7 +65,7 @@ graph LR
   Vault
 - **Migration Layer** - ETL pipeline with exporters, transformers, and importers
 - **State Management** - Database-backed progress tracking and ID mapping
-- **CLI** - User-friendly command-line interface
+- **CLI / TUI** - User-friendly command-line interface for host or container use
 
 ## Migration Order
 

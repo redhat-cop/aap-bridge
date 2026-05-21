@@ -72,11 +72,28 @@ cd aap-bridge
 uv venv --seed --python 3.12
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-2. **Install dependencies and editable package:**
-This command will create/update your virtual environment, install all dependencies (including development dependencies), and install the `aap-bridge` package in editable mode.
+# Install dependencies and editable package
+# This command will create/update your virtual environment, install all dependencies (including development dependencies), and install the `aap-bridge` package in editable mode.
 
 uv sync
 ```
+
+If `uv` is not available on your system, for instance, a RHEL 8 machine, the venv can be created with native packages
+```bash
+# Clone the repository
+git clone https://github.com/redhat-cop/aap-bridge.git
+cd aap-bridge
+
+# Create virtual environment
+sudo dnf install python3.12-pip
+python3.12 -m venv .venv
+source .venv/bin/activate
+
+# Populate the virtual environmentB
+pip3.12 install --upgrade pip setuptools wheel
+pip3.12 install -e .
+```
+
 
 ### Configuration
 

@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git libpq-dev gcc && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+RUN git clone https://github.com/redhat-cop/aap-bridge.git /app
+
+WORKDIR /app
+
+RUN uv venv --seed --python 3.12 && \
+    . .venv/bin/activate && \
+    uv sync
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV TERM=xterm-256color
+
+ENTRYPOINT ["aap-bridge"]

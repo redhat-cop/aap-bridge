@@ -574,8 +574,8 @@ class ResourceExporter:
                 message="API filter: inventory_sources__isnull=true (exclude dynamic hosts)",
             )
 
-        if resource_type == "inventories":
-            params["pending_deletion"] = "false"
+        if resource_type in {"inventory", "inventories"}:
+            params.setdefault("pending_deletion", "false")
             logger.info(
                 "export_parallel_applying_inventory_filter",
                 message="API filter: pending_deletion=false (exclude deleted inventories)",

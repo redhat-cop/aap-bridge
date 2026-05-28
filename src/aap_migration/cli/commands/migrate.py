@@ -150,6 +150,7 @@ def _run_migration_workflow(
     resume: bool,
     skip_prep: bool = False,
     phase: str = "all",
+    organization: str | None = None,
 ) -> None:
     """Execute the four-phase migration workflow: prep → export → transform → import.
 
@@ -248,6 +249,7 @@ def _run_migration_workflow(
         force=force,
         records_per_file=1000,
         resume=resume,
+        organization=organization,
     )
 
     click.echo()
@@ -272,6 +274,7 @@ def _run_migration_workflow(
         resource_type=resource_types if resource_types != default_migration_types else (),
         quiet=False,
         disable_progress=False,
+        organization=organization,
     )
 
     click.echo()
@@ -422,8 +425,15 @@ def _run_migration_workflow(
         "all (complete)"
     ),
 )
+@click.option(
+    "--organization",
+    "-O",
+    "organization",
+    default=None,
+    help="Migrate only this organization (by name) and its required global assets",
+)
 @click.pass_context
-def migrate(ctx, resource_type, force, resume, skip_prep, phase) -> None:
+def migrate(ctx, resource_type, force, resume, skip_prep, phase, organization) -> None:
     """Execute migration from AAP 2.3 to 2.6.
 
     Runs the complete four-phase workflow:
@@ -458,6 +468,10 @@ def migrate(ctx, resource_type, force, resume, skip_prep, phase) -> None:
         aap-bridge migrate --force
 
         \b
+        # Migrate a single organization
+        aap-bridge migrate --organization MyOrg
+
+        \b
         # View migration status
         aap-bridge migrate status
     """
@@ -480,6 +494,7 @@ def migrate(ctx, resource_type, force, resume, skip_prep, phase) -> None:
         resume=resume,
         skip_prep=skip_prep,
         phase=phase,
+        organization=organization,
     )
 
 

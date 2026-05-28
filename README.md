@@ -17,6 +17,9 @@ migrations (e.g., 80,000+ hosts)
   execution environments, inventories, groups, hosts, projects, job templates,
   workflow job templates (including nodes, survey specs, and notification
   associations), schedules, RBAC role assignments, and more
+- **Single-Organization Migration**: Export and migrate one organization at a
+  time, including required global assets (users, custom role definitions, and
+  shared credential types)
 - **Classic RBAC Migration**: User and team resource role grants from AAP 1.0–2.5
   are automatically translated to the AAP 2.5+ RBAC model
 - **Inventory Source Sync**: Inventory sources are automatically synced after
@@ -201,6 +204,9 @@ Review and adjust `config/config.yaml` for your environment:
 - **`export.skip_credential_names`**: List of credential names to exclude (defaults to
   `["Ansible Galaxy", "Default Execution Environment Registry Credential"]`). These are
   recreated automatically by the AAP installer.
+- **`export.organization`**: When set, limits export and migrate to a single
+  organization by name (same behavior as the `--organization` CLI flag). Leave
+  unset for a full-platform migration.
 
 Update `config/mappings.yaml` if you need to rename resources during migration (e.g.,
 credential types with different names between AAP versions).
@@ -230,6 +236,65 @@ aap-bridge validate all --sample-size 4000
 aap-bridge report summary
 
 ```
+
+#### Single-Organization Migration
+
+You can migrate **one organization at a time** instead of the entire platform.
+The tool exports org-scoped resources (projects, inventories, credentials, job
+templates, teams, and so on) for the named organization, and also includes
+global assets that organization depends on:
+
+- Users who belong to exported teams or hold RBAC on exported resources
+- Custom (non-managed) role definitions
+- Global and org-specific custom credential types
+
+Organization name must match the source AAP organization (case-insensitive).
+
+**CLI**
+
+```bash
+# Full workflow for one organization
+aap-bridge migrate --organization MyOrg --config config/config.yaml
+
+# Export or transform only
+aap-bridge export --organization MyOrg
+aap-bridge transform --organization MyOrg
+
+# Set scope for the whole CLI session (applies to export, transform, migrate)
+aap-bridge --organization MyOrg export
+aap-bridge --organization MyOrg migrate
+
+# Environment variable (same as -O / --organization)
+export AAP_BRIDGE_ORGANIZATION=MyOrg
+aap-bridge migrate --config config/config.yaml
+```
+
+**Configuration**
+
+```yaml
+# config/config.yaml
+export:
+  organization: MyOrg
+```
+
+CLI flag takes precedence over `export.organization` in config.
+
+**Interactive menu**
+
+Run `aap-bridge` with no arguments, then:
+
+- Press **o** to set or clear the organization scope (shown in the menu header)
+- Use **2 Export**, **3 Transform**, or **6 Full Migrate** — you will be prompted
+  for organization scope before those steps run
+
+**Notes**
+
+- Use a **separate state database** (or careful resume planning) when migrating
+  multiple organizations sequentially to the same target; idempotency is tracked
+  by source resource ID, not organization name.
+- **Instance groups** and **instances** are not org-scoped and remain excluded
+  from the default migrate workflow.
+- Export metadata records the organization scope for transform resume validation.
 
 #### Output Control
 

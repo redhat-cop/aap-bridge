@@ -22,6 +22,12 @@ from aap_migration.cli.utils import (
     echo_warning,
     format_count,
 )
+from aap_migration.migration.organization_scope import (
+    TRANSFORM_ORG_FILTER_RESOURCES,
+    load_exported_source_ids,
+    organization_scope_from_metadata,
+    should_include_user_for_org,
+)
 from aap_migration.migration.parallel_transformer import ParallelTransformCoordinator
 from aap_migration.migration.state import MigrationState
 from aap_migration.migration.transformer import SkipResourceError, create_transformer
@@ -218,6 +224,13 @@ async def seed_builtin_credential_types(ctx: MigrationContext, state: MigrationS
     is_flag=True,
     help="Automatically confirm prompts (skip confirmation)",
 )
+@click.option(
+    "--organization",
+    "-O",
+    "organization",
+    default=None,
+    help="Organization scope (must match the export; read from metadata if omitted)",
+)
 @pass_context
 @handle_errors
 def transform(
@@ -232,6 +245,7 @@ def transform(
     skip_pending_deletion: bool,
     defer_project_sync: bool,
     yes: bool,
+    organization: str | None,
 ) -> None:
     """Transform RAW AAP 2.3 data to AAP 2.6 compatible format.
 
@@ -294,6 +308,20 @@ def transform(
 
     with open(metadata_file) as f:
         metadata = json.load(f)
+
+    org_scope = organization_scope_from_metadata(metadata)
+    if organization and org_scope and organization.strip() != org_scope.name:
+        echo_warning(
+            f"Export metadata organization '{org_scope.name}' differs from "
+            f"--organization '{organization.strip()}'"
+        )
+    if org_scope:
+        echo_info(
+            f"Organization scope: '{org_scope.name}' (source id {org_scope.source_id})"
+        )
+        exported_ids_for_org = load_exported_source_ids(input_dir)
+    else:
+        exported_ids_for_org = {}
 
     from aap_migration.cli.commands.migrate import DEFAULT_MIGRATION_EXCLUDED_TYPES
 
@@ -440,6 +468,8 @@ def transform(
                         skip_pending_deletion=ctx.config.transform.skip_pending_deletion,
                         config=ctx.config,
                         defer_project_sync=defer_project_sync,
+                        org_scope=org_scope,
+                        exported_ids_for_org=exported_ids_for_org,
                     )
 
                     # Create progress callback
@@ -568,6 +598,28 @@ def transform(
                                     continue
                                 active_resources.append(resource)
                             raw_resources = active_resources
+
+                            if (
+                                org_scope
+                                and normalize_resource_type(rtype) in TRANSFORM_ORG_FILTER_RESOURCES
+                            ):
+                                original_count = len(raw_resources)
+                                raw_resources = [
+                                    resource
+                                    for resource in raw_resources
+                                    if should_include_user_for_org(
+                                        resource, exported_ids_for_org
+                                    )
+                                ]
+                                skipped_org_users = original_count - len(raw_resources)
+                                if skipped_org_users:
+                                    logger.info(
+                                        "filtered_users_for_organization_scope",
+                                        resource_type=rtype,
+                                        organization=org_scope.name,
+                                        skipped=skipped_org_users,
+                                        kept=len(raw_resources),
+                                    )
 
                             # Filter out inventories (pending_deletion and smart)
                             if rtype == "inventories":

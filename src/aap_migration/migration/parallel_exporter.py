@@ -12,6 +12,12 @@ from typing import Any
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.config import ExportConfig, PerformanceConfig
 from aap_migration.migration.exporter import create_exporter
+from aap_migration.migration.organization_scope import (
+    CLIENT_ORG_FILTER_RESOURCES,
+    OrganizationScope,
+    build_resource_export_filters,
+    resource_passes_org_scope,
+)
 from aap_migration.migration.state import MigrationState
 from aap_migration.resources import get_endpoint, normalize_resource_type
 from aap_migration.utils.logging import get_logger
@@ -37,6 +43,7 @@ class ParallelExportCoordinator:
         output_dir: Path,
         records_per_file: int = 1000,
         export_config: ExportConfig | None = None,
+        org_scope: OrganizationScope | None = None,
     ):
         """Initialize parallel export coordinator.
 
@@ -54,6 +61,7 @@ class ParallelExportCoordinator:
         self.output_dir = output_dir
         self.records_per_file = records_per_file
         self.export_config = export_config or ExportConfig()
+        self.org_scope = org_scope
         self.results: dict[str, dict[str, Any]] = {}
 
         # Lock for thread-safe state operations
@@ -160,19 +168,14 @@ class ParallelExportCoordinator:
             endpoint = get_endpoint(resource_type)
 
             # Build filters for this resource type
-            export_filters: dict[str, Any] = {}
-            if resource_type == "hosts" and self.export_config.skip_dynamic_hosts:
-                # API-level filtering: only export static hosts (not from dynamic inventory sources)
-                export_filters["inventory_sources__isnull"] = "true"
+            export_filters = build_resource_export_filters(
+                resource_type, self.export_config, self.org_scope
+            )
+            if export_filters:
                 logger.info(
-                    "parallel_export_applying_dynamic_host_filter",
-                    message="API filter: inventory_sources__isnull=true (exclude dynamic hosts)",
-                )
-            if resource_type == "inventory":
-                export_filters["pending_deletion"] = "false"
-                logger.info(
-                    "parallel_export_applying_inventory_filter",
-                    message="API filter: pending_deletion=false (exclude deleted inventories)",
+                    "parallel_export_applying_filters",
+                    resource_type=resource_type,
+                    filters=export_filters,
                 )
 
             # Export with parallel page fetching
@@ -195,6 +198,15 @@ class ParallelExportCoordinator:
                 iteration_count += 1
 
                 try:
+                    if (
+                        self.org_scope
+                        and normalize_resource_type(resource_type) in CLIENT_ORG_FILTER_RESOURCES
+                        and not resource_passes_org_scope(
+                            resource_type, resource, self.org_scope
+                        )
+                    ):
+                        continue
+
                     # Store ID mapping
                     source_id = resource.get("id")
                     source_name = resource.get("name", "")

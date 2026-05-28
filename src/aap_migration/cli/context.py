@@ -44,6 +44,9 @@ class MigrationContext:
     source_version: str | None = None
     target_version: str | None = None
 
+    # Optional single-organization migration scope (CLI or config)
+    organization: str | None = None
+
     # Lazy-loaded attributes
     _config: MigrationConfig | None = field(default=None, init=False, repr=False)
     _source_client: AAPSourceClient | None = field(default=None, init=False, repr=False)

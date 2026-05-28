@@ -656,6 +656,14 @@ class ExportConfig(BaseModel):
         le=10000,
         description="Number of records per exported JSON file",
     )
+    organization: str | None = Field(
+        default=None,
+        description=(
+            "When set, export and migrate only this organization (by name) plus "
+            "global assets required by that org (users, custom role definitions, etc.). "
+            "Overridden by the --organization CLI flag."
+        ),
+    )
     filters: dict[str, str] = Field(
         default_factory=dict,
         description="Optional API filters for resources (e.g., {'name__icontains': 'test'})",

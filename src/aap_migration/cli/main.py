@@ -57,12 +57,21 @@ logger = get_logger(__name__)
     help="Log to file instead of stdout",
     envvar="AAP_BRIDGE_LOG_FILE",
 )
+@click.option(
+    "--organization",
+    "-O",
+    "organization",
+    default=None,
+    help="Migrate only this organization (by name) and its required global assets",
+    envvar="AAP_BRIDGE_ORGANIZATION",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
     config: Path | None,
     log_level: str,
     log_file: Path | None,
+    organization: str | None,
 ) -> None:
     """AAP Bridge - Migrate from source AAP to target AAP.
 
@@ -104,6 +113,7 @@ def cli(
         config_path=config,
         log_level=log_level,
         log_file=log_file,
+        organization=organization.strip() if organization else None,
     )
 
     logger.debug(

@@ -547,11 +547,29 @@ class AAPTargetClient(BaseAPIClient):
             next_url = response.get("next")
             if next_url:
                 # Extract path from full URL for next request
-                from urllib.parse import urlparse
+                from urllib.parse import parse_qsl, urlparse
 
                 parsed = urlparse(next_url)
-                endpoint = parsed.path.replace("/api/controller/v2/", "")
-                params = {}  # Next URL already has query params
+                next_endpoint = parsed.path.replace("/api/controller/v2/", "")
+                # parsed.path is only the path (inventories/) — the query string
+                # (?page=2&name__in=...) lives in parsed.query, which is thrown away.
+                # So every "next page" request goes to the bare endpoint with no page
+                # and no filter, which returns page 1 again, whose next is still page 2
+                # → it loops forever, re-fetching page 1.
+                # It only triggers when a result set exceeds one page (page_size 100)
+                # — exactly your large inventories/groups.
+                next_params = dict(parse_qsl(parsed.query))
+                if next_endpoint == endpoint and next_params == params:
+                    # Defensive guard: identical next request means no forward
+                    # progress; stop rather than loop indefinitely.
+                    logger.warning(
+                        "pagination_no_progress",
+                        resource_type=resource_type,
+                        endpoint=next_endpoint,
+                    )
+                    break
+                endpoint = next_endpoint
+                params = next_params
             else:
                 endpoint = None
 

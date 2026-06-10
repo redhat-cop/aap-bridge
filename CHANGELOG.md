@@ -69,6 +69,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   inventories are already mapped when role grants are applied
 - **Error Output Simplified**: Console error output no longer renders full Rich
   tracebacks with local variable dumps; errors render as a single summary line
+- **Documentation – Token and URL Guidance**: Clarified read-only source vs
+  read/write target API tokens, source/target URL paths by AAP version (1.0–2.4
+  `/api/v2`, source 2.5+ and target 2.6+ `/api/controller/v2`), and corrected
+  `SECURITY.md` to use `SOURCE__TOKEN`/`TARGET__TOKEN`
 
 ### Fixed
 

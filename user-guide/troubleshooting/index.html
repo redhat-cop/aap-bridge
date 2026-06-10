@@ -1339,7 +1339,7 @@
 <li>Verify the URL is correct in <code>.env</code></li>
 <li>Check network connectivity: <code>curl -I
    https://source-aap.example.com/api/v2/ping/</code></li>
-<li>Verify the API token is valid</li>
+<li>Verify the API token is valid and has read scope</li>
 <li>Check firewall rules</li>
 </ol>
 <h3 id="cannot-connect-to-target-aap-platform-gateway">Cannot connect to target AAP (Platform Gateway)<a class="headerlink" href="#cannot-connect-to-target-aap-platform-gateway" title="Permanent link">&para;</a></h3>
@@ -1361,7 +1361,11 @@
 <p><strong>Solutions:</strong></p>
 <ol>
 <li>Regenerate API token in AAP UI</li>
-<li>Ensure token has admin privileges</li>
+<li>Verify token scope matches the instance role:</li>
+<li><strong>Source</strong>: read-only scope is sufficient; the user must be able to
+     read all resources being migrated</li>
+<li><strong>Target</strong>: read/write scope with admin-level privileges is required for
+     import, cleanup, and validation</li>
 <li>Check token hasn't expired</li>
 </ol>
 <h2 id="database-issues">Database Issues<a class="headerlink" href="#database-issues" title="Permanent link">&para;</a></h2>

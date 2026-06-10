@@ -1495,7 +1495,9 @@
 <li><strong>Backup target AAP</strong> - Always have a rollback plan</li>
 <li><strong>Test in staging</strong> - Run migration in a test environment first</li>
 <li><strong>Check disk space</strong> - Exports can be large</li>
-<li><strong>Verify credentials</strong> - Ensure API tokens have admin access</li>
+<li><strong>Verify credentials</strong> - Source API token has read-only scope with
+   permission to read all resources being migrated; target API token has
+   read/write scope with admin-level access to create and modify resources</li>
 </ol>
 <h3 id="during-migration">During Migration<a class="headerlink" href="#during-migration" title="Permanent link">&para;</a></h3>
 <ol>

@@ -15,18 +15,63 @@ cp .env.example .env
 ### Required Variables
 
 ```bash
-# Source AAP instance
+# Source AAP instance (read-only token)
+# AAP 1.0–2.4: /api/v2 — AAP 2.5+: /api/controller/v2
 SOURCE__URL=https://source-aap.example.com/api/v2
-SOURCE__TOKEN=your_source_api_token
+SOURCE__TOKEN=your_source_read_token
 
-# Target AAP instance (Platform Gateway for AAP 2.6+)
+# Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)
 TARGET__URL=https://target-aap.example.com/api/controller/v2
-TARGET__TOKEN=your_target_api_token
+TARGET__TOKEN=your_target_write_token
 
 # PostgreSQL state database
 MIGRATION_STATE_DB_PATH=postgresql://user:password@localhost:5432/aap_migration
 
 ```
+
+### Source and Target URLs
+
+| Instance | AAP version | URL path |
+| --- | --- | --- |
+| Source | 1.0–2.4 | `/api/v2` |
+| Source | 2.5+ | `/api/controller/v2` (Platform Gateway) |
+| Target | 2.6+ | `/api/controller/v2` (Platform Gateway) |
+
+### API Token Permissions
+
+| Instance | Token scope | Why |
+| --- | --- | --- |
+| Source | Read-only | Export and prep only read data from the source AAP |
+| Target | Read/write | Import, cleanup, and validation create and modify resources on the target |
+
+The source token user must still have permission to read all resources being
+migrated. The target token user needs admin-level access.
+
+To create tokens via the API (avoid putting passwords in shell history):
+
+```bash
+# Source — read-only scope
+# AAP 2.4 and earlier
+curl -k -X POST -u "<username>:<password>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "AAP Bridge Source Token", "scope": "read"}' \
+  https://<source_aap_base_url>/api/v2/tokens/ | jq -r '.token'
+
+# AAP 2.5+ source (Platform Gateway)
+curl -k -X POST -u "<username>:<password>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "AAP Bridge Source Token", "scope": "read"}' \
+  https://<source_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
+
+# Target (AAP 2.6+) — read/write scope via Platform Gateway
+curl -k -X POST -u "<username>:<password>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "AAP Bridge Target Token", "scope": "write"}' \
+  https://<target_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
+```
+
+The Platform Gateway token API (`/api/gateway/v1/tokens/`) was introduced in AAP 2.5.
+Use `/api/v2/tokens/` for AAP 2.4 and earlier.
 
 ### Optional Variables
 

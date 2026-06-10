@@ -38,23 +38,24 @@ AAP Bridge handles sensitive credentials during migration. Follow these
 practices:
 
 1. **Use Environment Variables**: Never hardcode tokens or passwords in
-   configuration files.
+   configuration files. Set them in a `.env` file (see `.env.example`) or export
+   them in your shell:
 
    ```bash
-   export AAP_23_TOKEN="your_source_token"
-   export AAP_26_TOKEN="your_target_token"
+   export SOURCE__TOKEN="your_source_read_token"
+   export TARGET__TOKEN="your_target_write_token"
+   ```
 
-   ```text
+   Use read-only tokens for the source AAP and read/write tokens for the target
+   AAP (see [Configuration](docs/getting-started/configuration.md#api-token-permissions)).
 
 2. **Protect Configuration Files**: Ensure `config/config.yaml` and `.env` have
-
    restrictive permissions.
 
    ```bash
    chmod 600 .env
    chmod 600 config/config.yaml
-
-   ```bash
+   ```
 
 3. **Secure State Database**: The migration state database may contain resource
    metadata. Protect access to the `state/` directory.

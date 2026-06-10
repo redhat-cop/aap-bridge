@@ -251,7 +251,9 @@ Role Definitions (AAP 2.5+ RBAC)
 1. **Backup target AAP** - Always have a rollback plan
 2. **Test in staging** - Run migration in a test environment first
 3. **Check disk space** - Exports can be large
-4. **Verify credentials** - Ensure API tokens have admin access
+4. **Verify credentials** - Source API token has read-only scope with
+   permission to read all resources being migrated; target API token has
+   read/write scope with admin-level access to create and modify resources
 
 ### During Migration
 

@@ -12,7 +12,7 @@ migrations (e.g., 80,000+ hosts)
 - **Idempotency**: Safely resume interrupted migrations without creating
   duplicates
 - **Broad Source Version Support**: Migrate from AAP 1.0, 1.1, 1.2, 2.0, 2.1,
-  2.2, 2.3, 2.4, 2.5, or 2.6 to a target AAP 2.6 instance
+  2.2, 2.3, 2.4, 2.5, or 2.6 to a target AAP 2.6+ instance
 - **Complete Resource Coverage**: Organizations, users, teams, credentials,
   execution environments, inventories, groups, hosts, projects, job templates,
   workflow job templates (including nodes, survey specs, and notification
@@ -53,7 +53,10 @@ The tool is organized into several key components:
 - **Hardware**: Minimum 8GB RAM recommended for large migrations
 - **Network**: Access to Source AAP, Target AAP, and the state management
   PostgreSQL database (not AAP)
-- **Credentials**: Admin access to both Source and Target AAP instances
+- **Credentials**: API tokens for source and target AAP instances. The source
+  token needs read-only scope (sufficient RBAC to read all resources being
+  migrated). The target token needs read/write scope (admin-level access to
+  create and modify resources during import and cleanup).
 - **HashiCorp Vault** (Optional but recommended): For migrating encrypted
   credentials securely
 - **Instance Groups**: Any instance groups that have RBAC role assignments on
@@ -147,35 +150,44 @@ cp .env.example .env
 
 Edit `.env` with your AAP instance details and database connection string.
 
-**Critical AAP 2.6 Note:** The Target URL must point to the **Platform Gateway**
-(`/api/controller/v2`), not the direct controller API.
+**Critical target note (AAP 2.6+):** The Target URL must point to the **Platform Gateway**
+(`/api/controller/v2`), not the direct controller API. Source AAP 2.5+ also uses
+`/api/controller/v2`; source versions 1.0–2.4 use `/api/v2`.
 
 To retrieve API tokens via the command line (take care to not get the password in your
 SHELL history):
 
 ```bash
-# AAP 2.5 and earlier
+# Source AAP — read-only scope is sufficient (export/prep only read data)
+# AAP 2.4 and earlier
 curl -k -X POST -u "<username>:<password>" \
   -H "Content-Type: application/json" \
-  -d '{"description": "CLI Token", "scope": "write"}' \
-  https://<aap_base_url>/api/v2/tokens/ | jq -r '.token'
+  -d '{"description": "CLI Source Token", "scope": "read"}' \
+  https://<source_aap_base_url>/api/v2/tokens/ | jq -r '.token'
 
-# AAP 2.6 and later (Platform Gateway)
+# AAP 2.5+ source (Platform Gateway)
 curl -k -X POST -u "<username>:<password>" \
   -H "Content-Type: application/json" \
-  -d '{"description": "CLI Token", "scope": "write"}' \
-  https://<aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
+  -d '{"description": "CLI Source Token", "scope": "read"}' \
+  https://<source_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
+
+# Target AAP — read/write scope required (import, cleanup, and validation write data)
+# AAP 2.6+ (Platform Gateway)
+curl -k -X POST -u "<username>:<password>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "CLI Target Token", "scope": "write"}' \
+  https://<target_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
 ```
 
 ```bash
 
-# Source AAP instance
+# Source AAP instance (read-only token; AAP 1.0–2.4 use /api/v2, 2.5+ use /api/controller/v2)
 SOURCE__URL=https://source-aap.example.com/api/v2
-SOURCE__TOKEN=your_source_token
+SOURCE__TOKEN=your_source_read_token
 
-# Target AAP instance (Platform Gateway)
+# Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)
 TARGET__URL=https://target-aap.example.com/api/controller/v2
-TARGET__TOKEN=your_target_token
+TARGET__TOKEN=your_target_write_token
 
 # PostgreSQL state database (REQUIRED)
 MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:your_secure_password@localhost:5432/aap_migration
@@ -465,7 +477,7 @@ SSH keys, and secret fields will show as `$encrypted$`.
 
 ### Platform Gateway
 
-AAP 2.6 routes all API calls through the Platform Gateway at
+AAP 2.6+ routes target API calls through the Platform Gateway at
 `https://<gateway>/api/controller/v2/`. The tool automatically handles this routing.
 
 ## Project Status

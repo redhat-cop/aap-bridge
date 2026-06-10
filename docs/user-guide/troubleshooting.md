@@ -17,7 +17,7 @@ Error: Connection refused to https://source-aap.example.com
 1. Verify the URL is correct in `.env`
 2. Check network connectivity: `curl -I
    https://source-aap.example.com/api/v2/ping/`
-3. Verify the API token is valid
+3. Verify the API token is valid and has read scope
 4. Check firewall rules
 
 ### Cannot connect to target AAP (Platform Gateway)
@@ -53,7 +53,11 @@ Error: 401 Unauthorized
 **Solutions:**
 
 1. Regenerate API token in AAP UI
-2. Ensure token has admin privileges
+2. Verify token scope matches the instance role:
+   - **Source**: read-only scope is sufficient; the user must be able to
+     read all resources being migrated
+   - **Target**: read/write scope with admin-level privileges is required for
+     import, cleanup, and validation
 3. Check token hasn't expired
 
 ## Database Issues

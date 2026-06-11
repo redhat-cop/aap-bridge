@@ -115,6 +115,17 @@ HTTP client for the target AAP instance:
   `/api/gateway/v1/` and automation content to `/api/controller/v2/`
 - Bulk operation support on controller endpoints
 
+#### ApiLayout (`api_layout.py`)
+
+Single source of truth for API path roots and version-aware routing:
+
+- `SOURCE__VERSION` / `TARGET__VERSION` select legacy (`/api/v2/`) vs gateway topology
+- Endpoint segment sets determine gateway vs controller base per request
+- RBAC assignments route by `content_type` (including `shared.organization` /
+  `shared.team` on gateway exports)
+- `classic_rbac_conversion.py` maps legacy principal grants to role assignment
+  rows when importing to gateway targets
+
 ### Migration Layer
 
 #### Exporter

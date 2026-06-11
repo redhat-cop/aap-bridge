@@ -150,9 +150,10 @@ cp .env.example .env
 
 Edit `.env` with your AAP instance details and database connection string.
 
-**Critical target note (AAP 2.6+):** The Target URL must point to the **Platform Gateway**
-(`/api/controller/v2`), not the direct controller API. Source AAP 2.5+ also uses
-`/api/controller/v2`; source versions 1.0–2.4 use `/api/v2`.
+**AAP URL configuration:** Set `SOURCE__URL` and `TARGET__URL` to the host only
+(`https://fqdn`). Set `SOURCE__VERSION` and `TARGET__VERSION` so the tool selects
+the correct API paths. Source tokens need read scope; target tokens need
+read/write scope with admin-level access.
 
 To retrieve API tokens via the command line (take care to not get the password in your
 SHELL history):
@@ -181,12 +182,14 @@ curl -k -X POST -u "<username>:<password>" \
 
 ```bash
 
-# Source AAP instance (read-only token; AAP 1.0–2.4 use /api/v2, 2.5+ use /api/controller/v2)
-SOURCE__URL=https://source-aap.example.com/api/v2
+# Source AAP instance (read-only token)
+SOURCE__URL=https://source-aap.example.com
+SOURCE__VERSION=2.4
 SOURCE__TOKEN=your_source_read_token
 
-# Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)
-TARGET__URL=https://target-aap.example.com/api/controller/v2
+# Target AAP instance (read/write token)
+TARGET__URL=https://target-aap.example.com
+TARGET__VERSION=2.6
 TARGET__TOKEN=your_target_write_token
 
 # PostgreSQL state database (REQUIRED)
@@ -477,8 +480,9 @@ SSH keys, and secret fields will show as `$encrypted$`.
 
 ### Platform Gateway
 
-AAP 2.6+ routes target API calls through the Platform Gateway at
-`https://<gateway>/api/controller/v2/`. The tool automatically handles this routing.
+AAP 2.5+ exposes shared resources on `/api/gateway/v1/` and automation content on
+`/api/controller/v2/`. Configure only `https://<gateway>` in `.env`; the tool
+discovers the correct API paths from `SOURCE__VERSION` and `TARGET__VERSION`.
 
 ## Project Status
 

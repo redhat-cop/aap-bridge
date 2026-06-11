@@ -8,8 +8,8 @@ import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from aap_migration.client.api_layout import normalize_host_url
 from aap_migration.client.base_client import BaseAPIClient
-from aap_migration.client.exceptions import StateError
 from aap_migration.config import AAPInstanceConfig
 from aap_migration.resources import get_endpoint
 from aap_migration.utils.logging import get_logger
@@ -46,10 +46,16 @@ class AAPSourceClient(BaseAPIClient):
         """
         if config.token is None:
             raise ValueError("API token must be resolved before initializing AAPSourceClient")
+        if not config.version:
+            raise ValueError(
+                "SOURCE__VERSION must be set; source AAP version cannot be detected "
+                "reliably from the API on older releases."
+            )
 
         super().__init__(
-            base_url=config.url,
+            host_url=normalize_host_url(config.url),
             token=config.token,
+            aap_version=config.version,
             verify_ssl=config.verify_ssl,
             timeout=config.timeout,
             rate_limit=rate_limit,
@@ -58,27 +64,11 @@ class AAPSourceClient(BaseAPIClient):
             max_connections=max_connections,
             max_keepalive_connections=max_keepalive_connections,
         )
-        logger.info("aap_source_client_initialized", url=config.url)
+        logger.info("aap_source_client_initialized", url=self.host_url, version=config.version)
 
     async def get_version(self) -> str:
-        """Discover AAP version from the API.
-
-        Returns:
-            Version string (e.g., '2.3.0', '2.4.1', '2.5.0')
-        """
-        try:
-            response = await self.get("ping/")
-            version = response.get("version", response.get("active_node", {}).get("version"))
-            if not version:
-                # Fallback: try config endpoint
-                config_response = await self.get("config/")
-                version = config_response.get("version")
-            if not version:
-                raise StateError("Cannot determine source AAP version from API")
-            return str(version)
-        except Exception as e:
-            logger.error("failed_to_discover_version", error=str(e))
-            raise StateError(f"Failed to discover source AAP version: {e}") from e
+        """Return the configured source AAP version."""
+        return self.aap_version
 
     @retry_api_call
     async def get_paginated(

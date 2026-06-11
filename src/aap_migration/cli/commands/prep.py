@@ -99,6 +99,7 @@ def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
     target_endpoints_file = output_dir / "target_endpoints.json"
 
     if not force and source_endpoints_file.exists() and target_endpoints_file.exists():
+        click.echo()
         if not click.confirm("Schema files already exist. Overwrite?", default=False):
             click.echo("Cancelled.")
             return

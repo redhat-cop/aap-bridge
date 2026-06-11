@@ -2208,6 +2208,31 @@ class RoleDefinitionTransformer(DataTransformer):
     DEPENDENCIES: dict[str, str] = {}
     REQUIRED_DEPENDENCIES: set[str] = set()
 
+    def _apply_specific_transformations(
+        self, data: dict[str, Any], resource_type: str
+    ) -> dict[str, Any]:
+        """Preserve content_type and permissions needed to create custom roles on gateway."""
+        summary = data.get("summary_fields", {})
+        content_type = data.get("content_type")
+        if not content_type and isinstance(summary.get("content_type"), dict):
+            data["content_type"] = summary["content_type"].get("model")
+        elif not content_type and isinstance(summary.get("content_type"), str):
+            data["content_type"] = summary["content_type"]
+
+        permissions = data.get("permissions")
+        if permissions is None and "permissions" in summary:
+            permissions = summary.get("permissions")
+        if isinstance(permissions, list):
+            normalized: list[str] = []
+            for perm in permissions:
+                if isinstance(perm, str):
+                    normalized.append(perm)
+                elif isinstance(perm, dict) and perm.get("codename"):
+                    normalized.append(str(perm["codename"]))
+            data["permissions"] = normalized
+
+        return data
+
     async def populate_target_id_from_target(
         self,
         data: dict[str, Any],
@@ -2231,7 +2256,15 @@ class RoleDefinitionTransformer(DataTransformer):
             return data
 
         try:
-            results = await target_client.get(
+            from aap_migration.client.api_layout import role_definition_api_base
+
+            api_base = role_definition_api_base(
+                target_client.api_layout,
+                data.get("content_type"),
+                data.get("_api_base"),
+            )
+            results = await target_client.get_on_base(
+                api_base,
                 "role_definitions/",
                 params={"name": name},
             )
@@ -2278,6 +2311,8 @@ class RoleAssignmentTransformer(DataTransformer):
         self, data: dict[str, Any], resource_type: str
     ) -> dict[str, Any]:
         """Extract role_definition_name and content_object_name from summary_fields before removal."""
+        from aap_migration.client.api_layout import normalize_rbac_content_type
+
         summary = data.get("summary_fields", {})
         role_def_summary = summary.get("role_definition", {})
         if role_def_summary.get("name"):
@@ -2285,6 +2320,11 @@ class RoleAssignmentTransformer(DataTransformer):
         content_obj = summary.get("content_object", {})
         if content_obj and content_obj.get("name"):
             data["content_object_name"] = content_obj["name"]
+
+        content_type = data.get("content_type")
+        if content_type:
+            data["content_type"] = normalize_rbac_content_type(content_type) or content_type
+
         return data
 
 

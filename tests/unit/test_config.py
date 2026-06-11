@@ -84,6 +84,15 @@ class TestAAPInstanceConfig:
 
         assert config.url == "https://aap.example.com"
 
+    def test_url_strips_legacy_api_path(self):
+        """Test legacy API path suffixes are stripped from configured URLs."""
+        config = AAPInstanceConfig(
+            url="https://aap.example.com/api/controller/v2",
+            token="test-token",
+        )
+
+        assert config.url == "https://aap.example.com"
+
 
 class TestVaultConfig:
     """Tests for VaultConfig."""

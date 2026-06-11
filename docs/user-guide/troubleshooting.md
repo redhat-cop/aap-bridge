@@ -15,8 +15,7 @@ Error: Connection refused to https://source-aap.example.com
 **Solutions:**
 
 1. Verify the URL is correct in `.env`
-2. Check network connectivity: `curl -I
-   https://source-aap.example.com/api/v2/ping/`
+2. Check network connectivity: `curl -I https://source-aap.example.com/api/`
 3. Verify the API token is valid and has read scope
 4. Check firewall rules
 
@@ -30,16 +29,15 @@ Error: 404 Not Found at /api/v2/organizations/
 
 **Solution:**
 
-For AAP 2.6+, use the Platform Gateway URL:
+Use the host URL only in `.env` — API paths are auto-discovered:
 
 ```bash
-# Wrong
-TARGET__URL=https://target-aap.example.com/api/v2
-
-# Correct
-TARGET__URL=https://target-aap.example.com/api/controller/v2
-
+TARGET__URL=https://target-aap.example.com
 ```
+
+On AAP 2.5+, organizations and other shared resources are routed to
+`/api/gateway/v1/` automatically. Legacy `/api/v2/` paths in `TARGET__URL` are
+stripped but no longer required.
 
 ### Authentication errors
 

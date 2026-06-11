@@ -100,20 +100,20 @@ src/aap_migration/
 
 #### AAPSourceClient
 
-HTTP client for source AAP (2.3/2.4):
+HTTP client for the source AAP instance:
 
-- Base URL: `/api/v2/`
-- Handles pagination
-- Rate limiting and retries
-- Authentication via token
+- Configured with host URL (`https://fqdn`) and `SOURCE__VERSION`
+- Selects legacy (`/api/v2/`) or gateway topology from the configured version
+- Handles pagination, rate limiting, retries, and token auth
 
 #### AAPTargetClient
 
-HTTP client for target AAP (2.6+):
+HTTP client for the target AAP instance:
 
-- Base URL: `/api/controller/v2/` (Platform Gateway)
-- Bulk operation support
-- Same retry/rate limiting logic
+- Same host-only configuration and auto-discovery as the source client
+- On AAP 2.5+, routes shared resources (orgs, users, teams, RBAC) to
+  `/api/gateway/v1/` and automation content to `/api/controller/v2/`
+- Bulk operation support on controller endpoints
 
 ### Migration Layer
 

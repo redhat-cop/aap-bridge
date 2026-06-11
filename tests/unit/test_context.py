@@ -12,12 +12,14 @@ from aap_migration.config import AAPInstanceConfig, MigrationConfig, VaultConfig
 def mock_config():
     """Create a mock MigrationConfig."""
     source = AAPInstanceConfig(
-        url="https://source.example.com/api/v2",
+        url="https://source.example.com",
         token="plain-source-token",
+        version="2.4",
     )
     target = AAPInstanceConfig(
-        url="https://target.example.com/api/controller/v2",
+        url="https://target.example.com",
         token="plain-target-token",
+        version="2.6",
     )
     vault = VaultConfig(
         url="https://vault.example.com:8200",

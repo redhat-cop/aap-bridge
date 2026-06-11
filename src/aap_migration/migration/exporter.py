@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from aap_migration.client.aap_source_client import AAPSourceClient
+from aap_migration.client.api_layout import ApiMode
 from aap_migration.client.exceptions import APIError
 from aap_migration.config import (
     PerformanceConfig,
@@ -1656,12 +1657,13 @@ class WorkflowExporter(ResourceExporter):
         """Convert related URL to client endpoint path (without API prefix)."""
         if not url or not isinstance(url, str):
             return None
-        marker = "/api/controller/v2/"
-        if marker in url:
-            return url.split(marker, 1)[1]
+        for marker in ("/api/controller/v2/", "/api/gateway/v1/", "/api/v2/"):
+            if marker in url:
+                return url.split(marker, 1)[1]
         cleaned = url.lstrip("/")
-        if cleaned.startswith("api/controller/v2/"):
-            return cleaned[len("api/controller/v2/") :]
+        for prefix in ("api/controller/v2/", "api/gateway/v1/", "api/v2/"):
+            if cleaned.startswith(prefix):
+                return cleaned[len(prefix) :]
         return cleaned
 
     async def _attach_workflow_approval_template_data(
@@ -1860,7 +1862,95 @@ class RoleDefinitionExporter(ResourceExporter):
 
     Role definitions define the available RBAC roles in AAP 2.6.
     They are exported to map source roles to target roles.
+
+    On AAP 2.5+ gateway topology, custom role definitions live on the
+    controller API while platform roles live on the gateway. Both bases
+    are queried and deduplicated by name.
     """
+
+    async def get_count(self, endpoint: str, filters: dict[str, Any] | None = None) -> int:
+        """Count custom role definitions across gateway and controller APIs."""
+        effective_filters: dict[str, Any] = {"managed": "false"}
+        if filters:
+            effective_filters.update(filters)
+
+        layout = self.client.api_layout
+        bases = layout.role_assignment_bases()
+        seen_names: set[str] = set()
+
+        for base in bases:
+            page = 1
+            query = {**effective_filters, "page_size": 200}
+            while True:
+                query["page"] = page
+                try:
+                    response = await self.client.get_on_base(base, endpoint, params=query)
+                except Exception as e:
+                    logger.warning(
+                        "role_definition_count_base_failed",
+                        base=base,
+                        error=str(e),
+                    )
+                    break
+
+                for role_def in response.get("results", []):
+                    name = role_def.get("name")
+                    if name:
+                        seen_names.add(name)
+
+                if not response.get("next") or not response.get("results"):
+                    break
+                page += 1
+
+        return len(seen_names)
+
+    async def _iter_custom_role_definitions(
+        self,
+        *,
+        endpoint: str,
+        page_size: int,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Yield custom role definitions from gateway and controller API bases."""
+        effective_filters: dict[str, Any] = {"managed": "false"}
+        if filters:
+            effective_filters.update(filters)
+
+        layout = self.client.api_layout
+        bases = layout.role_assignment_bases()
+        seen_names: set[str] = set()
+
+        for base in bases:
+            page = 1
+            query = {**effective_filters, "page_size": min(page_size, 200)}
+            while True:
+                query["page"] = page
+                try:
+                    response = await self.client.get_on_base(base, endpoint, params=query)
+                except Exception as e:
+                    logger.warning(
+                        "role_definition_export_base_failed",
+                        base=base,
+                        page=page,
+                        error=str(e),
+                    )
+                    break
+
+                for resource in response.get("results", []):
+                    name = resource.get("name")
+                    if name and name in seen_names:
+                        continue
+                    if name:
+                        seen_names.add(name)
+                    resource["_api_base"] = base
+                    processed = await self._process_resource(resource, "role_definitions")
+                    if processed:
+                        self.stats["exported_count"] += 1
+                        yield processed
+
+                if not response.get("next") or not response.get("results"):
+                    break
+                page += 1
 
     async def export(
         self, filters: dict[str, Any] | None = None
@@ -1878,16 +1968,113 @@ class RoleDefinitionExporter(ResourceExporter):
             Role definition dictionaries
         """
         logger.info("exporting_role_definitions")
-        effective_filters: dict[str, Any] = {"managed": "false"}
-        if filters:
-            effective_filters.update(filters)
-        async for role_def in self.export_resources(
-            resource_type="role_definitions",
+        page_size = self.performance_config.batch_sizes.get("role_definitions", 50)
+        async for role_def in self._iter_custom_role_definitions(
             endpoint="role_definitions/",
-            page_size=self.performance_config.batch_sizes.get("role_definitions", 50),
-            filters=effective_filters,
+            page_size=page_size,
+            filters=filters,
         ):
             yield role_def
+
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Export custom role definitions when using the CLI parallel export path.
+
+        The export CLI always calls ``export_parallel``. Custom roles live on the
+        controller API on AAP 2.5+; the base implementation only queries the
+        gateway and would write zero files while ``get_count`` still reports the
+        controller total.
+        """
+        logger.info("exporting_role_definitions_parallel", endpoint=endpoint)
+        effective_page_size = self.performance_config.batch_sizes.get(
+            resource_type, page_size
+        )
+        async for role_def in self._iter_custom_role_definitions(
+            endpoint=endpoint,
+            page_size=effective_page_size,
+            filters=filters,
+        ):
+            yield role_def
+
+
+class RoleAssignmentListExporter(ResourceExporter):
+    """Export role_user_assignments or role_team_assignments from all API bases.
+
+    On AAP 2.5+ gateway topology, platform assignments live under
+    /api/gateway/v1/ and automation-controller assignments under
+    /api/controller/v2/. Both are queried and merged by assignment id.
+    """
+
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        params = filters.copy() if filters else {}
+        layout = self.client.api_layout
+        bases = layout.role_assignment_bases()
+        seen_ids: set[int] = set()
+        total_fetched = 0
+
+        logger.info(
+            "role_assignment_export_started",
+            resource_type=resource_type,
+            endpoint=endpoint,
+            bases=bases,
+        )
+
+        for base in bases:
+            page = 1
+            query = {**params, "page_size": min(page_size, 200)}
+            while True:
+                query["page"] = page
+                try:
+                    response = await self.client.get_on_base(base, endpoint, params=query)
+                except Exception as e:
+                    logger.warning(
+                        "role_assignment_export_base_failed",
+                        resource_type=resource_type,
+                        base=base,
+                        page=page,
+                        error=str(e),
+                    )
+                    break
+
+                results = response.get("results", [])
+                for resource in results:
+                    rid = resource.get("id")
+                    if rid is not None and rid in seen_ids:
+                        continue
+                    if rid is not None:
+                        seen_ids.add(rid)
+                    processed = await self._process_resource(resource, resource_type)
+                    if processed:
+                        if processed.get("_skipped"):
+                            self.stats["skipped_count"] += 1
+                            yield processed
+                        else:
+                            self.stats["exported_count"] += 1
+                            total_fetched += 1
+                            yield processed
+
+                if not response.get("next") or not results:
+                    break
+                page += 1
+
+        logger.info(
+            "role_assignment_export_completed",
+            resource_type=resource_type,
+            total_exported=total_fetched,
+        )
 
 
 class RBACExporter(ResourceExporter):
@@ -2244,23 +2431,25 @@ class UserExporter(ResourceExporter):
             )
             processed["_team_source_ids"] = []
 
-        # Direct role grants on other resources (classic RBAC)
+        # Classic principal grants (AAP <=2.4). Deprecated on gateway — use
+        # role_user_assignments export instead on 2.5+.
         grants: list[dict[str, str | int]] = []
-        try:
-            roles = await self.client.get_paginated(
-                f"users/{source_user_id}/roles/",
-                page_size=self.performance_config.batch_sizes.get("users", 200),
-            )
-            for role in roles:
-                parsed = parse_user_role_from_api(role)
-                if parsed:
-                    grants.append(parsed)
-        except Exception as e:
-            logger.warning(
-                "user_roles_fetch_failed",
-                source_user_id=source_user_id,
-                error=str(e),
-            )
+        if self.client.api_layout.mode is not ApiMode.GATEWAY:
+            try:
+                roles = await self.client.get_paginated(
+                    f"users/{source_user_id}/roles/",
+                    page_size=self.performance_config.batch_sizes.get("users", 200),
+                )
+                for role in roles:
+                    parsed = parse_user_role_from_api(role)
+                    if parsed:
+                        grants.append(parsed)
+            except Exception as e:
+                logger.warning(
+                    "user_roles_fetch_failed",
+                    source_user_id=source_user_id,
+                    error=str(e),
+                )
         processed["_user_role_grants"] = grants
 
         return processed
@@ -2308,25 +2497,42 @@ class TeamExporter(ResourceExporter):
             return processed
 
         grants: list[dict[str, str | int]] = []
+        if self.client.api_layout.mode is not ApiMode.GATEWAY:
+            try:
+                roles = await self.client.get_paginated(
+                    f"teams/{team_id}/roles/",
+                    page_size=self.performance_config.batch_sizes.get("teams", 200),
+                )
+                for role in roles:
+                    parsed = parse_team_role_from_api(role, team_source_id=int(team_id))
+                    if parsed:
+                        grants.append(parsed)
+            except Exception as e:
+                logger.warning(
+                    "team_roles_list_fetch_failed",
+                    team_id=team_id,
+                    error=str(e),
+                )
+
+        processed["_team_role_grants"] = grants
+
+        # Team membership (complement users/<id>/teams/ for gateway topology)
         try:
-            roles = await self.client.get_paginated(
-                f"teams/{team_id}/roles/",
-                page_size=self.performance_config.batch_sizes.get("teams", 200),
+            members = await self.client.get_paginated(
+                f"teams/{team_id}/users/",
+                page_size=self.performance_config.batch_sizes.get("users", 200),
             )
+            processed["_member_user_source_ids"] = [
+                int(user["id"]) for user in members if user.get("id") is not None
+            ]
         except Exception as e:
             logger.warning(
-                "team_roles_list_fetch_failed",
+                "team_members_fetch_failed",
                 team_id=team_id,
                 error=str(e),
             )
-            roles = []
+            processed["_member_user_source_ids"] = []
 
-        for role in roles:
-            parsed = parse_team_role_from_api(role, team_source_id=int(team_id))
-            if parsed:
-                grants.append(parsed)
-
-        processed["_team_role_grants"] = grants
         return processed
 
     async def export(
@@ -2518,8 +2724,8 @@ def create_exporter(
         "jobs": JobsExporter,
         "constructed_inventories": InventoryExporter,
         "role_definitions": RoleDefinitionExporter,
-        "role_user_assignments": RBACExporter,
-        "role_team_assignments": RBACExporter,
+        "role_user_assignments": RoleAssignmentListExporter,
+        "role_team_assignments": RoleAssignmentListExporter,
     }
 
     from aap_migration.resources import normalize_resource_type

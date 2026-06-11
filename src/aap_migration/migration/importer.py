@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from aap_migration.client.aap_target_client import AAPTargetClient
+from aap_migration.client.api_layout import normalize_rbac_content_type, role_definition_api_base
 from aap_migration.client.bulk_operations import BulkOperations
 from aap_migration.client.exceptions import APIError, ConflictError
 from aap_migration.config import (
@@ -1542,7 +1543,18 @@ class UserImporter(ResourceImporter):
 
         Reads ``_user_role_grants`` from xformed user files and POSTs each to
         ``POST users/<target_user_id>/roles/`` with the resolved target Role id.
+
+        Skipped on AAP 2.5+ gateway targets — use role_user_assignments import instead.
         """
+        from aap_migration.client.api_layout import uses_gateway_topology
+
+        if uses_gateway_topology(self.client.aap_version):
+            logger.info(
+                "user_role_grants_sync_skipped_gateway",
+                message="Classic users/{id}/roles/ API deprecated; role_user_assignments handles RBAC",
+            )
+            return 0
+
         users_dir = input_dir / "users"
         if not users_dir.is_dir():
             return 0
@@ -1626,6 +1638,122 @@ class TeamImporter(ResourceImporter):
         "organization": "organizations",
     }
 
+    async def _sync_team_members(
+        self,
+        *,
+        source_team_id: int,
+        target_team_id: int,
+        member_user_source_ids: list[int],
+    ) -> None:
+        """Associate mapped users with a team via ``POST teams/<id>/users/``."""
+        if not member_user_source_ids:
+            return
+
+        teams_endpoint = get_endpoint("teams").rstrip("/")
+        linked = 0
+        skipped_unmapped = 0
+
+        for source_user_id in member_user_source_ids:
+            target_user_id = self.state.get_mapped_id("users", source_user_id)
+            if not target_user_id:
+                skipped_unmapped += 1
+                logger.warning(
+                    "team_member_skipped_unmapped_user",
+                    source_team_id=source_team_id,
+                    source_user_id=source_user_id,
+                )
+                continue
+
+            try:
+                await self.client.post(
+                    f"{teams_endpoint}/{target_team_id}/users/",
+                    json_data={"id": target_user_id},
+                )
+                linked += 1
+            except ConflictError:
+                linked += 1
+            except Exception as e:
+                logger.warning(
+                    "team_member_link_failed",
+                    source_team_id=source_team_id,
+                    target_team_id=target_team_id,
+                    source_user_id=source_user_id,
+                    target_user_id=target_user_id,
+                    error=str(e),
+                )
+
+        logger.info(
+            "team_members_synced",
+            source_team_id=source_team_id,
+            target_team_id=target_team_id,
+            requested=len(member_user_source_ids),
+            linked=linked,
+            skipped_unmapped=skipped_unmapped,
+        )
+
+    async def sync_team_members_for_existing_teams(
+        self, teams: list[dict[str, Any]]
+    ) -> None:
+        """Sync members for teams skipped by create/update import path."""
+        for team in teams:
+            source_team_id = team.get("_source_id")
+            if source_team_id is None:
+                continue
+            try:
+                source_team_id = int(source_team_id)
+            except (TypeError, ValueError):
+                continue
+
+            target_team_id = self.state.get_mapped_id("teams", source_team_id)
+            if not target_team_id:
+                continue
+
+            member_ids = [
+                int(user_id)
+                for user_id in (team.get("_member_user_source_ids", []) or [])
+                if user_id is not None
+            ]
+            await self._sync_team_members(
+                source_team_id=source_team_id,
+                target_team_id=target_team_id,
+                member_user_source_ids=member_ids,
+            )
+
+    async def import_resource(
+        self,
+        resource_type: str,
+        source_id: int,
+        data: dict[str, Any],
+        resolve_dependencies: bool = True,
+    ) -> dict[str, Any] | None:
+        """Import a team and sync exported member users."""
+        member_source_ids = [
+            int(user_id)
+            for user_id in (data.pop("_member_user_source_ids", []) or [])
+            if user_id is not None
+        ]
+
+        result = await super().import_resource(
+            resource_type, source_id, data, resolve_dependencies=resolve_dependencies
+        )
+
+        if result and result.get("id"):
+            await self._sync_team_members(
+                source_team_id=source_id,
+                target_team_id=int(result["id"]),
+                member_user_source_ids=member_source_ids,
+            )
+        elif result and self.state.get_mapped_id("teams", source_id):
+            target_team_id = self.state.get_mapped_id("teams", source_id)
+            if target_team_id:
+                await self._sync_team_members(
+                    source_team_id=source_id,
+                    target_team_id=target_team_id,
+                    member_user_source_ids=member_source_ids,
+                )
+
+        return result
+
     async def import_teams(
         self,
         teams: list[dict[str, Any]],
@@ -1648,7 +1776,18 @@ class TeamImporter(ResourceImporter):
 
         Reads ``_team_role_grants`` from xformed team files and POSTs each to
         ``POST teams/<target_team_id>/roles/`` with the resolved target Role id.
+
+        Skipped on AAP 2.5+ gateway targets — use role_team_assignments import instead.
         """
+        from aap_migration.client.api_layout import uses_gateway_topology
+
+        if uses_gateway_topology(self.client.aap_version):
+            logger.info(
+                "team_role_grants_sync_skipped_gateway",
+                message="Classic teams/{id}/roles/ API deprecated; role_team_assignments handles RBAC",
+            )
+            return 0
+
         teams_dir = input_dir / "teams"
         if not teams_dir.is_dir():
             return 0
@@ -4710,8 +4849,15 @@ class RoleDefinitionImporter(ResourceImporter):
 
         self.state.mark_in_progress(resource_type, source_id, name, "import")
 
+        api_base = role_definition_api_base(
+            self.client.api_layout,
+            data.get("content_type"),
+            data.pop("_api_base", None),
+        )
+
         try:
-            results = await self.client.get(
+            results = await self.client.get_on_base(
+                api_base,
                 "role_definitions/",
                 params={"name": name},
             )
@@ -4743,7 +4889,9 @@ class RoleDefinitionImporter(ResourceImporter):
                 "permissions": data.get("permissions", []),
                 "content_type": data.get("content_type"),
             }
-            created = await self.client.post("role_definitions/", json_data=payload)
+            created = await self.client.post_on_base(
+                api_base, "role_definitions/", json_data=payload
+            )
             target_id = created["id"]
             self.state.save_id_mapping(
                 resource_type=resource_type,
@@ -4793,7 +4941,19 @@ _CONTENT_TYPE_TO_RESOURCE_TYPE: dict[str, str] = {
     "awx.project": "projects",
     "awx.team": "teams",
     "awx.workflowjobtemplate": "workflow_job_templates",
+    # Gateway RBAC API (AAP 2.5+) uses shared.* for platform objects.
+    "shared.organization": "organizations",
+    "shared.team": "teams",
 }
+
+
+def _resource_type_for_rbac_content_type(content_type: str | None) -> str | None:
+    """Map RBAC content_type to migrated resource_type, including gateway aliases."""
+    if not content_type:
+        return None
+    return _CONTENT_TYPE_TO_RESOURCE_TYPE.get(
+        content_type
+    ) or _CONTENT_TYPE_TO_RESOURCE_TYPE.get(normalize_rbac_content_type(content_type) or "")
 
 
 async def _resolve_content_object_target_id(
@@ -4819,7 +4979,7 @@ async def _resolve_content_object_target_id(
         return None
 
     try:
-        endpoint = f"{resource_type}/"
+        endpoint = get_endpoint(resource_type)
         results = await client.get(endpoint, params={"name": content_object_name})
         resources = results.get("results", [])
         if resources:
@@ -4854,6 +5014,9 @@ async def _resolve_role_definition_target_id(
     role_def_source_id: int,
     role_def_name: str | None,
     source_id: int,
+    *,
+    content_type: str | None = None,
+    api_base: str | None = None,
 ) -> int | None:
     """Resolve the target role_definition ID from state mapping or by name lookup.
 
@@ -4861,6 +5024,10 @@ async def _resolve_role_definition_target_id(
     role_definitions import phase).  Managed (built-in) role definitions are
     never exported/created, so they won't be in the state; fall back to a
     live GET by name on the target API.
+
+    On gateway topology, controller automation roles (awx.*) and platform roles
+    (shared.*) live on different API bases — lookups must use the same base as
+    the assignment being created.
     """
     target_id = state.get_mapped_id("role_definitions", role_def_source_id)
     if target_id:
@@ -4874,8 +5041,12 @@ async def _resolve_role_definition_target_id(
         )
         return None
 
+    lookup_base = role_definition_api_base(client.api_layout, content_type, api_base)
+
     try:
-        results = await client.get("role_definitions/", params={"name": role_def_name})
+        results = await client.get_on_base(
+            lookup_base, "role_definitions/", params={"name": role_def_name}
+        )
         resources = results.get("results", [])
         if resources:
             return resources[0]["id"]
@@ -4883,6 +5054,7 @@ async def _resolve_role_definition_target_id(
         logger.error(
             "role_definition_name_lookup_failed",
             role_def_name=role_def_name,
+            api_base=lookup_base,
             error=str(e),
         )
 
@@ -4891,6 +5063,7 @@ async def _resolve_role_definition_target_id(
         role_def_name=role_def_name,
         role_def_source_id=role_def_source_id,
         source_id=source_id,
+        api_base=lookup_base,
     )
     return None
 
@@ -4938,14 +5111,19 @@ class RoleUserAssignmentImporter(ResourceImporter):
 
             # Resolve role_definition
             target_role_def_id = await _resolve_role_definition_target_id(
-                self.state, self.client, role_def_source_id, role_def_name, source_id
+                self.state,
+                self.client,
+                role_def_source_id,
+                role_def_name,
+                source_id,
+                content_type=content_type,
             )
             if not target_role_def_id:
                 _skip()
                 continue
 
             # Resolve resource
-            resource_type = _CONTENT_TYPE_TO_RESOURCE_TYPE.get(content_type)
+            resource_type = _resource_type_for_rbac_content_type(content_type)
             if not resource_type:
                 logger.warning(
                     "role_assignment_unknown_content_type",
@@ -4981,10 +5159,13 @@ class RoleUserAssignmentImporter(ResourceImporter):
             try:
                 payload = {
                     "role_definition": target_role_def_id,
-                    "object_id": str(target_resource_id),
+                    "object_id": target_resource_id,
                     "user": target_user_id,
                 }
-                await self.client.post("role_user_assignments/", json_data=payload)
+                api_base = self.client.api_layout.base_for_role_assignment(content_type)
+                await self.client.post_on_base(
+                    api_base, "role_user_assignments/", json_data=payload
+                )
                 self.stats["imported_count"] += 1
                 results.append(payload)
 
@@ -5046,14 +5227,19 @@ class RoleTeamAssignmentImporter(ResourceImporter):
 
             # Resolve role_definition
             target_role_def_id = await _resolve_role_definition_target_id(
-                self.state, self.client, role_def_source_id, role_def_name, source_id
+                self.state,
+                self.client,
+                role_def_source_id,
+                role_def_name,
+                source_id,
+                content_type=content_type,
             )
             if not target_role_def_id:
                 _skip()
                 continue
 
             # Resolve resource
-            resource_type = _CONTENT_TYPE_TO_RESOURCE_TYPE.get(content_type)
+            resource_type = _resource_type_for_rbac_content_type(content_type)
             if not resource_type:
                 logger.warning(
                     "role_assignment_unknown_content_type",
@@ -5089,10 +5275,13 @@ class RoleTeamAssignmentImporter(ResourceImporter):
             try:
                 payload = {
                     "role_definition": target_role_def_id,
-                    "object_id": str(target_resource_id),
+                    "object_id": target_resource_id,
                     "team": target_team_id,
                 }
-                await self.client.post("role_team_assignments/", json_data=payload)
+                api_base = self.client.api_layout.base_for_role_assignment(content_type)
+                await self.client.post_on_base(
+                    api_base, "role_team_assignments/", json_data=payload
+                )
                 self.stats["imported_count"] += 1
                 results.append(payload)
 

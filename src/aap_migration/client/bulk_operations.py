@@ -506,7 +506,7 @@ class BulkOperations:
             True if count matches, False otherwise
         """
         try:
-            endpoint = f"/api/v2/inventories/{inventory_id}/hosts/"
+            endpoint = f"inventories/{inventory_id}/hosts/"
             response = await self.client.get(endpoint, params={"page_size": 1})
             actual_count = response.get("count", 0)
 

@@ -1887,6 +1887,29 @@ def import_cmd(
                                         existing_users
                                     )
 
+                            # Teams: sync members for teams skipped by pre-check.
+                            if (
+                                rtype == "teams"
+                                and not dry_run
+                                and transformed_resources
+                                and hasattr(importer, "sync_team_members_for_existing_teams")
+                            ):
+                                to_import_ids = {
+                                    r.get("_source_id")
+                                    for r in (resources_to_import or [])
+                                    if r.get("_source_id") is not None
+                                }
+                                existing_teams = [
+                                    r
+                                    for r in transformed_resources
+                                    if r.get("_source_id") is not None
+                                    and r.get("_source_id") not in to_import_ids
+                                ]
+                                if existing_teams:
+                                    await importer.sync_team_members_for_existing_teams(
+                                        existing_teams
+                                    )
+
                             # Teams: users are imported in the same phase immediately before teams,
                             # but team id_mappings aren't set until now. Reconcile any memberships
                             # that were skipped during user import due to unmapped team IDs.

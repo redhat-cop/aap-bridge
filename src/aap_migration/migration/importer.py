@@ -1541,23 +1541,60 @@ class UserImporter(ResourceImporter):
     async def sync_user_resource_role_grants_from_xformed(self, input_dir: Path) -> int:
         """Apply user-as-principal role grants from transformed user JSON (after other resources exist).
 
-        Reads ``_user_role_grants`` from xformed user files and POSTs each to
-        ``POST users/<target_user_id>/roles/`` with the resolved target Role id.
-
-        Skipped on AAP 2.5+ gateway targets — use role_user_assignments import instead.
+        Reads ``_user_role_grants`` from xformed user files. On legacy targets, POSTs
+        each to ``POST users/<target_user_id>/roles/``. On gateway targets (AAP 2.5+),
+        converts grants to ``role_user_assignments`` rows for the modern RBAC API.
         """
         from aap_migration.client.api_layout import uses_gateway_topology
-
-        if uses_gateway_topology(self.client.aap_version):
-            logger.info(
-                "user_role_grants_sync_skipped_gateway",
-                message="Classic users/{id}/roles/ API deprecated; role_user_assignments handles RBAC",
-            )
-            return 0
+        from aap_migration.migration.classic_rbac_conversion import (
+            classic_user_grant_to_assignment,
+        )
 
         users_dir = input_dir / "users"
         if not users_dir.is_dir():
             return 0
+
+        if uses_gateway_topology(self.client.aap_version):
+            assignments: list[dict[str, Any]] = []
+            assignment_source_id = 1
+            for uf in sorted(users_dir.glob("users_*.json")):
+                try:
+                    with open(uf) as f:
+                        users = json.load(f)
+                except Exception as e:
+                    logger.warning("user_role_grants_file_read_failed", file=str(uf), error=str(e))
+                    continue
+                for user in users:
+                    grants = user.get("_user_role_grants") or []
+                    if not grants:
+                        continue
+                    sid = user.get("_source_id")
+                    if sid is None:
+                        continue
+                    try:
+                        sid = int(sid)
+                    except (TypeError, ValueError):
+                        continue
+                    for grant in grants:
+                        row = classic_user_grant_to_assignment(
+                            grant,
+                            user_source_id=sid,
+                            assignment_source_id=assignment_source_id,
+                        )
+                        if row:
+                            assignments.append(row)
+                            assignment_source_id += 1
+
+            if not assignments:
+                return 0
+
+            ra_importer = RoleUserAssignmentImporter(
+                self.client, self.state, self.performance_config
+            )
+            results = await ra_importer.import_role_user_assignments(assignments)
+            applied = sum(1 for r in results if r and not r.get("_skipped"))
+            logger.info("user_resource_role_grants_applied_via_assignments", count=applied)
+            return applied
 
         users_base = get_endpoint("users").rstrip("/")
         applied = 0
@@ -1590,9 +1627,6 @@ class UserImporter(ResourceImporter):
                     if raw_ct is None or str(raw_ct).strip() == "":
                         continue
                     ctype = normalize_resource_type(str(raw_ct).strip())
-                    # Organization roles changed semantics in AAP 2.5; skip.
-                    if ctype == "organizations":
-                        continue
                     try:
                         csid = int(g.get("content_source_id"))
                     except (TypeError, ValueError):
@@ -1737,20 +1771,20 @@ class TeamImporter(ResourceImporter):
             resource_type, source_id, data, resolve_dependencies=resolve_dependencies
         )
 
+        target_team_id: int | None = None
         if result and result.get("id"):
+            target_team_id = int(result["id"])
+        else:
+            mapped = self.state.get_mapped_id("teams", source_id)
+            if mapped:
+                target_team_id = int(mapped)
+
+        if target_team_id and member_source_ids:
             await self._sync_team_members(
                 source_team_id=source_id,
-                target_team_id=int(result["id"]),
+                target_team_id=target_team_id,
                 member_user_source_ids=member_source_ids,
             )
-        elif result and self.state.get_mapped_id("teams", source_id):
-            target_team_id = self.state.get_mapped_id("teams", source_id)
-            if target_team_id:
-                await self._sync_team_members(
-                    source_team_id=source_id,
-                    target_team_id=target_team_id,
-                    member_user_source_ids=member_source_ids,
-                )
 
         return result
 
@@ -1774,23 +1808,60 @@ class TeamImporter(ResourceImporter):
     async def sync_team_resource_role_grants_from_xformed(self, input_dir: Path) -> int:
         """Apply team-as-principal role grants from transformed team JSON (after other resources exist).
 
-        Reads ``_team_role_grants`` from xformed team files and POSTs each to
-        ``POST teams/<target_team_id>/roles/`` with the resolved target Role id.
-
-        Skipped on AAP 2.5+ gateway targets — use role_team_assignments import instead.
+        Reads ``_team_role_grants`` from xformed team files. On legacy targets, POSTs
+        each to ``POST teams/<target_team_id>/roles/``. On gateway targets (AAP 2.5+),
+        converts grants to ``role_team_assignments`` rows for the modern RBAC API.
         """
         from aap_migration.client.api_layout import uses_gateway_topology
-
-        if uses_gateway_topology(self.client.aap_version):
-            logger.info(
-                "team_role_grants_sync_skipped_gateway",
-                message="Classic teams/{id}/roles/ API deprecated; role_team_assignments handles RBAC",
-            )
-            return 0
+        from aap_migration.migration.classic_rbac_conversion import (
+            classic_team_grant_to_assignment,
+        )
 
         teams_dir = input_dir / "teams"
         if not teams_dir.is_dir():
             return 0
+
+        if uses_gateway_topology(self.client.aap_version):
+            assignments: list[dict[str, Any]] = []
+            assignment_source_id = 1
+            for tf in sorted(teams_dir.glob("teams_*.json")):
+                try:
+                    with open(tf) as f:
+                        teams = json.load(f)
+                except Exception as e:
+                    logger.warning("team_role_grants_file_read_failed", file=str(tf), error=str(e))
+                    continue
+                for team in teams:
+                    grants = team.get("_team_role_grants") or []
+                    if not grants:
+                        continue
+                    sid = team.get("_source_id")
+                    if sid is None:
+                        continue
+                    try:
+                        sid = int(sid)
+                    except (TypeError, ValueError):
+                        continue
+                    for grant in grants:
+                        row = classic_team_grant_to_assignment(
+                            grant,
+                            team_source_id=sid,
+                            assignment_source_id=assignment_source_id,
+                        )
+                        if row:
+                            assignments.append(row)
+                            assignment_source_id += 1
+
+            if not assignments:
+                return 0
+
+            ra_importer = RoleTeamAssignmentImporter(
+                self.client, self.state, self.performance_config
+            )
+            results = await ra_importer.import_role_team_assignments(assignments)
+            applied = sum(1 for r in results if r and not r.get("_skipped"))
+            logger.info("team_resource_role_grants_applied_via_assignments", count=applied)
+            return applied
 
         teams_base = get_endpoint("teams").rstrip("/")
         applied = 0
@@ -1823,9 +1894,6 @@ class TeamImporter(ResourceImporter):
                     if raw_ct is None or str(raw_ct).strip() == "":
                         continue
                     ctype = normalize_resource_type(str(raw_ct).strip())
-                    # Organization roles changed semantics in AAP 2.5; skip.
-                    if ctype == "organizations":
-                        continue
                     try:
                         csid = int(g.get("content_source_id"))
                     except (TypeError, ValueError):

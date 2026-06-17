@@ -1075,6 +1075,8 @@ installations from one version to another, designed to handle large-scale
 migrations (e.g., 80,000+ hosts).</p>
 <h2 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Flexible Setup</strong> - Run AAP Bridge directly on the host or use the optional
+  containerized CLI workflow</li>
 <li><strong>Bulk Operations</strong> - Leverages AAP bulk APIs for high-performance migrations</li>
 <li><strong>State Management</strong> - PostgreSQL-backed state tracking with checkpoint/resume
   capability</li>
@@ -1109,7 +1111,8 @@ migrations (e.g., 80,000+ hosts).</p>
 </ul>
 </div>
 <h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
-<p>AAP Bridge follows an ETL (Export, Transform, Load) architecture:</p>
+<p>AAP Bridge follows an ETL (Export, Transform, Load) architecture. The CLI/TUI
+can run directly on the host or inside the optional containerized workflow:</p>
 <pre class="mermaid"><code>graph LR
     A[Source AAP&lt;br/&gt;2.3/2.4] --&gt;|Export| B[AAP Bridge&lt;br/&gt;ETL Engine]
     B --&gt;|Load| C[Target AAP&lt;br/&gt;2.6+]
@@ -1125,7 +1128,7 @@ migrations (e.g., 80,000+ hosts).</p>
   Vault</li>
 <li><strong>Migration Layer</strong> - ETL pipeline with exporters, transformers, and importers</li>
 <li><strong>State Management</strong> - Database-backed progress tracking and ID mapping</li>
-<li><strong>CLI</strong> - User-friendly command-line interface</li>
+<li><strong>CLI / TUI</strong> - User-friendly command-line interface for host or container use</li>
 </ul>
 <h2 id="migration-order">Migration Order<a class="headerlink" href="#migration-order" title="Permanent link">&para;</a></h2>
 <p>Resources are migrated in dependency order:</p>

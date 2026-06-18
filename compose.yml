@@ -88,9 +88,40 @@ services:
       - ./config:/app/config:ro
       - bridge-exports:/app/exports
       - bridge-reports:/app/reports
+      - ./tests/integration/generated:/app/tests/integration/generated
       - bridge-logs:/app/logs
     working_dir: /app
     entrypoint: ["sleep", "infinity"]
+
+  engine:
+    image: localhost/aap-bridge-api:latest
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: api
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    network_mode: host
+    environment:
+      MIGRATION_STATE_DB_PATH: "postgresql://${POSTGRESQL_USER:-aap_migration_user}:${POSTGRESQL_PASSWORD:-redhat123!}@localhost:15432/${POSTGRESQL_DATABASE:-aap_migration}"
+      AAP_BRIDGE_LOG_LEVEL: ${AAP_BRIDGE_LOG_LEVEL:-INFO}
+    security_opt:
+      - label=disable
+    volumes:
+      - ./exports:/app/exports
+      - ./reports:/app/reports
+
+  ui:
+    image: localhost/aap-bridge-ui:latest
+    build:
+      context: .
+      dockerfile: Containerfile.ui
+    depends_on:
+      - engine
+    network_mode: host
 
 volumes:
   pgdata:

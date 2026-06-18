@@ -22,6 +22,7 @@ from aap_migration.cli.commands import migrate as migrate_commands
 from aap_migration.cli.commands import patch_projects as patch_projects_commands
 from aap_migration.cli.commands import prep as prep_commands
 from aap_migration.cli.commands import schema as schema_commands
+from aap_migration.cli.commands import serve as serve_commands
 from aap_migration.cli.commands import state as state_commands
 from aap_migration.cli.commands import transform as transform_commands
 from aap_migration.cli.commands import validate as validate_commands
@@ -91,14 +92,14 @@ def cli(
         aap-bridge migrate status --config config.yaml
     """
     # Setup logging with optional file output
-    # If --log-file is provided, use it; otherwise default to logs/migration.log
-    effective_log_file = str(log_file) if log_file else "logs/migration.log"
-
-    # Ensure logs directory exists
-    log_path = Path(effective_log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    configure_logging(level=log_level, log_file=effective_log_file)
+    # Skip file logging for the serve command (uvicorn handles its own logging)
+    if ctx.invoked_subcommand == "serve":
+        configure_logging(level=log_level, log_file=None)
+    else:
+        effective_log_file = str(log_file) if log_file else "logs/migration.log"
+        log_path = Path(effective_log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        configure_logging(level=log_level, log_file=effective_log_file)
 
     resolved_config = resolve_config_path(config)
     if resolved_config is not None and not resolved_config.is_file():
@@ -144,6 +145,7 @@ cli.add_command(export_import.import_cmd, name="import")
 cli.add_command(patch_projects_commands.patch_projects)
 cli.add_command(validate_commands.validate)
 cli.add_command(validate_commands.report)
+cli.add_command(serve_commands.serve)
 
 
 def main() -> int:

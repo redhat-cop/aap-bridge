@@ -1,0 +1,217 @@
+---
+- name: Set controller API port
+  ansible.builtin.set_fact:
+    controller_port: "{{ ':8443' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}"
+
+- name: Wait for Controller API to become available
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        curl -sk -o /dev/null -w '%{http_code}'
+        https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/ping/
+  register: api_check
+  retries: 60
+  delay: 10
+  until: api_check.stdout | default('') == '200'
+  changed_when: false
+  failed_when: false
+
+- name: Report API status
+  ansible.builtin.debug:
+    msg: >
+      Controller API -
+      {{ 'AVAILABLE' if api_check.stdout | default('') == '200' else 'NOT AVAILABLE (may still be starting)' }}
+
+- name: Fail when controller API never becomes available
+  ansible.builtin.fail:
+    msg: >-
+      Controller API for {{ container_name }} never became available at
+      https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/ping/
+      after the allotted retries.
+  when:
+    - api_check.stdout | default('') != '200'
+    - not (ver_config.best_effort | default(false))
+
+- name: Create admin API token (RPM install - preauth)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        awx-manage create_preauth_token --scope write --user admin
+  register: token_result_rpm
+  failed_when: false
+  when: ver_config.installer.method | default('rpm') == 'rpm'
+
+- name: Create admin API token (RPM install - oauth2 fallback)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        awx-manage create_oauth2_token --user admin
+  register: token_result_rpm_fallback
+  failed_when: false
+  when:
+    - ver_config.installer.method | default('rpm') == 'rpm'
+    - token_result_rpm.stdout | default('') | trim | length == 0
+
+- name: Create admin API token (containerized install)
+  ansible.builtin.command:
+    cmd: >
+      podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000
+        {{ container_name }}
+        podman exec automation-controller-web
+          awx-manage create_oauth2_token --user admin
+  register: token_result_containerized
+  failed_when: false
+  when: ver_config.installer.method | default('rpm') == 'containerized'
+
+- name: Save API token
+  vars:
+    _rpm_stdout: "{{ token_result_rpm.stdout | default('') }}"
+    _rpm_fb_stdout: "{{ token_result_rpm_fallback.stdout | default('') }}"
+    _ctr_stdout: "{{ token_result_containerized.stdout | default('') }}"
+    _raw_token: >-
+      {{ _rpm_stdout if _rpm_stdout | trim | length > 0
+         else (_rpm_fb_stdout if _rpm_fb_stdout | trim | length > 0
+         else _ctr_stdout) }}
+  ansible.builtin.set_fact:
+    aap_api_token: "{{ (_raw_token | trim | split('\n') | last | trim) if _raw_token | trim | length > 0 else '' }}"
+
+- name: Debug token creation output
+  ansible.builtin.debug:
+    msg: |
+      RPM preauth: rc={{ token_result_rpm.rc | default('skipped') }} stdout='{{ token_result_rpm.stdout | default('') | trim }}'
+      RPM oauth2:  rc={{ token_result_rpm_fallback.rc | default('skipped') }} stdout='{{ token_result_rpm_fallback.stdout | default('') | trim }}'
+      Containerized: rc={{ token_result_containerized.rc | default('skipped') }} stdout='{{ token_result_containerized.stdout | default('') | trim }}'
+  when: aap_api_token | default('') | length == 0
+
+- name: Ensure generated pair directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}"
+    state: directory
+    mode: "0750"
+  when: pair_id | default('') | length > 0
+
+- name: Write token to generated config
+  ansible.builtin.copy:
+    content: "{{ aap_api_token }}"
+    dest: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/{{ role_suffix }}_token"
+    mode: "0600"
+  when:
+    - pair_id | default('') | length > 0
+    - aap_api_token | default('') | length > 0
+
+- name: Fix AWX_ISOLATION_SHOW_PATHS (remove overlay mounts for container compat)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        curl -sk -X PATCH
+        -H "Authorization: Bearer {{ aap_api_token }}"
+        -H "Content-Type: application/json"
+        https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/settings/jobs/
+        -d '{"AWX_ISOLATION_SHOW_PATHS": ["/etc/pki/ca-trust:/etc/pki/ca-trust", "/usr/share/pki:/usr/share/pki"]}'
+  failed_when: false
+  changed_when: false
+  when:
+    - api_check.stdout | default('') == '200'
+    - aap_api_token | default('') | length > 0
+
+- name: Find subscription manifest
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/../files/manifest"
+    patterns: "*.zip"
+  register: manifest_files
+
+- name: Upload subscription manifest
+  when:
+    - api_check.stdout | default('') == '200'
+    - aap_api_token | default('') | length > 0
+    - manifest_files.files | length > 0
+  block:
+    - name: Copy manifest to container
+      ansible.builtin.command:
+        cmd: >
+          podman cp {{ manifest_files.files[0].path }} {{ container_name }}:/tmp/manifest.zip
+
+    - name: Apply subscription manifest via API
+      ansible.builtin.shell:
+        cmd: |
+          podman exec {{ container_name }} bash -c '
+            MANIFEST=$(base64 -w0 /tmp/manifest.zip)
+            echo "{\"eula_accepted\": true, \"manifest\": \"$MANIFEST\"}" > /tmp/manifest_payload.json
+            curl -sk -X POST \
+              -H "Authorization: Bearer {{ aap_api_token }}" \
+              -H "Content-Type: application/json" \
+              -d @/tmp/manifest_payload.json \
+              https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/config/
+          '
+      register: manifest_result
+      failed_when: false
+
+    - name: Report manifest upload result
+      ansible.builtin.debug:
+        msg: >-
+          Subscription manifest: {{ 'APPLIED' if manifest_result.rc == 0 and 'license_type' in (manifest_result.stdout | default(''))
+          else 'FAILED - ' + (manifest_result.stderr | default(manifest_result.stdout | default('unknown error')))[:200] }}
+
+- name: Warn if no subscription manifest found
+  ansible.builtin.debug:
+    msg: >
+      WARNING: No subscription manifest found in tests/integration/files/manifest/*.zip.
+      The AAP instance will be unlicensed. Place a manifest zip file in that directory
+      to auto-apply subscriptions during builds.
+  when: manifest_files.files | length == 0
+
+- name: Check best-effort components
+  when: api_check.stdout | default('') == '200'
+  block:
+    - name: Check Hub status (best-effort)
+      ansible.builtin.command:
+        cmd: "podman exec {{ container_name }} systemctl is-active pulpcore-api.service"
+      register: hub_status
+      failed_when: false
+      changed_when: false
+      when: ver_config.components.hub.enabled | default(false)
+
+    - name: Check EDA status (best-effort)
+      ansible.builtin.command:
+        cmd: "podman exec {{ container_name }} systemctl is-active automation-eda-api.service"
+      register: eda_status
+      failed_when: false
+      changed_when: false
+      when: ver_config.components.eda.enabled | default(false)
+
+    - name: Report component status
+      ansible.builtin.debug:
+        msg: |
+          AAP {{ aap_version }} ({{ container_name }}) component status:
+            Controller: {{ 'OK' if api_check.stdout | default('') == '200' else 'FAILED' }}
+            Hub: {{ hub_status.stdout | default('N/A') }}
+            EDA: {{ eda_status.stdout | default('N/A') }}
+
+- name: Populate test data
+  when:
+    - populate_test_data | default(false) | bool
+    - api_check.stdout | default('') == '200'
+    - aap_api_token | default('') | length > 0
+  block:
+    - name: Set host-accessible controller URL
+      ansible.builtin.set_fact:
+        host_controller_url: "https://localhost:{{ port_base | int + port_offset_controller }}"
+
+    - name: Run populate_test_data.py
+      ansible.builtin.command:
+        cmd: >
+          python3 {{ playbook_dir }}/../scripts/populate_test_data.py
+          --host {{ host_controller_url }}
+          --token {{ aap_api_token }}
+          --size {{ populate_test_data_size | default('small') }}
+      register: populate_result
+      failed_when: false
+      changed_when: populate_result.rc == 0
+
+    - name: Report populate result
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'SUCCESS' if populate_result.rc == 0 else 'FAILED (rc=' + populate_result.rc | string + ')' }}:
+          {{ (populate_result.stdout_lines | default([]))[-5:] | join(' | ') }}
+          {{ (populate_result.stderr_lines | default([]))[-3:] | join(' | ') if populate_result.rc != 0 else '' }}
+      when: populate_result is defined

@@ -1,0 +1,43 @@
+---
+# Push a golden image to a container registry.
+#
+# Usage:
+#   ansible-playbook playbooks/push-image.yml \
+#     -e aap_version=2.3 \
+#     -e image_registry=quay.io/myorg
+#
+- name: Push AAP golden image to registry
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    local_image: "localhost/{{ image_prefix }}-{{ aap_version }}:latest"
+    remote_image: "{{ image_registry }}/{{ image_prefix }}-{{ aap_version }}:latest"
+
+  tasks:
+    - name: Verify local image exists
+      ansible.builtin.command:
+        cmd: "podman image exists {{ local_image }}"
+      changed_when: false
+
+    - name: Tag for remote registry
+      ansible.builtin.command:
+        cmd: "podman tag {{ local_image }} {{ remote_image }}"
+      when: image_registry != 'localhost'
+
+    - name: Push to registry
+      ansible.builtin.command:
+        cmd: "podman push {{ remote_image }}"
+      when: image_registry != 'localhost'
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: |
+          {% if image_registry != 'localhost' %}
+          Pushed: {{ remote_image }}
+          Pull with: podman pull {{ remote_image }}
+          {% else %}
+          Image is local-only: {{ local_image }}
+          Set image_registry to push to a remote registry.
+          {% endif %}

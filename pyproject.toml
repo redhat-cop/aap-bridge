@@ -61,6 +61,16 @@ dev = [
     "ruff>=0.1.8",
     "mypy>=1.7.1",
     "pre-commit>=3.6.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "websockets>=13.0",
+    "python-multipart>=0.0.18",
+]
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "websockets>=13.0",
+    "python-multipart>=0.0.18",
 ]
 docs = [
     "mkdocs>=1.5",

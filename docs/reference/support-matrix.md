@@ -35,9 +35,9 @@ classification, and any caveats associated with their migration.
 | `schedules` | `schedules/` | Migrate | - | - |
 | `users` | `users/` | Migrate | - | Passwords are not migrated |
 | `teams` | `teams/` | Migrate | - | - |
-| `role_definitions` | `role_definitions/` | Migrate | - | AAP 2.5+ RBAC |
-| `role_user_assignments` | `role_user_assignments/` | Migrate | - | AAP 2.5+ RBAC |
-| `role_team_assignments` | `role_team_assignments/` | Migrate | - | AAP 2.5+ RBAC |
+| `role_definitions` | `role_definitions/` | Migrate | - | Custom roles on 2.5+ sources; legacy sources use classic grants on users/teams |
+| `role_user_assignments` | `role_user_assignments/` | Migrate | - | 2.5+ sources; legacy sources via classic grant conversion |
+| `role_team_assignments` | `role_team_assignments/` | Migrate | - | 2.5+ sources; legacy sources via classic grant conversion |
 | `jobs` | `jobs/` | Export-Only | - | Historical runtime data, not imported |
 | `activity_stream` | `activity_stream/` | Never Migrate | - | Audit log, historical (auto-generated on target) |
 | `ad_hoc_commands` | `ad_hoc_commands/` | Never Migrate | - | Ad-hoc command records (historical) |

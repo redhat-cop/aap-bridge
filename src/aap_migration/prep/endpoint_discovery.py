@@ -11,9 +11,51 @@ from typing import Any
 
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.client.aap_target_client import AAPTargetClient
+from aap_migration.client.api_layout import ApiMode
 from aap_migration.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+_SKIP_ROOT_KEYS = frozenset(
+    {
+        "description",
+        "current_version",
+        "available_versions",
+        "oauth2",
+        "custom_logo",
+        "custom_login_info",
+        "login_redirect_override",
+        "apis",
+    }
+)
+
+
+def _relative_endpoint_path(endpoint_url: str) -> str:
+    """Extract relative endpoint path from an API root href."""
+    return endpoint_url.rstrip("/").split("/")[-1] + "/"
+
+
+def _endpoint_ignored(endpoint_name: str, endpoint_path: str, ignored_endpoints: list[str]) -> bool:
+    """Return True if an endpoint should be skipped during discovery."""
+    ignored_keys = {item.rstrip("/") for item in ignored_endpoints}
+    return endpoint_name in ignored_keys or endpoint_path.rstrip("/") in ignored_keys
+
+
+def _discover_bases(client: AAPSourceClient | AAPTargetClient) -> list[str]:
+    """Return API versioned base URLs to probe for endpoint listings."""
+    layout = client.api_layout
+
+    if layout.mode is ApiMode.GATEWAY:
+        bases: list[str] = []
+        if layout.gateway_base:
+            bases.append(layout.gateway_base)
+        if layout.controller_base:
+            bases.append(layout.controller_base)
+        return bases
+
+    if layout.legacy_base:
+        return [layout.legacy_base]
+    return [client.base_url]
 
 
 async def discover_endpoints(
@@ -43,55 +85,45 @@ async def discover_endpoints(
     logger.info(
         "discovering_endpoints",
         api_version=api_version,
-        base_url=client.base_url,
+        host_url=client.host_url,
         ignored_count=len(ignored_endpoints),
     )
 
     try:
-        # Fetch API root - this returns all available endpoints
-        response = await client.get("")
-
-        # Extract endpoint listing from response
-        # The API root returns a dict like:
-        # {
-        #   "organizations": "/api/v2/organizations/",
-        #   "users": "/api/v2/users/",
-        #   ...
-        # }
-        endpoints_data = {}
+        endpoints_data: dict[str, Any] = {}
         endpoint_count = 0
         ignored_count = 0
 
-        for endpoint_name, endpoint_url in response.items():
-            # Skip metadata fields
-            if endpoint_name in ["description", "current_version", "available_versions"]:
-                continue
+        for base in _discover_bases(client):
+            response = await client.get_api_root(base)
 
-            # Extract only the relative endpoint path
-            # AAP API returns absolute paths like "/api/v2/ping/" or "/api/controller/v2/organizations/"
-            # but base_url already contains the API prefix (e.g., "https://aap.example.com/api/v2")
-            # We only want the relative path (e.g., "ping/" or "organizations/")
-            # Split by '/' and take the last non-empty part
-            endpoint_path = endpoint_url.rstrip("/").split("/")[-1] + "/"
+            for endpoint_name, endpoint_url in response.items():
+                if endpoint_name in _SKIP_ROOT_KEYS:
+                    continue
+                if not isinstance(endpoint_url, str):
+                    continue
 
-            # Skip ignored endpoints
-            if endpoint_path in ignored_endpoints:
-                logger.debug(
-                    "endpoint_ignored",
-                    endpoint_name=endpoint_name,
-                    endpoint_path=endpoint_path,
-                )
-                ignored_count += 1
-                continue
+                endpoint_path = _relative_endpoint_path(endpoint_url)
 
-            # Store endpoint information
-            endpoints_data[endpoint_name] = {
-                "url": endpoint_path,  # Just "ping/" or "organizations/", not "/api/v2/ping/"
-                "methods": None,  # Will be populated by schema generator
-                "supports_filtering": None,
-                "supports_pagination": None,
-            }
-            endpoint_count += 1
+                if _endpoint_ignored(endpoint_name, endpoint_path, ignored_endpoints):
+                    logger.debug(
+                        "endpoint_ignored",
+                        endpoint_name=endpoint_name,
+                        endpoint_path=endpoint_path,
+                    )
+                    ignored_count += 1
+                    continue
+
+                if endpoint_name in endpoints_data:
+                    continue
+
+                endpoints_data[endpoint_name] = {
+                    "url": endpoint_path,
+                    "methods": None,
+                    "supports_filtering": None,
+                    "supports_pagination": None,
+                }
+                endpoint_count += 1
 
         logger.info(
             "endpoints_discovered",
@@ -100,15 +132,13 @@ async def discover_endpoints(
             ignored_count=ignored_count,
         )
 
-        # Build result
-        result = {
+        return {
             "api_version": api_version,
             "discovered_at": datetime.now(UTC).isoformat(),
             "base_url": str(client.base_url),
+            "host_url": client.host_url,
             "endpoints": endpoints_data,
         }
-
-        return result
 
     except Exception as e:
         logger.error(
@@ -136,10 +166,8 @@ def save_endpoints(
         endpoint_count=len(endpoints_data.get("endpoints", {})),
     )
 
-    # Create parent directory if it doesn't exist
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Write JSON file
     with open(output_file, "w") as f:
         json.dump(endpoints_data, f, indent=2)
 

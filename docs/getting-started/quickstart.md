@@ -14,38 +14,29 @@ Edit `.env` with your AAP credentials:
 
 ```bash
 # Source AAP instance (read-only token)
-# AAP 1.0–2.4: direct controller API
-SOURCE__URL=https://source-aap.example.com/api/v2
-# AAP 2.5+ source: Platform Gateway (uncomment and use instead of /api/v2)
-# SOURCE__URL=https://source-aap.example.com/api/controller/v2
+SOURCE__URL=https://source-aap.example.com
+SOURCE__VERSION=2.4
 SOURCE__TOKEN=your_source_read_token
 
-# Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)
-TARGET__URL=https://target-aap.example.com/api/controller/v2
+# Target AAP instance (read/write token)
+TARGET__URL=https://target-aap.example.com
+TARGET__VERSION=2.6
 TARGET__TOKEN=your_target_write_token
 
 # PostgreSQL state database
 MIGRATION_STATE_DB_PATH=postgresql://user:password@localhost:5432/aap_migration
 ```
 
-!!! note "Source URL by version"
-    Set `SOURCE__URL` based on your source AAP version:
-
-    | Source version | `SOURCE__URL` path |
-    | --- | --- |
-    | AAP 1.0–2.4 | `/api/v2` |
-    | AAP 2.5+ | `/api/controller/v2` (Platform Gateway) |
+!!! note "Version-driven API routing"
+    Set `SOURCE__VERSION` and `TARGET__VERSION` (e.g. `2.4`, `2.6`). The tool
+    uses these to select `/api/v2` (2.4 and earlier) or `/api/gateway/v1` plus
+    `/api/controller/v2` (2.5+). Host URLs should be `https://fqdn` only.
 
 !!! note "API token scope"
     The source token needs read-only scope (export/prep only read data). The
     target token needs read/write scope with admin-level access for import and
     cleanup. See [Configuration](configuration.md#api-token-permissions) for
     details and `curl` examples.
-
-!!! warning "Platform Gateway URL"
-    The target URL (AAP 2.6+) must use `/api/controller/v2` (Platform Gateway),
-    not the direct controller `/api/v2` path. Source AAP 2.5+ also uses
-    `/api/controller/v2`; only source versions 1.0–2.4 use `/api/v2`.
 
 ## 2. Validate Configuration
 

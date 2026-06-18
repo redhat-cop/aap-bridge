@@ -14,11 +14,30 @@ ignored_endpoints:
     - bulk
     - settings
     - activity_stream
+    - activitystream
     - service_index
     - receptor_addresses
 
   # Source-only: Ignored only for source AAP
   source: []
 
-  # Target-only: Ignored only for target AAP
-  target: []
+  # Target-only: Gateway platform endpoints not used by migration
+  target:
+    - app_urls
+    - authenticator_maps
+    - authenticator_plugins
+    - authenticator_users
+    - authenticators
+    - ca_certificates
+    - http_ports
+    - routes
+    - service_clusters
+    - service_keys
+    - service_nodes
+    - service_types
+    - services
+    - session
+    - status
+    - trigger_definition
+    - ui_auth
+    - ui_plugin_routes

@@ -16,12 +16,13 @@ cp .env.example .env
 
 ```bash
 # Source AAP instance (read-only token)
-# AAP 1.0–2.4: /api/v2 — AAP 2.5+: /api/controller/v2
-SOURCE__URL=https://source-aap.example.com/api/v2
+SOURCE__URL=https://source-aap.example.com
+SOURCE__VERSION=2.4
 SOURCE__TOKEN=your_source_read_token
 
-# Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)
-TARGET__URL=https://target-aap.example.com/api/controller/v2
+# Target AAP instance (read/write token)
+TARGET__URL=https://target-aap.example.com
+TARGET__VERSION=2.6
 TARGET__TOKEN=your_target_write_token
 
 # PostgreSQL state database
@@ -29,13 +30,22 @@ MIGRATION_STATE_DB_PATH=postgresql://user:password@localhost:5432/aap_migration
 
 ```
 
-### Source and Target URLs
+### API routing (`SOURCE__VERSION` / `TARGET__VERSION`)
 
-| Instance | AAP version | URL path |
-| --- | --- | --- |
-| Source | 1.0–2.4 | `/api/v2` |
-| Source | 2.5+ | `/api/controller/v2` (Platform Gateway) |
-| Target | 2.6+ | `/api/controller/v2` (Platform Gateway) |
+`SOURCE__VERSION` and `TARGET__VERSION` are **required**. They select which API
+paths the tool uses — older AAP releases do not expose a reliable product
+version in API responses.
+
+`SOURCE__URL` and `TARGET__URL` should be the AAP host only (`https://fqdn`):
+
+| Configured version | API topology | Endpoints used |
+|--------------------|--------------|----------------|
+| 2.4 and earlier | Legacy controller | `/api/v2/` for all resources |
+| 2.5+ | Platform gateway | `/api/gateway/v1/` for orgs, users, teams, RBAC, etc. |
+| 2.5+ | Platform gateway | `/api/controller/v2/` for projects, inventories, jobs, etc. |
+
+Legacy paths such as `/api/v2` or `/api/controller/v2` in a configured URL are
+stripped with a log message. EDA and Galaxy APIs are not used by AAP Bridge.
 
 ### API Token Permissions
 

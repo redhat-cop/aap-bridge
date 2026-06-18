@@ -23,6 +23,8 @@ in the repository.
 - Classic RBAC migration for user and team resource role grants to the target AAP 2.5+ RBAC model
 - For AAP 2.5+ sources, new-model RBAC migration is fully implemented and functional for
   `role_definitions`, `role_user_assignments`, and `role_team_assignments`
+- Version-driven API routing: host-only URLs with required `SOURCE__VERSION` /
+  `TARGET__VERSION` select legacy or gateway + controller API bases
 - `role_definitions` included in cleanup phase
 - `skip_credential_names` configuration option (defaults exclude installer-created credentials)
 - `skip_execution_environment_names` configuration option (defaults exclude platform-managed EEs)
@@ -53,6 +55,12 @@ in the repository.
 - 400 "pending deletion" responses treated as idempotent skips
 - Credential type reruns now map "already exists" conflicts and mark completed state
 - Host bulk import reruns now skip already-mapped hosts and persist host progress state
+- Gateway RBAC routing for 2.5+ sources (dual-base role definitions/assignments,
+  `shared.*` content types, target `_api_base` remapping)
+- Legacy source RBAC (1.0–2.4) converted to role assignments on AAP 2.6 targets
+- Role definitions export via parallel path on AAP 2.5+ sources
+- Team member sync when team create is skipped on rerun
+- Config path resolution when running from a subdirectory
 
 ### v0.1.0
 

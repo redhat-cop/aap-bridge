@@ -1514,6 +1514,7 @@ def cleanup(
     # --force is alias for --yes
     skip_confirmation = force or yes
     if not skip_confirmation:
+        click.echo()
         if not click.confirm("Are you sure you want to proceed?", default=False):
             echo_info("Cleanup cancelled")
             return

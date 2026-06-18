@@ -11,6 +11,12 @@ from urllib.parse import urljoin
 
 import httpx
 
+from aap_migration.client.api_layout import (
+    ApiLayout,
+    build_api_layout,
+    normalize_host_url,
+    strip_api_path_prefix,
+)
 from aap_migration.client.exceptions import (
     APIError,
     AuthenticationError,
@@ -47,7 +53,7 @@ class BaseAPIClient:
 
     def __init__(
         self,
-        base_url: str,
+        host_url: str,
         token: str,
         verify_ssl: bool = True,
         timeout: int = 30,
@@ -56,11 +62,13 @@ class BaseAPIClient:
         max_keepalive_connections: int | None = None,
         log_payloads: bool = False,
         max_payload_size: int = 10000,
+        aap_version: str | None = None,
+        api_layout: ApiLayout | None = None,
     ):
         """Initialize base API client.
 
         Args:
-            base_url: Base URL for API requests
+            host_url: AAP instance URL (scheme + host; API paths derived from version)
             token: Authentication token
             verify_ssl: Whether to verify SSL certificates
             timeout: Request timeout in seconds
@@ -69,10 +77,21 @@ class BaseAPIClient:
             max_keepalive_connections: Maximum keep-alive connections (default: 20)
             log_payloads: Enable request/response payload logging at DEBUG level
             max_payload_size: Maximum payload size (chars) to log before truncation
+            aap_version: Configured AAP version (SOURCE__VERSION / TARGET__VERSION)
+            api_layout: Pre-built API layout (built from aap_version if omitted)
         """
-        self.base_url = base_url.rstrip("/")
+        if not aap_version:
+            raise ValueError(
+                "AAP version must be configured (SOURCE__VERSION or TARGET__VERSION). "
+                "API topology cannot be determined reliably from older AAP instances."
+            )
+
+        self.host_url = normalize_host_url(host_url)
+        self.aap_version = aap_version
         self.token = token
         self.verify_ssl = verify_ssl
+        self.timeout = timeout
+        self._api_layout = api_layout or build_api_layout(self.host_url, aap_version)
 
         # Payload logging configuration
         self.log_payloads = log_payloads
@@ -104,10 +123,28 @@ class BaseAPIClient:
 
         logger.info(
             "client_initialized",
-            base_url=self.base_url,
+            host_url=self.host_url,
             rate_limit=rate_limit,
             max_connections=max_connections,
         )
+
+    @property
+    def base_url(self) -> str:
+        """Primary API base URL (controller or legacy) for logging and discovery."""
+        if self._api_layout is not None:
+            return self._api_layout.default_base_url
+        return self.host_url
+
+    @property
+    def api_layout(self) -> ApiLayout:
+        """Resolved API layout for this instance."""
+        return self._api_layout
+
+    def relative_endpoint(self, path: str) -> str:
+        """Strip a known API prefix from an absolute pagination or related URL."""
+        if self._api_layout is not None:
+            return self._api_layout.relative_endpoint(path)
+        return strip_api_path_prefix(path)
 
     def _build_headers(self) -> dict[str, str]:
         """Build HTTP headers for requests.
@@ -130,9 +167,12 @@ class BaseAPIClient:
         Returns:
             Full URL
         """
-        # Remove leading slash if present
         endpoint = endpoint.lstrip("/")
-        return urljoin(f"{self.base_url}/", endpoint)
+        if self._api_layout is not None:
+            base = self._api_layout.base_for_endpoint(endpoint)
+        else:
+            base = self.host_url
+        return urljoin(f"{base}/", endpoint)
 
     async def _rate_limit_wait(self) -> None:
         """Implement rate limiting by waiting if necessary."""
@@ -379,6 +419,94 @@ class BaseAPIClient:
         except Exception as e:
             logger.error("unexpected_error", method=method, url=url, error=str(e), exc_info=True)
             raise
+
+    async def get_api_root(self, base: str) -> dict[str, Any]:
+        """GET the API root listing at a specific versioned base URL."""
+        url = f"{base.rstrip('/')}/"
+        await self._rate_limit_wait()
+        response = await self.client.get(url)
+        if response.status_code >= 400:
+            self._handle_error_response(response)
+        data = response.json() if response.text else {}
+        if not isinstance(data, dict):
+            raise APIError(
+                message=f"Expected JSON object from API root {url}",
+                status_code=response.status_code,
+                response={"detail": data},
+            )
+        return data
+
+    def _url_on_base(self, base: str, endpoint: str) -> str:
+        """Build a full URL for an explicit API base."""
+        return urljoin(f"{base.rstrip('/')}/", endpoint.lstrip("/"))
+
+    async def request_on_base(
+        self,
+        base: str,
+        method: str,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Make an HTTP request against an explicit API base URL."""
+        url = self._url_on_base(base, endpoint)
+        await self._rate_limit_wait()
+        start_time = time.time()
+
+        try:
+            response = await self.client.request(
+                method=method, url=url, params=params, json=json_data, **kwargs
+            )
+            duration_ms = (time.time() - start_time) * 1000
+            log_api_request(
+                logger,
+                method=method,
+                url=url,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+            )
+            if response.status_code >= 400:
+                self._handle_error_response(response)
+            return response.json() if response.text else {}
+        except httpx.NetworkError as e:
+            logger.error("network_error", method=method, url=url, error=str(e))
+            raise NetworkError(f"Network error: {str(e)}") from e
+        except httpx.TimeoutException as e:
+            logger.error("timeout_error", method=method, url=url, error=str(e))
+            raise NetworkError(f"Request timeout: {str(e)}") from e
+        except (
+            AuthenticationError,
+            AuthorizationError,
+            NotFoundError,
+            ConflictError,
+            RateLimitError,
+            ServerError,
+            APIError,
+        ):
+            raise
+        except Exception as e:
+            logger.error("unexpected_error", method=method, url=url, error=str(e), exc_info=True)
+            raise
+
+    async def get_on_base(
+        self, base: str, endpoint: str, params: dict[str, Any] | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        """GET against an explicit API base URL."""
+        return await self.request_on_base(base, "GET", endpoint, params=params, **kwargs)
+
+    async def post_on_base(
+        self,
+        base: str,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """POST against an explicit API base URL."""
+        return await self.request_on_base(
+            base, "POST", endpoint, params=params, json_data=json_data, **kwargs
+        )
 
     async def get(
         self, endpoint: str, params: dict[str, Any] | None = None, **kwargs: Any

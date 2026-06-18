@@ -6,8 +6,9 @@ Platform Gateway support and bulk operations.
 
 from typing import Any
 
+from aap_migration.client.api_layout import normalize_host_url
 from aap_migration.client.base_client import BaseAPIClient
-from aap_migration.client.exceptions import ConflictError, StateError
+from aap_migration.client.exceptions import ConflictError
 from aap_migration.config import AAPInstanceConfig
 from aap_migration.resources import get_endpoint
 from aap_migration.utils.logging import get_logger
@@ -36,29 +37,25 @@ class AAPTargetClient(BaseAPIClient):
         """Initialize AAP target client.
 
         Args:
-            config: AAP instance configuration (should include /api/controller/v2/ path)
+            config: AAP instance configuration (host URL; API paths are auto-discovered)
             rate_limit: Maximum requests per second
             log_payloads: Enable request/response payload logging
             max_payload_size: Maximum payload size to log before truncation
             max_connections: Maximum number of connections in pool
             max_keepalive_connections: Maximum keep-alive connections
         """
-        # Ensure URL includes Platform Gateway path
-        base_url = config.url
-        if not base_url.endswith("/api/controller/v2"):
-            if "/api/controller/v2" in base_url:
-                # Already has the path somewhere
-                pass
-            else:
-                # Append Platform Gateway path
-                base_url = f"{base_url.rstrip('/')}/api/controller/v2"
-
         if config.token is None:
             raise ValueError("API token must be resolved before initializing AAPTargetClient")
+        if not config.version:
+            raise ValueError(
+                "TARGET__VERSION must be set; target AAP version cannot be detected "
+                "reliably from the API on older releases."
+            )
 
         super().__init__(
-            base_url=base_url,
+            host_url=normalize_host_url(config.url),
             token=config.token,
+            aap_version=config.version,
             verify_ssl=config.verify_ssl,
             timeout=config.timeout,
             rate_limit=rate_limit,
@@ -67,27 +64,11 @@ class AAPTargetClient(BaseAPIClient):
             max_connections=max_connections,
             max_keepalive_connections=max_keepalive_connections,
         )
-        logger.info("aap_target_client_initialized", url=base_url)
+        logger.info("aap_target_client_initialized", url=self.host_url, version=config.version)
 
     async def get_version(self) -> str:
-        """Discover AAP version from the API.
-
-        Returns:
-            Version string (e.g., '2.6.0')
-        """
-        try:
-            response = await self.get("ping/")
-            version = response.get("version", response.get("active_node", {}).get("version"))
-            if not version:
-                # Fallback: try config endpoint
-                config_response = await self.get("config/")
-                version = config_response.get("version")
-            if not version:
-                raise StateError("Cannot determine target AAP version from API")
-            return str(version)
-        except Exception as e:
-            logger.error("failed_to_discover_version", error=str(e))
-            raise StateError(f"Failed to discover target AAP version: {e}") from e
+        """Return the configured target AAP version."""
+        return self.aap_version
 
     # Core CRUD operations
     @retry_api_call
@@ -550,14 +531,7 @@ class AAPTargetClient(BaseAPIClient):
                 from urllib.parse import parse_qsl, urlparse
 
                 parsed = urlparse(next_url)
-                next_endpoint = parsed.path.replace("/api/controller/v2/", "")
-                # parsed.path is only the path (inventories/) — the query string
-                # (?page=2&name__in=...) lives in parsed.query, which is thrown away.
-                # So every "next page" request goes to the bare endpoint with no page
-                # and no filter, which returns page 1 again, whose next is still page 2
-                # → it loops forever, re-fetching page 1.
-                # It only triggers when a result set exceeds one page (page_size 100)
-                # — exactly your large inventories/groups.
+                next_endpoint = self.relative_endpoint(parsed.path)
                 next_params = dict(parse_qsl(parsed.query))
                 if next_endpoint == endpoint and next_params == params:
                     # Defensive guard: identical next request means no forward

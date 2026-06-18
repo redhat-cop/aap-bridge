@@ -151,8 +151,10 @@ aap-bridge import
   (started/success/error/approvals) are applied after template creation
 - **Nested Groups**: Inventory group parent-child relationships are recreated after all groups
   are imported
-- **Classic RBAC Translation**: User and team role grants from AAP 2.3–2.5 are translated to
-  the AAP 2.5+ RBAC model
+- **Classic RBAC Translation**: On legacy sources (AAP ≤2.4), user and team role grants from
+  `users/{id}/roles/` and `teams/{id}/roles/` are converted to `role_user_assignments` and
+  `role_team_assignments` on AAP 2.5+ targets. AAP 2.5+ sources export the new assignment
+  APIs directly
 - **Idempotency**: Skips already-migrated resources
 - **Conflict Resolution**: Updates or skips existing resources
 - **Checkpointing**: Can resume from any failure point

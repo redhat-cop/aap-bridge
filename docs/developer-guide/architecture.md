@@ -100,20 +100,31 @@ src/aap_migration/
 
 #### AAPSourceClient
 
-HTTP client for source AAP (2.3/2.4):
+HTTP client for the source AAP instance:
 
-- Base URL: `/api/v2/`
-- Handles pagination
-- Rate limiting and retries
-- Authentication via token
+- Configured with host URL (`https://fqdn`) and `SOURCE__VERSION`
+- Selects legacy (`/api/v2/`) or gateway topology from the configured version
+- Handles pagination, rate limiting, retries, and token auth
 
 #### AAPTargetClient
 
-HTTP client for target AAP (2.6+):
+HTTP client for the target AAP instance:
 
-- Base URL: `/api/controller/v2/` (Platform Gateway)
-- Bulk operation support
-- Same retry/rate limiting logic
+- Same host-only configuration and auto-discovery as the source client
+- On AAP 2.5+, routes shared resources (orgs, users, teams, RBAC) to
+  `/api/gateway/v1/` and automation content to `/api/controller/v2/`
+- Bulk operation support on controller endpoints
+
+#### ApiLayout (`api_layout.py`)
+
+Single source of truth for API path roots and version-aware routing:
+
+- `SOURCE__VERSION` / `TARGET__VERSION` select legacy (`/api/v2/`) vs gateway topology
+- Endpoint segment sets determine gateway vs controller base per request
+- RBAC assignments route by `content_type` (including `shared.organization` /
+  `shared.team` on gateway exports)
+- `classic_rbac_conversion.py` maps legacy principal grants to role assignment
+  rows when importing to gateway targets
 
 ### Migration Layer
 

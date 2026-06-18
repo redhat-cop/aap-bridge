@@ -28,6 +28,7 @@ from aap_migration.cli.commands import transform as transform_commands
 from aap_migration.cli.commands import validate as validate_commands
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.menu import interactive_menu
+from aap_migration.config import resolve_config_path
 from aap_migration.utils.logging import configure_logging, get_logger
 
 # Load environment variables from .env file
@@ -41,7 +42,7 @@ logger = get_logger(__name__)
 @click.option(
     "--config",
     "-c",
-    type=click.Path(exists=True, path_type=Path),
+    type=click.Path(path_type=Path),
     help="Path to configuration file",
     envvar="AAP_BRIDGE_CONFIG",
 )
@@ -100,16 +101,24 @@ def cli(
         log_path.parent.mkdir(parents=True, exist_ok=True)
         configure_logging(level=log_level, log_file=effective_log_file)
 
+    resolved_config = resolve_config_path(config)
+    if resolved_config is not None and not resolved_config.is_file():
+        click.echo(
+            f"Error: Configuration file not found: {resolved_config}",
+            err=True,
+        )
+        raise click.exceptions.Exit(2)
+
     # Create context
     ctx.obj = MigrationContext(
-        config_path=config,
+        config_path=resolved_config,
         log_level=log_level,
         log_file=log_file,
     )
 
     logger.debug(
         "CLI initialized",
-        config=str(config) if config else None,
+        config=str(resolved_config) if resolved_config else None,
         log_level=log_level,
     )
 

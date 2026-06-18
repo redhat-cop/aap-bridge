@@ -69,9 +69,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   inventories are already mapped when role grants are applied
 - **Error Output Simplified**: Console error output no longer renders full Rich
   tracebacks with local variable dumps; errors render as a single summary line
+- **Version-Driven API Routing**: `SOURCE__URL` and `TARGET__URL` are host-only
+  (`https://fqdn`); required `SOURCE__VERSION` and `TARGET__VERSION` select legacy
+  (`/api/v2/`) or gateway + controller (`/api/gateway/v1/`, `/api/controller/v2/`)
+  API bases. Path suffixes embedded in configured URLs are stripped automatically
 - **Documentation – Token and URL Guidance**: Clarified read-only source vs
-  read/write target API tokens, source/target URL paths by AAP version (1.0–2.4
-  `/api/v2`, source 2.5+ and target 2.6+ `/api/controller/v2`), and corrected
+  read/write target API tokens, version-driven API routing, and corrected
   `SECURITY.md` to use `SOURCE__TOKEN`/`TARGET__TOKEN`
 
 ### Fixed
@@ -139,6 +142,21 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - **Hosts – Bulk Import Rerun Idempotency**: Phase 2 reruns now skip hosts that already
   have state mappings and persist host migration progress during bulk import so
   subsequent runs do not attempt duplicate host creates
+- **RBAC – Gateway Topology (2.5+ Sources)**: Role assignments and custom role
+  definitions route to the correct gateway vs controller API; platform assignments
+  honour `shared.*` content types; dual-base export/import for `role_definitions`
+  and role assignments; `_api_base` from export is remapped to the target host on
+  import
+- **RBAC – Legacy Sources (1.0–2.4 → 2.6)**: Classic `users/{id}/roles/` and
+  `teams/{id}/roles/` grants are converted to `role_user_assignments` and
+  `role_team_assignments` on gateway targets instead of being skipped
+- **Role Definitions Export**: Custom roles on the controller API are included when
+  export uses the parallel code path (previously reported a non-zero count but
+  wrote no files on AAP 2.5+ sources)
+- **Team Membership on Rerun**: Member sync runs when a team import is skipped but
+  the team already has a target ID mapping
+- **Config Path Resolution**: `config/config.yaml` is resolved relative to the
+  repository root when the CLI or TUI is started from a subdirectory
 
 ## [0.1.0] - 2025-12-05
 

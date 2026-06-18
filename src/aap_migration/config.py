@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 
 import yaml
+
+from aap_migration.client.api_layout import normalize_host_url
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -68,7 +70,10 @@ class AdvancedConfig(BaseModel):
 class AAPInstanceConfig(BaseModel):
     """Configuration for an AAP instance (source or target)."""
 
-    url: str = Field(..., description="AAP instance URL")
+    url: str = Field(
+        ...,
+        description="AAP instance URL (https://fqdn; API paths are auto-discovered)",
+    )
     token: str | None = Field(
         default=None,
         description="API authentication token (plain text, used when token_vault_path is not set)",
@@ -79,7 +84,7 @@ class AAPInstanceConfig(BaseModel):
     )
     version: str | None = Field(
         default=None,
-        description="AAP version override (auto-detected if omitted)",
+        description="AAP version (e.g. '2.4' or '2.6'); required for API routing",
     )
     verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
     timeout: int = Field(default=30, ge=1, le=1200, description="API request timeout in seconds")
@@ -92,7 +97,7 @@ class AAPInstanceConfig(BaseModel):
             raise ValueError("URL must start with http:// or https://")
         if not v.startswith("https://"):
             raise ValueError("URL should use HTTPS for security")
-        return v.rstrip("/")
+        return normalize_host_url(v)
 
     @model_validator(mode="after")
     def validate_token_source(self) -> "AAPInstanceConfig":
@@ -792,6 +797,42 @@ class MigrationConfig(BaseSettings):
                 except Exception:
                     pass
         return self
+
+
+def find_project_root(start: Path | None = None) -> Path:
+    """Return the repository root (directory containing pyproject.toml)."""
+    current = (start or Path.cwd()).resolve()
+    for directory in (current, *current.parents):
+        if (directory / "pyproject.toml").is_file():
+            return directory
+    return current
+
+
+def resolve_config_path(config: str | Path | None = None) -> Path | None:
+    """Resolve a config file path against the project root when needed.
+
+    ``AAP_BRIDGE_CONFIG`` is typically set to ``config/config.yaml`` relative to
+    the repository root. If the CLI is launched from another working directory
+    (e.g. ``config/``), resolve against the discovered project root.
+    """
+    if config is None:
+        env_val = os.getenv("AAP_BRIDGE_CONFIG")
+        if env_val:
+            config = env_val
+        else:
+            default = find_project_root() / "config" / "config.yaml"
+            return default if default.is_file() else None
+
+    path = Path(config)
+    if path.is_file():
+        return path.resolve()
+
+    root = find_project_root()
+    candidate = (root / path).resolve()
+    if candidate.is_file():
+        return candidate
+
+    return path.resolve()
 
 
 def load_config_from_yaml(config_path: str | Path) -> MigrationConfig:

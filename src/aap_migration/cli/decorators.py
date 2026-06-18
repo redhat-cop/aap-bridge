@@ -178,6 +178,7 @@ def confirm_action(
             if ctx.params.get("yes", False):
                 return f(*args, **kwargs)
 
+            click.echo()
             if not click.confirm(message):
                 click.echo(abort_message)
                 raise click.exceptions.Exit(0)

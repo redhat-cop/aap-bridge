@@ -85,11 +85,12 @@ Each operation runs as an async job with live log streaming.
 Three-step migration wizard:
 
 1. **Select** - Choose source and destination connections
-2. **Preview** - Runs an async preview job that exports source resources and
-   detects conflicts on the destination. Shows counts of resources to create vs.
-   skip before you start the migration.
-3. **Run** - Executes the migration with real-time log streaming and a cancel
-   button.
+2. **Preview** - Compares source and destination using the same resource
+   types as export, showing counts of resources to create vs. skip.
+3. **Run** - Executes the CLI phased workflow: export → transform →
+   import (with project patching), writing to `exports/` and `xformed/`.
+   Prep is skipped; run `aap-bridge prep` separately if schemas are not
+   already present.
 
 ### Object Browser
 

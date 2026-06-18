@@ -26,8 +26,6 @@ def _validate_migration_connections(source: Connection, dest: Connection) -> Non
         raise HTTPException(status_code=400, detail="Source connection must have source role")
     if dest.role != "destination":
         raise HTTPException(status_code=400, detail="Destination connection must have destination role")
-    if dest.type != "aap":
-        raise HTTPException(status_code=400, detail="Destination connection must be an AAP instance")
 
 
 def _has_active_jobs(db: Session, job_types: tuple[str, ...]) -> bool:

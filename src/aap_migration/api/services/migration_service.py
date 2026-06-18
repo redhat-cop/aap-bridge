@@ -17,20 +17,6 @@ from aap_migration.resources import (
     normalize_resource_type,
 )
 
-PREVIEW_RESOURCE_TYPES = [
-    "organizations",
-    "teams",
-    "users",
-    "credential_types",
-    "credentials",
-    "projects",
-    "inventories",
-    "hosts",
-    "groups",
-    "job_templates",
-    "workflow_job_templates",
-    "schedules",
-]
 PREVIEW_DETAIL_LIMIT = 200
 PREVIEW_TRUNCATE_TYPES = {"hosts", "groups"}
 
@@ -298,6 +284,7 @@ class MigrationService:
             "token": conn.token,
             "verify_ssl": conn.verify_ssl,
             "type": conn.type,
+            "role": conn.role,
             "api_prefix": conn.api_prefix,
             "version": conn.version,
             "ping_status": conn.ping_status,
@@ -384,6 +371,7 @@ class MigrationService:
             context_token = ACTIVE_JOB_ID.set(job_id)
             try:
                 from aap_migration.api.models import Connection as ConnModel
+                from aap_migration.api.services.cli_workflows import migration_resource_types
                 from aap_migration.api.services.connection_client import fetch_connection_resources
                 from aap_migration.api.services.engine_adapter import load_runtime_config
 
@@ -409,7 +397,7 @@ class MigrationService:
                 group_counts: dict[str, int] = {}
                 warnings: list[str] = []
 
-                for rt in PREVIEW_RESOURCE_TYPES:
+                for rt in migration_resource_types():
                     canonical_type = normalize_resource_type(rt)
                     self.job_service.append_log(job_id, f"Fetching {rt} from source...")
                     src_items = await fetch_connection_resources(src_conn, rt)
@@ -552,11 +540,7 @@ class MigrationService:
             handler = self._attach_log_handler(job_id)
             context_token = ACTIVE_JOB_ID.set(job_id)
             try:
-                from aap_migration.api.services.engine_adapter import build_migration_config
-                from aap_migration.client.aap_source_client import AAPSourceClient
-                from aap_migration.client.aap_target_client import AAPTargetClient
-                from aap_migration.migration.coordinator import MigrationCoordinator
-                from aap_migration.migration.state import MigrationState
+                from aap_migration.api.services.cli_workflows import run_phased_migration
 
                 self.job_service.append_log(
                     job_id, f"Starting migration: {src_snap['name']} -> {dst_snap['name']}"
@@ -569,49 +553,27 @@ class MigrationService:
                 for k, v in dst_snap.items():
                     setattr(dst_conn, k, v)
 
-                config = build_migration_config(src_conn, dst_conn, db_url)
-
-                self.job_service.append_log(job_id, "Initializing clients...")
-                source_client = AAPSourceClient(config.source)
-                target_client = AAPTargetClient(config.target)
-
-                self.job_service.append_log(job_id, "Initializing migration state...")
-                state = MigrationState(config.state)
-
-                coordinator = MigrationCoordinator(
-                    config=config,
-                    source_client=source_client,
-                    target_client=target_client,
-                    state=state,
-                    enable_progress=False,
-                    show_stats=False,
-                )
-
-                self.job_service.append_log(job_id, "Running migration...")
-                summary = await coordinator.migrate_all(
-                    generate_report=True,
-                    report_dir="./reports",
-                )
-
-                status_msg = summary.get("status", "unknown")
-                exported = summary.get("total_resources_exported", 0)
-                imported = summary.get("total_resources_imported", 0)
-                failed = summary.get("total_resources_failed", 0)
-                skipped = summary.get("total_resources_skipped", 0)
-
                 self.job_service.append_log(
                     job_id,
-                    f"Migration {status_msg}: exported={exported} imported={imported} "
-                    f"failed={failed} skipped={skipped}",
+                    "Running phased migration (export → transform → import)...",
+                )
+                result = await run_phased_migration(
+                    src_conn,
+                    dst_conn,
+                    db_url,
+                    log=lambda message: self.job_service.append_log(job_id, message),
+                    skip_prep=True,
                 )
 
-                if status_msg == "completed_with_errors" or failed:
-                    error_msg = f"Migration completed with {failed} failed resources"
+                if result.status != "completed":
+                    error_msg = result.message or "Phased migration failed"
+                    self.job_service.append_log(job_id, error_msg)
                     self.job_service.mark_failed(job_id, error_msg)
-                    self._finish_job(job_id, "failed", error_msg, metadata=summary)
+                    self._finish_job(job_id, "failed", error_msg, metadata={"status": result.status})
                 else:
+                    self.job_service.append_log(job_id, "Migration completed successfully")
                     self.job_service.mark_completed(job_id)
-                    self._finish_job(job_id, "completed", metadata=summary)
+                    self._finish_job(job_id, "completed", metadata={"status": "completed"})
             except asyncio.CancelledError:
                 self.job_service.append_log(job_id, "Migration cancelled")
                 self.job_service.mark_cancelled(job_id)

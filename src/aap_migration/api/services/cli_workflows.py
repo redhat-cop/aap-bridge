@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Iterator
+
+import click
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.engine_adapter import load_runtime_config
@@ -35,6 +40,20 @@ def build_migration_context(conn: Connection, db_url: str) -> MigrationContext:
     ctx = MigrationContext()
     ctx._config = load_runtime_config(conn, conn, db_url)
     return ctx
+
+
+def build_migration_context_pair(
+    source: Connection, dest: Connection, db_url: str
+) -> MigrationContext:
+    """Build a MigrationContext for a source/destination migration pair."""
+    ctx = MigrationContext()
+    ctx._config = load_runtime_config(source, dest, db_url)
+    return ctx
+
+
+def migration_resource_types() -> list[str]:
+    """Return exportable migration resource types in migration order."""
+    return _export_resource_types()
 
 
 def _export_resource_types() -> list[str]:
@@ -244,3 +263,83 @@ async def run_connection_cleanup(
         )
     finally:
         await target_client.close()
+
+
+@dataclass
+class PhasedMigrationResult:
+    status: str
+    message: str = ""
+
+
+@contextmanager
+def _route_click_output_to_log(log: LogFn | None) -> Iterator[None]:
+    if log is None:
+        yield
+        return
+
+    original_echo = click.echo
+
+    def _log_echo(message: object = "", *args: object, **kwargs: object) -> None:
+        text = str(message)
+        if args:
+            try:
+                text = text % args
+            except (TypeError, ValueError):
+                text = f"{text} {' '.join(str(arg) for arg in args)}"
+        if text.strip():
+            log(text)
+
+    click.echo = _log_echo
+    try:
+        yield
+    finally:
+        click.echo = original_echo
+
+
+def _run_phased_migration_workflow(
+    ctx: MigrationContext,
+    *,
+    force: bool,
+    resume: bool,
+    skip_prep: bool,
+    log: LogFn | None,
+) -> None:
+    from aap_migration.cli.commands.migrate import _run_migration_workflow
+
+    with _route_click_output_to_log(log):
+        _run_migration_workflow(
+            ctx,
+            resource_type=(),
+            force=force,
+            resume=resume,
+            skip_prep=skip_prep,
+            phase="all",
+        )
+
+
+async def run_phased_migration(
+    source: Connection,
+    dest: Connection,
+    db_url: str,
+    *,
+    log: LogFn | None = None,
+    force: bool = False,
+    resume: bool = False,
+    skip_prep: bool = True,
+) -> PhasedMigrationResult:
+    """Run export → transform → import using the CLI migration workflow."""
+    ctx = build_migration_context_pair(source, dest, db_url)
+    try:
+        await asyncio.to_thread(
+            _run_phased_migration_workflow,
+            ctx,
+            force=force,
+            resume=resume,
+            skip_prep=skip_prep,
+            log=log,
+        )
+        return PhasedMigrationResult(status="completed")
+    except click.ClickException as exc:
+        return PhasedMigrationResult(status="failed", message=str(exc))
+    except Exception as exc:
+        return PhasedMigrationResult(status="failed", message=str(exc))

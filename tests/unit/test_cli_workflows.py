@@ -7,8 +7,10 @@ import pytest
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.cli_workflows import (
+    migration_resource_types,
     run_connection_cleanup,
     run_connection_export,
+    run_phased_migration,
 )
 
 
@@ -121,3 +123,51 @@ async def test_run_connection_cleanup_uses_cli_cleanup_helpers(tmp_path: Path) -
     assert not (tmp_path / "exports").exists()
     assert not (tmp_path / "xformed").exists()
     assert mock_client.close.await_count == 1
+
+
+def test_migration_resource_types_excludes_default_migration_exclusions() -> None:
+    types = migration_resource_types()
+
+    assert "organizations" in types
+    assert "instances" not in types
+    assert "instance_groups" not in types
+
+
+@pytest.mark.asyncio
+async def test_run_phased_migration_invokes_cli_workflow() -> None:
+    source = _connection(role="source", version="2.5")
+    dest = _connection(role="destination", version="2.6")
+    logs: list[str] = []
+
+    with patch(
+        "aap_migration.api.services.cli_workflows._run_phased_migration_workflow",
+        side_effect=lambda *args, **kwargs: logs.append("workflow"),
+    ) as workflow:
+        result = await run_phased_migration(
+            source,
+            dest,
+            "sqlite:///test.db",
+            log=logs.append,
+            skip_prep=True,
+        )
+
+    assert result.status == "completed"
+    workflow.assert_called_once()
+    assert logs == ["workflow"]
+
+
+@pytest.mark.asyncio
+async def test_run_phased_migration_reports_click_failures() -> None:
+    import click
+
+    source = _connection(role="source", version="2.5")
+    dest = _connection(role="destination", version="2.6")
+
+    with patch(
+        "aap_migration.api.services.cli_workflows._run_phased_migration_workflow",
+        side_effect=click.ClickException("export failed"),
+    ):
+        result = await run_phased_migration(source, dest, "sqlite:///test.db")
+
+    assert result.status == "failed"
+    assert result.message == "export failed"

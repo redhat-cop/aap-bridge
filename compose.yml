@@ -106,10 +106,12 @@ services:
     network_mode: host
     environment:
       MIGRATION_STATE_DB_PATH: "postgresql://${POSTGRESQL_USER:-aap_migration_user}:${POSTGRESQL_PASSWORD:-redhat123!}@localhost:15432/${POSTGRESQL_DATABASE:-aap_migration}"
+      AAP_BRIDGE_CONFIG: /app/config/config.yaml
       AAP_BRIDGE_LOG_LEVEL: ${AAP_BRIDGE_LOG_LEVEL:-INFO}
     security_opt:
       - label=disable
     volumes:
+      - ./config:/app/config:ro
       - ./exports:/app/exports
       - ./reports:/app/reports
 

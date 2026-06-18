@@ -31,8 +31,9 @@ from aap_migration.cli.menu import interactive_menu
 from aap_migration.config import resolve_config_path
 from aap_migration.utils.logging import configure_logging, get_logger
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from the project .env file (not parent directories).
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+load_dotenv(_PROJECT_ROOT / ".env")
 
 logger = get_logger(__name__)
 

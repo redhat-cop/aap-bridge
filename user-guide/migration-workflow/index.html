@@ -1415,8 +1415,10 @@
   (started/success/error/approvals) are applied after template creation</li>
 <li><strong>Nested Groups</strong>: Inventory group parent-child relationships are recreated after all groups
   are imported</li>
-<li><strong>Classic RBAC Translation</strong>: User and team role grants from AAP 2.3–2.5 are translated to
-  the AAP 2.5+ RBAC model</li>
+<li><strong>Classic RBAC Translation</strong>: On legacy sources (AAP ≤2.4), user and team role grants from
+  <code>users/{id}/roles/</code> and <code>teams/{id}/roles/</code> are converted to <code>role_user_assignments</code> and
+  <code>role_team_assignments</code> on AAP 2.5+ targets. AAP 2.5+ sources export the new assignment
+  APIs directly</li>
 <li><strong>Idempotency</strong>: Skips already-migrated resources</li>
 <li><strong>Conflict Resolution</strong>: Updates or skips existing resources</li>
 <li><strong>Checkpointing</strong>: Can resume from any failure point</li>

@@ -1089,6 +1089,8 @@ in the repository.</p>
 <li>Classic RBAC migration for user and team resource role grants to the target AAP 2.5+ RBAC model</li>
 <li>For AAP 2.5+ sources, new-model RBAC migration is fully implemented and functional for
   <code>role_definitions</code>, <code>role_user_assignments</code>, and <code>role_team_assignments</code></li>
+<li>Version-driven API routing: host-only URLs with required <code>SOURCE__VERSION</code> /
+  <code>TARGET__VERSION</code> select legacy or gateway + controller API bases</li>
 <li><code>role_definitions</code> included in cleanup phase</li>
 <li><code>skip_credential_names</code> configuration option (defaults exclude installer-created credentials)</li>
 <li><code>skip_execution_environment_names</code> configuration option (defaults exclude platform-managed EEs)</li>
@@ -1119,6 +1121,12 @@ in the repository.</p>
 <li>400 "pending deletion" responses treated as idempotent skips</li>
 <li>Credential type reruns now map "already exists" conflicts and mark completed state</li>
 <li>Host bulk import reruns now skip already-mapped hosts and persist host progress state</li>
+<li>Gateway RBAC routing for 2.5+ sources (dual-base role definitions/assignments,
+  <code>shared.*</code> content types, target <code>_api_base</code> remapping)</li>
+<li>Legacy source RBAC (1.0–2.4) converted to role assignments on AAP 2.6 targets</li>
+<li>Role definitions export via parallel path on AAP 2.5+ sources</li>
+<li>Team member sync when team create is skipped on rerun</li>
+<li>Config path resolution when running from a subdirectory</li>
 </ul>
 <h3 id="v010">v0.1.0<a class="headerlink" href="#v010" title="Permanent link">&para;</a></h3>
 <p>Initial release of AAP Bridge.</p>

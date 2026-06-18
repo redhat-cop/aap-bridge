@@ -597,10 +597,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#source-and-target-urls" class="md-nav__link">
+  <a href="#api-routing-source__version-target__version" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Source and Target URLs
+        API routing (SOURCE__VERSION / TARGET__VERSION)
       
     </span>
   </a>
@@ -1235,44 +1235,51 @@ files.</p>
 </code></pre></div>
 <h3 id="required-variables">Required Variables<a class="headerlink" href="#required-variables" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Source AAP instance (read-only token)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># AAP 1.0–2.4: /api/v2 — AAP 2.5+: /api/controller/v2</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">SOURCE__URL</span><span class="o">=</span>https://source-aap.example.com/api/v2
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">SOURCE__URL</span><span class="o">=</span>https://source-aap.example.com
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">SOURCE__VERSION</span><span class="o">=</span><span class="m">2</span>.4
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nv">SOURCE__TOKEN</span><span class="o">=</span>your_source_read_token
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Target AAP instance (read/write token; AAP 2.6+ via Platform Gateway)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com/api/controller/v2
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nv">TARGET__TOKEN</span><span class="o">=</span>your_target_write_token
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># PostgreSQL state database</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>postgresql://user:password@localhost:5432/aap_migration
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Target AAP instance (read/write token)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nv">TARGET__VERSION</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nv">TARGET__TOKEN</span><span class="o">=</span>your_target_write_token
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># PostgreSQL state database</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>postgresql://user:password@localhost:5432/aap_migration
 </code></pre></div>
-<h3 id="source-and-target-urls">Source and Target URLs<a class="headerlink" href="#source-and-target-urls" title="Permanent link">&para;</a></h3>
+<h3 id="api-routing-source__version-target__version">API routing (<code>SOURCE__VERSION</code> / <code>TARGET__VERSION</code>)<a class="headerlink" href="#api-routing-source__version-target__version" title="Permanent link">&para;</a></h3>
+<p><code>SOURCE__VERSION</code> and <code>TARGET__VERSION</code> are <strong>required</strong>. They select which API
+paths the tool uses — older AAP releases do not expose a reliable product
+version in API responses.</p>
+<p><code>SOURCE__URL</code> and <code>TARGET__URL</code> should be the AAP host only (<code>https://fqdn</code>):</p>
 <table>
 <thead>
 <tr>
-<th>Instance</th>
-<th>AAP version</th>
-<th>URL path</th>
+<th>Configured version</th>
+<th>API topology</th>
+<th>Endpoints used</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Source</td>
-<td>1.0–2.4</td>
-<td><code>/api/v2</code></td>
+<td>2.4 and earlier</td>
+<td>Legacy controller</td>
+<td><code>/api/v2/</code> for all resources</td>
 </tr>
 <tr>
-<td>Source</td>
 <td>2.5+</td>
-<td><code>/api/controller/v2</code> (Platform Gateway)</td>
+<td>Platform gateway</td>
+<td><code>/api/gateway/v1/</code> for orgs, users, teams, RBAC, etc.</td>
 </tr>
 <tr>
-<td>Target</td>
-<td>2.6+</td>
-<td><code>/api/controller/v2</code> (Platform Gateway)</td>
+<td>2.5+</td>
+<td>Platform gateway</td>
+<td><code>/api/controller/v2/</code> for projects, inventories, jobs, etc.</td>
 </tr>
 </tbody>
 </table>
+<p>Legacy paths such as <code>/api/v2</code> or <code>/api/controller/v2</code> in a configured URL are
+stripped with a log message. EDA and Galaxy APIs are not used by AAP Bridge.</p>
 <h3 id="api-token-permissions">API Token Permissions<a class="headerlink" href="#api-token-permissions" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

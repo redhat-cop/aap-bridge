@@ -955,6 +955,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#apilayout-api_layoutpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ApiLayout (api_layout.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1437,19 +1448,29 @@ management for checkpointing and idempotency.</p>
 <h2 id="key-components">Key Components<a class="headerlink" href="#key-components" title="Permanent link">&para;</a></h2>
 <h3 id="client-layer">Client Layer<a class="headerlink" href="#client-layer" title="Permanent link">&para;</a></h3>
 <h4 id="aapsourceclient">AAPSourceClient<a class="headerlink" href="#aapsourceclient" title="Permanent link">&para;</a></h4>
-<p>HTTP client for source AAP (2.3/2.4):</p>
+<p>HTTP client for the source AAP instance:</p>
 <ul>
-<li>Base URL: <code>/api/v2/</code></li>
-<li>Handles pagination</li>
-<li>Rate limiting and retries</li>
-<li>Authentication via token</li>
+<li>Configured with host URL (<code>https://fqdn</code>) and <code>SOURCE__VERSION</code></li>
+<li>Selects legacy (<code>/api/v2/</code>) or gateway topology from the configured version</li>
+<li>Handles pagination, rate limiting, retries, and token auth</li>
 </ul>
 <h4 id="aaptargetclient">AAPTargetClient<a class="headerlink" href="#aaptargetclient" title="Permanent link">&para;</a></h4>
-<p>HTTP client for target AAP (2.6+):</p>
+<p>HTTP client for the target AAP instance:</p>
 <ul>
-<li>Base URL: <code>/api/controller/v2/</code> (Platform Gateway)</li>
-<li>Bulk operation support</li>
-<li>Same retry/rate limiting logic</li>
+<li>Same host-only configuration and auto-discovery as the source client</li>
+<li>On AAP 2.5+, routes shared resources (orgs, users, teams, RBAC) to
+  <code>/api/gateway/v1/</code> and automation content to <code>/api/controller/v2/</code></li>
+<li>Bulk operation support on controller endpoints</li>
+</ul>
+<h4 id="apilayout-api_layoutpy">ApiLayout (<code>api_layout.py</code>)<a class="headerlink" href="#apilayout-api_layoutpy" title="Permanent link">&para;</a></h4>
+<p>Single source of truth for API path roots and version-aware routing:</p>
+<ul>
+<li><code>SOURCE__VERSION</code> / <code>TARGET__VERSION</code> select legacy (<code>/api/v2/</code>) vs gateway topology</li>
+<li>Endpoint segment sets determine gateway vs controller base per request</li>
+<li>RBAC assignments route by <code>content_type</code> (including <code>shared.organization</code> /
+  <code>shared.team</code> on gateway exports)</li>
+<li><code>classic_rbac_conversion.py</code> maps legacy principal grants to role assignment
+  rows when importing to gateway targets</li>
 </ul>
 <h3 id="migration-layer">Migration Layer<a class="headerlink" href="#migration-layer" title="Permanent link">&para;</a></h3>
 <h4 id="exporter">Exporter<a class="headerlink" href="#exporter" title="Permanent link">&para;</a></h4>

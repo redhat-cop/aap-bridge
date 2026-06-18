@@ -1337,8 +1337,7 @@
 <p><strong>Solutions:</strong></p>
 <ol>
 <li>Verify the URL is correct in <code>.env</code></li>
-<li>Check network connectivity: <code>curl -I
-   https://source-aap.example.com/api/v2/ping/</code></li>
+<li>Check network connectivity: <code>curl -I https://source-aap.example.com/api/</code></li>
 <li>Verify the API token is valid and has read scope</li>
 <li>Check firewall rules</li>
 </ol>
@@ -1347,13 +1346,12 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Error: 404 Not Found at /api/v2/organizations/
 </code></pre></div>
 <p><strong>Solution:</strong></p>
-<p>For AAP 2.6+, use the Platform Gateway URL:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Wrong</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com/api/v2
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Correct</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com/api/controller/v2
+<p>Use the host URL only in <code>.env</code> — API paths are auto-discovered:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com
 </code></pre></div>
+<p>On AAP 2.5+, organizations and other shared resources are routed to
+<code>/api/gateway/v1/</code> automatically. Legacy <code>/api/v2/</code> paths in <code>TARGET__URL</code> are
+stripped but no longer required.</p>
 <h3 id="authentication-errors">Authentication errors<a class="headerlink" href="#authentication-errors" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Error: 401 Unauthorized

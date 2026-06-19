@@ -87,13 +87,7 @@ export function ConnectionForm({ isOpen, initial, onSave, onClose }: Props) {
           <FormHelperText>
             <HelperText>
               <HelperTextItem>
-                Use either the gateway root URL or a full API URL, such as
-                {' '}
-                <code>https://aap.example.com</code>
-                {' '}
-                or
-                {' '}
-                <code>https://aap.example.com/api/controller/v2</code>.
+                Use the gateway root URL, such as <code>https://aap.example.com</code>.
               </HelperTextItem>
             </HelperText>
           </FormHelperText>

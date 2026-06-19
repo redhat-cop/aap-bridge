@@ -396,24 +396,33 @@ class CleanupWorkflowResult:
 
 
 def _clean_workflow_directories(ctx: MigrationContext, log: LogFn | None = None) -> list[str]:
-    """Remove local export and transform directories, matching CLI cleanup."""
+    """Clear local export and transform directories, matching CLI cleanup.
+
+    The directories themselves are preserved because they may be bind-mount
+    points inside the container (rmtree on a mount point raises EBUSY).
+    All contents are removed recursively instead.
+    """
     directories = {
         "exports": Path(ctx.config.paths.export_dir),
         "xformed": Path(ctx.config.paths.transform_dir),
     }
-    removed: list[str] = []
+    cleared: list[str] = []
     for label, path in directories.items():
         if not path.exists() or not path.is_dir():
             continue
         try:
-            shutil.rmtree(path)
-            removed.append(label)
+            for child in path.iterdir():
+                if child.is_dir():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            cleared.append(label)
             if log:
-                log(f"Removed {label} directory: {path}")
+                log(f"Cleared {label} directory: {path}")
         except OSError as exc:
             if log:
-                log(f"Failed to remove {label} directory {path}: {exc}")
-    return removed
+                log(f"Failed to clear {label} directory {path}: {exc}")
+    return cleared
 
 
 async def run_connection_export(
@@ -519,30 +528,27 @@ async def run_connection_cleanup(
     cleared_progress = 0
     deleted_mappings = 0
     directories_removed: list[str] = []
+    resource_results: list[tuple[str, int, int, int]] = []
 
     try:
         if log:
             log("Clearing migration state database tables...")
         cleared_progress, deleted_mappings = clear_database(str(ctx.config.state.db_path))
         if log:
-            log(
-                "Database cleared: "
-                f"{cleared_progress} progress records, {deleted_mappings} id mappings"
-            )
+            log(f"  ✓ {cleared_progress} progress records, {deleted_mappings} id mappings cleared")
 
         if log:
-            log("Cancelling active jobs...")
+            log("Cancelling active jobs on target...")
         cancel_result = await cancel_all_jobs(client=target_client, config=ctx.config)
+        cancelled = sum(v for v in cancel_result if isinstance(v, int))
         if log:
-            log(f"Cancelled jobs: {cancel_result}")
+            log(f"  ✓ {cancelled} job(s) cancelled")
 
         resource_types = await get_cleanup_resource_types(target_client, use_discovered=True)
         if log:
-            log(f"Cleaning up {len(resource_types)} resource types on target...")
+            log(f"Deleting migrated resources ({len(resource_types)} types)...")
 
         for resource_type in resource_types:
-            if log:
-                log(f"Cleaning up {resource_type}...")
             try:
                 deleted, skipped, errors, _failed = await delete_resources(
                     client=target_client,
@@ -553,12 +559,30 @@ async def run_connection_cleanup(
                 total_deleted += deleted
                 total_skipped += skipped
                 total_errors += errors
+                resource_results.append((resource_type, deleted, skipped, errors))
                 if log:
-                    log(f"  {resource_type}: deleted={deleted} skipped={skipped} errors={errors}")
+                    ts = datetime.now(UTC).strftime("%H:%M:%S")
+                    icon = "⚠" if errors else "✓"
+                    name = resource_type.replace("_", " ").title()
+                    log(
+                        f"  [{ts}] {icon}  {name:<28}"
+                        f"  deleted: {deleted:>5}  skipped: {skipped:>5}  errors: {errors:>3}"
+                    )
             except Exception as exc:
                 total_errors += 1
+                resource_results.append((resource_type, 0, 0, 1))
                 if log:
-                    log(f"  {resource_type}: error - {exc}")
+                    ts = datetime.now(UTC).strftime("%H:%M:%S")
+                    name = resource_type.replace("_", " ").title()
+                    log(f"  [{ts}] ✗  {name:<28}  error: {exc}")
+
+        if log and resource_results:
+            ts = datetime.now(UTC).strftime("%H:%M:%S")
+            icon = "⚠" if total_errors else "✓"
+            log(
+                f"  [{ts}] {icon}  {'TOTAL':<28}"
+                f"  deleted: {total_deleted:>5}  skipped: {total_skipped:>5}  errors: {total_errors:>3}"
+            )
 
         directories_removed = _clean_workflow_directories(ctx, log=log)
 
@@ -738,6 +762,13 @@ def _run_transform_command(
 ) -> None:
     from aap_migration.cli.commands.transform import transform
 
+    schema_file = schema_comparison_path(ctx)
+    if not schema_file.exists():
+        if log:
+            log(f"  ⚠ Schema comparison file not found: {schema_file}")
+            log("    Run '1. Prep Phase' first to enable schema-aware field filtering.")
+            log("    Proceeding with resource-specific transformations only.")
+
     transform_ctx = click.Context(transform)
     transform_ctx.obj = ctx
     with _route_click_output_to_log(log), _web_progress_display(log):
@@ -745,7 +776,7 @@ def _run_transform_command(
             transform,
             input_dir=Path(ctx.config.paths.export_dir),
             output_dir=Path(ctx.config.paths.transform_dir),
-            schema_file=schema_comparison_path(ctx),
+            schema_file=schema_file,
             force=force,
             resource_type=(),
             quiet=False,
@@ -802,8 +833,15 @@ async def _run_pair_command(
     except Exception as exc:
         return PhasedMigrationResult(status="failed", message=str(exc))
     finally:
-        await ctx.source_client.close()
-        await ctx.target_client.close()
+        # Clients may have been created inside the worker thread's event loop.
+        # Closing them on the main loop can raise RuntimeError("Event loop is closed").
+        # Swallow those errors — HTTP connection cleanup failures don't affect job outcome.
+        for client in (ctx._source_client, ctx._target_client):
+            if client is not None:
+                try:
+                    await client.close()
+                except Exception:
+                    pass
 
 
 async def run_migration_export(

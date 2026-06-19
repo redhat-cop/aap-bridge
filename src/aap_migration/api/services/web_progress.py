@@ -99,12 +99,12 @@ class LogMigrationProgressDisplay:
         if state.total_items > 0 and total_processed < state.total_items:
             state.update(state.total_items, state.failed, state.skipped)
         icon = "✓" if state.failed == 0 else "⚠"
-        pct = int(state.progress_percentage)
+        pct = min(100, int(state.progress_percentage))
         bar = self._bar(state.total_items, state.total_items)
         rate = f"{state.average_rate:.1f}/s"
         self.log(
             f"[{datetime.now().strftime('%H:%M:%S')}] {icon}  {pct:>3}% "
-            f"{state.resource_type:<22} {bar} "
+            f"{state.resource_type:<26} {bar} "
             f"{state.total_items:>4}/{state.total_items:<4} "
             f"{rate:>6} Err:{state.failed:<3} Skip:{state.skipped:<3} "
             f"{state.elapsed_time:>5.1f}s"

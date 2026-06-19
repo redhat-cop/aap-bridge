@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import logging
+import re
 import time
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -48,50 +49,30 @@ class JobLogHandler(logging.Handler):
     def _log(self, msg: str) -> None:
         self.job_service.append_log(self.job_id, msg)
 
-    def _bar(self, done: int, total: int, width: int = 20) -> str:
-        if total <= 0:
-            return "█" * width
-        filled = int(width * min(done, total) / total)
-        return "█" * filled + "░" * (width - filled)
+    # Matches structlog wire format:
+    # "TIMESTAMP [LEVEL   ] EVENT_NAME [logger.name] key=val ..."
+    _STRUCTLOG_RE = re.compile(
+        r"\d{4}-\d{2}-\d{2}T[\d:.]+Z\s+\[\w+\s*\]\s+(\S+)\s+\[[\w.]+\]\s*(.*)"
+    )
 
-    def _rate(self) -> str:
-        elapsed = time.time() - self._phase_start if self._phase_start else 0
-        total = self._created + self._skipped + self._failed
-        if elapsed > 0 and total > 0:
-            return f"{total / elapsed:.1f}/s"
-        return "--/s"
-
-    def _elapsed(self) -> str:
-        elapsed = time.time() - self._phase_start if self._phase_start else 0
-        if elapsed < 60:
-            return f"{elapsed:.0f}s"
-        return f"{int(elapsed // 60)}m{int(elapsed % 60)}s"
-
-    def _emit_progress(self, force: bool = False) -> None:
-        total = self._created + self._skipped + self._failed
-        if not force and total - self._last_emitted < 10:
-            return
-        self._last_emitted = total
-        bar = self._bar(total, max(total, self._exported) if self._exported else total)
-        self._log(
-            f"  {bar} {total:>5} | "
-            f"OK:{self._created} Skip:{self._skipped} Err:{self._failed} "
-            f"| {self._rate()} {self._elapsed()}"
-        )
+    def _format_warning(self, msg: str) -> str:
+        """Extract event name and key=value pairs from a structlog-formatted warning."""
+        m = self._STRUCTLOG_RE.match(msg)
+        if m:
+            event = m.group(1)
+            rest = re.sub(r"\b(?:app|version)=\S+\s*", "", m.group(2)).strip()
+            return f"{event}: {rest}" if rest else event
+        return msg.split("version=")[0].strip() if "version=" in msg else msg
 
     def _finish_phase(self) -> None:
-        total = self._created + self._skipped + self._failed
-        if total == 0 and self._exported == 0:
-            return
+        """Update running totals and reset per-phase counters.
+
+        Progress output is handled by LogMigrationProgressDisplay; this only
+        maintains the aggregate counters used for the migration_completed summary.
+        """
         self._total_created += self._created
         self._total_skipped += self._skipped
         self._total_failed += self._failed
-        status = "✓" if self._failed == 0 else "⚠"
-        self._log(
-            f"  {status} Done: {self._created} created, "
-            f"{self._skipped} skipped, {self._failed} failed "
-            f"({self._elapsed()})"
-        )
         self._exported = 0
         self._created = 0
         self._skipped = 0
@@ -123,12 +104,10 @@ class JobLogHandler(logging.Handler):
             return
 
         if "phase_completed" in msg:
-            self._emit_progress(force=True)
             self._finish_phase()
             return
 
         if "phase_failed" in msg:
-            self._emit_progress(force=True)
             self._finish_phase()
             return
 
@@ -144,10 +123,12 @@ class JobLogHandler(logging.Handler):
         # --- Export counts ---
         if "export_completed" in msg:
             exported_str = self._extract("total_exported=", msg)
+            resource_type = self._extract("resource_type=", msg)
             if exported_str:
-                self._exported = int(exported_str)
-                if self._exported > 0:
-                    self._log(f"  Exported {self._exported} resources")
+                n = int(exported_str)
+                if n > 0:
+                    label = f" {resource_type}" if resource_type else ""
+                    self._log(f"  ✓{label}: {n} resource{'s' if n != 1 else ''} exported")
             return
 
         # --- Import progress ---
@@ -156,7 +137,6 @@ class JobLogHandler(logging.Handler):
             name = self._extract("source_name=", msg) or self._extract("source_id=", msg)
             err = self._extract("error=", msg)[:80] if "error=" in msg else ""
             self._log(f"  ✗ Failed: {name} — {err}")
-            self._emit_progress()
             return
 
         if "resource_skipped" in msg or "resources_skipped_summary" in msg:
@@ -165,12 +145,10 @@ class JobLogHandler(logging.Handler):
                 self._skipped += cnt
             else:
                 self._skipped += 1
-            self._emit_progress()
             return
 
         if "resource_created" in msg:
             self._created += 1
-            self._emit_progress()
             return
 
         # --- Suppress noisy events ---
@@ -183,6 +161,26 @@ class JobLogHandler(logging.Handler):
             "credential_created",
             "resource_creating",
             "transforming_resource",
+            # One clear message is logged by _run_transform_command before the
+            # parallel workers start; suppress the per-worker repetitions.
+            "schema_comparison_file_not_found",
+            # unresolved_dependency: auto-created inventory sources reference parent
+            # inventories that are imported in a later phase (smart/constructed);
+            # AAP recreates them on next sync. EE dependencies are pre-seeded in the
+            # transform step so real EE issues don't reach this point.
+            "unresolved_dependency",
+            # survey_spec_import_failed: AAP 2.6 rejects the empty survey spec the
+            # importer sends for templates without surveys; templates with surveys
+            # still import correctly via a separate API call.
+            "survey_spec_import_failed",
+            # Team membership via the old POST endpoint is not supported in AAP 2.6
+            # RBAC; memberships are established correctly through role assignments.
+            "user_team_membership_skipped_unmapped_team",
+            "team_member_link_failed",
+            "user_team_membership_link_failed",
+            # Role assignments have no 'name' field; deduplication logs this but
+            # everything still imports correctly.
+            "no_identifiers_found",
         )
         for n in noisy:
             if n in msg:
@@ -190,9 +188,9 @@ class JobLogHandler(logging.Handler):
 
         # --- Show warnings/errors ---
         if record.levelno >= logging.WARNING:
-            clean = msg.split("version=")[0].strip() if "version=" in msg else msg
-            if len(clean) > 200:
-                clean = clean[:200] + "..."
+            clean = self._format_warning(msg)
+            if len(clean) > 300:
+                clean = clean[:300] + "..."
             self._log(f"  ⚠ {clean}")
 
     @staticmethod
@@ -535,7 +533,7 @@ class MigrationService:
             "cleanup",
             source,
             dest,
-            label="Starting cleanup",
+            label="Cleanup",
             runner=_runner,
         )
 
@@ -553,7 +551,7 @@ class MigrationService:
             "migration-export",
             source,
             dest,
-            label="Starting export (all)",
+            label="Export (all)",
             runner=run_migration_export,
             runner_kwargs={"force": force, "resume": resume},
         )
@@ -571,7 +569,7 @@ class MigrationService:
             "migration-transform",
             source,
             dest,
-            label="Starting transform (all)",
+            label="Transform (all)",
             runner=run_migration_transform,
             runner_kwargs={"force": force},
         )
@@ -596,7 +594,7 @@ class MigrationService:
             "migration-import",
             source,
             dest,
-            label=f"Starting {phase_label}",
+            label=phase_label,
             runner=run_migration_import,
             runner_kwargs={"phase": phase, "force": force, "resume": resume},
         )

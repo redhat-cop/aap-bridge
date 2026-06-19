@@ -85,7 +85,7 @@ async def seed_skipped_execution_environments(
         return 0
 
     source_ees: dict[str, int] = {}
-    for ee in await ctx.source_client.list_resources("execution_environments"):
+    for ee in await ctx.source_client.get_execution_environments():
         name = str(ee.get("name", "")).strip()
         if name.casefold() in skip_names:
             source_ees[name] = ee["id"]

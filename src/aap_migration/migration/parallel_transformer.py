@@ -11,6 +11,11 @@ from typing import Any
 
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.config import MigrationConfig, PerformanceConfig
+from aap_migration.migration.organization_scope import (
+    TRANSFORM_ORG_FILTER_RESOURCES,
+    OrganizationScope,
+    should_include_user_for_org,
+)
 from aap_migration.migration.state import MigrationState
 from aap_migration.migration.transformer import SkipResourceError, create_transformer
 from aap_migration.resources import normalize_resource_type
@@ -33,6 +38,8 @@ class ParallelTransformCoordinator:
         skip_pending_deletion: bool = True,
         config: MigrationConfig | None = None,
         defer_project_sync: bool = True,
+        org_scope: OrganizationScope | None = None,
+        exported_ids_for_org: dict[str, set[int]] | None = None,
     ):
         """Initialize parallel transform coordinator.
 
@@ -56,6 +63,8 @@ class ParallelTransformCoordinator:
         self.skip_pending_deletion = skip_pending_deletion
         self.config = config
         self.defer_project_sync = defer_project_sync
+        self.org_scope = org_scope
+        self.exported_ids_for_org = exported_ids_for_org or {}
         self.results: dict[str, dict[str, Any]] = {}
 
         # Lock for thread-safe state operations (if needed)
@@ -136,6 +145,16 @@ class ParallelTransformCoordinator:
                         continue
                     active_resources.append(resource)
                 raw_resources = active_resources
+
+                if (
+                    self.org_scope
+                    and resource_type in TRANSFORM_ORG_FILTER_RESOURCES
+                ):
+                    raw_resources = [
+                        resource
+                        for resource in raw_resources
+                        if should_include_user_for_org(resource, self.exported_ids_for_org)
+                    ]
 
                 # 1. Filter out inventory (pending_deletion and smart)
                 if resource_type == "inventory":

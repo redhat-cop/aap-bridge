@@ -35,7 +35,15 @@ from aap_migration.migration.inventory_source_sync import (
     collect_inventory_source_target_ids_for_sync,
     sync_inventory_sources_after_import,
 )
-from aap_migration.migration.parallel_exporter import ParallelExportCoordinator
+from aap_migration.migration.organization_scope import (
+    CLIENT_ORG_FILTER_RESOURCES,
+    OrganizationScope,
+    build_resource_export_filters,
+    build_run_context_filters,
+    get_effective_organization_name,
+    resolve_organization,
+    resource_passes_org_scope,
+)
 from aap_migration.migration.state import ExportRunContext, MigrationState
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.resources import (
@@ -258,6 +266,13 @@ def get_missing_dependencies(
     is_flag=True,
     help="Automatically confirm prompts (skip confirmation)",
 )
+@click.option(
+    "--organization",
+    "-O",
+    "organization",
+    default=None,
+    help="Export only this organization (by name) and its required global assets",
+)
 @pass_context
 @requires_config
 @handle_errors
@@ -269,6 +284,7 @@ def export(
     records_per_file: int | None,
     resume: bool,
     yes: bool,
+    organization: str | None,
 ) -> None:
     """Export RAW resources from source AAP 2.3 to directory structure.
 
@@ -309,6 +325,10 @@ def export(
         \b
         # Resume from checkpoint (skips API calls for already-exported resources)
         aap-bridge export --resume
+
+        \b
+        # Export a single organization and its resources
+        aap-bridge export --organization MyOrg
     """
     # Use defaults from config if not provided
     if output is None:
@@ -386,13 +406,26 @@ def export(
                 status=version_path.status,
             )
 
+        org_name = get_effective_organization_name(
+            organization,
+            ctx.organization,
+            ctx.config.export.organization,
+        )
+        org_scope: OrganizationScope | None = None
+        if org_name:
+            org_scope = await resolve_organization(ctx.source_client, org_name)
+            echo_info(
+                f"Organization scope: '{org_scope.name}' (source id {org_scope.source_id})"
+            )
+
         # Create run context for identity validation (REQ-001)
+        run_filters = build_run_context_filters(ctx.config.export, org_scope)
         current_run = ExportRunContext(
             source_url=ctx.config.source.url,
             source_version=source_version,
             output_dir=str(output.absolute()),
             resource_types=tuple(sorted(types_to_export)),
-            filters=tuple(sorted(ctx.config.export.filters.items())),
+            filters=run_filters,
             state_dsn_fingerprint=ExportRunContext.hash_dsn(ctx.migration_state.database_url),
             timestamp=datetime.utcnow().isoformat(),
         )
@@ -485,27 +518,14 @@ def export(
                         temp_exporter.set_skip_smart_inventories(True)
 
                 # Build filters dict for count query
-                count_filters: dict[str, str] = {}
-                if rtype == "hosts" and ctx.config.export.skip_dynamic_hosts:
-                    count_filters["inventory_sources__isnull"] = "true"
+                count_filters = build_resource_export_filters(
+                    rtype, ctx.config.export, org_scope
+                )
+                if count_filters:
                     logger.info(
-                        "export_count_applying_dynamic_host_filter",
+                        "export_count_applying_filters",
                         resource_type=rtype,
-                        filter="inventory_sources__isnull=true (exclude dynamic hosts)",
-                    )
-                if rtype == "inventories":
-                    count_filters["pending_deletion"] = "false"
-                    logger.info(
-                        "export_count_applying_inventory_filter",
-                        resource_type=rtype,
-                        filter="pending_deletion=false",
-                    )
-                if rtype == "role_definitions":
-                    count_filters["managed"] = "false"
-                    logger.info(
-                        "export_count_applying_role_definition_filter",
-                        resource_type=rtype,
-                        filter="managed=false (exclude built-in managed role definitions)",
+                        filters=count_filters,
                     )
 
                 # Get count from API WITH FILTERS
@@ -542,6 +562,7 @@ def export(
                         output_dir=output,
                         records_per_file=records_per_file,
                         export_config=ctx.config.export,
+                        org_scope=org_scope,
                     )
 
                     # Create progress callback to update display
@@ -652,14 +673,26 @@ def export(
                         # Use parallel page fetching for faster export
                         max_concurrent_pages = ctx.config.performance.max_concurrent_pages
                         page_size = ctx.config.performance.batch_sizes.get(rtype, 200)
+                        export_filters = build_resource_export_filters(
+                            rtype, ctx.config.export, org_scope
+                        )
 
                         async for resource in exporter.export_parallel(
                             resource_type=rtype,
                             endpoint=endpoint,
                             page_size=page_size,
                             max_concurrent_pages=max_concurrent_pages,
+                            filters=export_filters if export_filters else None,
                         ):
                             try:
+                                if (
+                                    org_scope
+                                    and normalize_resource_type(rtype)
+                                    in CLIENT_ORG_FILTER_RESOURCES
+                                    and not resource_passes_org_scope(rtype, resource, org_scope)
+                                ):
+                                    continue
+
                                 # Store ID mapping in database BEFORE transformation
                                 source_id = resource.get("id")
                                 source_name = resource.get("name", "")
@@ -764,7 +797,14 @@ def export(
                 "total_resources": total_resources,
                 "total_skipped": sum(s.get("skipped", 0) for s in export_stats.values()),
                 "records_per_file": records_per_file,
-                "run_context": current_run.to_dict(),
+                "run_context": {
+                    **current_run.to_dict(),
+                    **(
+                        {"organization_scope": org_scope.to_metadata()}
+                        if org_scope
+                        else {}
+                    ),
+                },
                 "resource_types": {
                     rtype: {
                         "count": stats["count"],

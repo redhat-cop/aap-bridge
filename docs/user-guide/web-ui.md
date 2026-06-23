@@ -1,8 +1,8 @@
 # Web UI
 
 AAP Bridge includes a browser-based interface built with React and PatternFly 5.
-It provides the same capabilities as the CLI through a graphical interface with
-real-time log streaming.
+It provides the same phased migration workflow as the TUI through a graphical
+interface with real-time log streaming.
 
 ## Starting the Web UI
 
@@ -69,43 +69,30 @@ Use the **Test** button to verify connectivity. This checks:
 
 Test does not detect or change the configured version.
 
-### Operations
-
-Select a connection and run operations against it:
-
-- **Browse** - Open the Object Browser filtered to this connection
-- **Export** - Start an export job that writes JSON artifacts under `./exports/...`
-- **Cleanup** - Same workflow as `aap-bridge cleanup`: clears migration state
-  tables, deletes non-default objects on the destination, and removes local
-  `exports/` and `xformed/` directories. Saved connections are preserved.
-
-Each operation runs as an async job with live log streaming.
-
 ### Migrate
 
-Three-step migration wizard:
+Select a source and destination connection, then run the same phased workflow as
+the TUI:
 
-1. **Select** - Choose source and destination connections
-2. **Preview** - Compares source and destination using the same resource
-   types as export, showing counts of resources to create vs. skip.
-3. **Run** - Executes the CLI phased workflow: export → transform →
-   import (with project patching), writing to `exports/` and `xformed/`.
-   Prep is skipped; run `aap-bridge prep` separately if schemas are not
-   already present.
+1. **Preview Migration** - Compare source and destination resource counts using
+   the same filters as export (create vs. skip)
+2. **0. Cleanup** - Clear migration state, remove non-default objects on the
+   destination, and delete local `exports/` and `xformed/` directories
+3. **1. Prep Phase** - Discover endpoints and collect schemas (optional force
+   re-collection)
+4. **2–4. Export / Transform / Import Phase 1** - Run individually or use the
+   pipeline to run Export → Transform → Import Phase 1 in one step
+5. **5. Import Phase 2** - Patch projects and import automation resources
 
-### Object Browser
-
-Browse any resource type (organizations, credentials, job templates, etc.) on
-any connected AAP instance. Supports search filtering and shows up to 8
-columns per resource type.
+Each phase runs as an async job with live log streaming below the controls.
 
 ### Jobs
 
 Historical listing of all async operations with:
 
-- Job type, status (color-coded), start time, duration
+- Display sequence number (`#`), job type, status (color-coded), start time, duration
 - Auto-refreshes every 3 seconds
-- Click "View Logs" to open the log viewer for any job
+- Click a job row to open the log viewer
 
 ## API Endpoints
 
@@ -119,13 +106,15 @@ The API server exposes these endpoints:
 | PUT | `/api/connections/{id}` | Update connection |
 | DELETE | `/api/connections/{id}` | Delete connection |
 | POST | `/api/connections/{id}/test` | Test connectivity |
-| GET | `/api/connections/{id}/resources` | List resource types |
-| GET | `/api/connections/{id}/resources/{type}` | List resources |
-| POST | `/api/connections/{id}/cleanup` | Run cleanup |
-| POST | `/api/connections/{id}/export` | Run export |
 | POST | `/api/migrate/preview` | Start migration preview |
 | GET | `/api/migrate/preview/{job_id}` | Get preview results |
-| POST | `/api/migrate/run` | Execute migration |
+| POST | `/api/migrate/prep` | Run prep (discover endpoints and schemas) |
+| POST | `/api/migrate/cleanup` | Run cleanup |
+| POST | `/api/migrate/export` | Run export |
+| POST | `/api/migrate/transform` | Run transform |
+| POST | `/api/migrate/import` | Run import (phase 1 or 2) |
+| POST | `/api/migrate/run` | Execute full migration (legacy endpoint) |
+| POST | `/api/migrate/clear-state` | Clear migration state tables only |
 | GET | `/api/exclusions` | Get exclusion lists |
 | GET | `/api/jobs` | List jobs |
 | GET | `/api/jobs/{id}` | Get job details |

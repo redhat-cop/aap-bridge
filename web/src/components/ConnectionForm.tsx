@@ -139,7 +139,7 @@ export function ConnectionForm({ isOpen, initial, onSave, onClose }: Props) {
             isDisabled={versionOptions.length === 0}
           >
             <FormSelectOption key="" value="" label="-- Select version --" isDisabled />
-            {versionOptions.map((v) => (
+            {versionOptions.map((v: string) => (
               <FormSelectOption key={v} value={v} label={v} />
             ))}
           </FormSelect>

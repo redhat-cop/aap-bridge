@@ -23,7 +23,7 @@ import {
 import { Dropdown, DropdownItem, KebabToggle } from '@patternfly/react-core/deprecated';
 import { api } from '../api/client';
 import { ConnectionForm } from '../components/ConnectionForm';
-import type { Connection } from '../types/connection';
+import type { Connection, ConnectionPayload } from '../types/connection';
 
 export function Dashboard() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -31,7 +31,6 @@ export function Dashboard() {
   const [editConn, setEditConn] = useState<Connection | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [clearMsg, setClearMsg] = useState('');
 
   const loadConnections = useCallback(async () => {
@@ -45,21 +44,15 @@ export function Dashboard() {
 
   useEffect(() => { loadConnections(); }, [loadConnections]);
 
-  const handleSave = async (conn: Omit<Connection, 'id'>) => {
-    setSaveError(null);
-    try {
-      if (editConn) {
-        await api.updateConnection(editConn.id, conn);
-      } else {
-        await api.createConnection(conn);
-      }
-      setShowForm(false);
-      setEditConn(null);
-      loadConnections();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save connection';
-      setSaveError(message);
+  const handleSave = async (conn: ConnectionPayload) => {
+    if (editConn) {
+      await api.updateConnection(editConn.id, conn);
+    } else {
+      await api.createConnection(conn);
     }
+    setShowForm(false);
+    setEditConn(null);
+    loadConnections();
   };
 
   const handleDelete = async (id: string) => {
@@ -242,8 +235,7 @@ export function Dashboard() {
         isOpen={showForm}
         initial={editConn || undefined}
         onSave={handleSave}
-        onClose={() => { setShowForm(false); setEditConn(null); setSaveError(null); }}
-        error={saveError}
+        onClose={() => { setShowForm(false); setEditConn(null); }}
       />
     </>
   );

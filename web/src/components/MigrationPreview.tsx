@@ -56,6 +56,12 @@ export function MigrationPreview({ preview }: Props) {
 
   return (
     <div>
+      <Alert
+        variant="info"
+        isInline
+        title="Preview is an approximation. Counts may differ from actual migration results due to transform-time filtering, dependency resolution, and resources that already exist on the target."
+        style={{ marginBottom: 12 }}
+      />
       {preview.warnings?.map((w, i) => (
         <Alert key={i} variant="warning" isInline title={w} style={{ marginBottom: 8 }} />
       ))}

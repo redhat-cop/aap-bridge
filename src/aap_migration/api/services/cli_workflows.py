@@ -16,7 +16,7 @@ import click
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.engine_adapter import load_runtime_config
-from aap_migration.config import resolve_config_path
+from aap_migration.config import DEFAULT_SKIP_EXECUTION_ENVIRONMENT_NAMES, resolve_config_path
 from aap_migration.cli.commands.cleanup import (
     cancel_all_jobs,
     clear_database,
@@ -222,6 +222,37 @@ class MigrationPreviewResult:
     warnings: list[str]
 
 
+# Built-in maintenance schedules — same list as ScheduleExporter.SYSTEM_SCHEDULES.
+_SYSTEM_SCHEDULE_NAMES = frozenset({
+    "Cleanup Job Schedule",
+    "Cleanup Activity Schedule",
+    "Cleanup Expired Sessions",
+    "Cleanup Expired OAuth 2 Tokens",
+    "Cleanup Orphaned OAuth 2 Tokens",
+})
+
+
+def _is_exportable_schedule(schedule_item: dict) -> bool:
+    """Return True if preview should include this schedule.
+
+    Mirrors ScheduleExporter._process_resource: system-job schedules and the
+  built-in cleanup schedule names are never exported.
+    """
+    name = str(schedule_item.get("name", "")).strip()
+    if name in _SYSTEM_SCHEDULE_NAMES:
+        return False
+
+    ujt_summary = (schedule_item.get("summary_fields") or {}).get("unified_job_template") or {}
+    if ujt_summary.get("unified_job_type") == "system_job":
+        return False
+
+    # Export only requests enabled schedules.
+    if schedule_item.get("enabled") is False:
+        return False
+
+    return True
+
+
 async def run_migration_preview(
     source: Connection,
     dest: Connection,
@@ -290,6 +321,40 @@ async def run_migration_preview(
                 warnings.append(
                     f"Excluded {skipped_by_policy} credentials based on export.skip_credential_names."
                 )
+
+        # Mirror export: skip built-in execution environments.
+        if canonical_type == "execution_environments":
+            skip_ee_names = {n.casefold() for n in DEFAULT_SKIP_EXECUTION_ENVIRONMENT_NAMES}
+            original_count = len(src_items)
+            src_items = [
+                item
+                for item in src_items
+                if str(item.get("name", "")).strip().casefold() not in skip_ee_names
+            ]
+            if original_count - len(src_items):
+                warnings.append(
+                    f"Excluded {original_count - len(src_items)} built-in execution environments "
+                    "(same as export)."
+                )
+
+        if not src_items:
+            return
+
+        # Filter source schedules tied to management/system job templates — these are built-in
+        # AAP maintenance schedules. The destination Gateway API does not expose them through
+        # the schedules endpoint, so they can never match and will always appear as "create".
+        # We detect them by checking for the absence of a standard unified_job_template name
+        # (management schedules have a different parent type not visible via the Gateway).
+        if canonical_type == "schedules":
+            original_count = len(src_items)
+            src_items = [item for item in src_items if _is_exportable_schedule(item)]
+            n_excluded = original_count - len(src_items)
+            if n_excluded:
+                warnings.append(
+                    f"Excluded {n_excluded} system/maintenance schedules "
+                    "(same rules as export)."
+                )
+
         if not src_items:
             return
 
@@ -302,17 +367,27 @@ async def run_migration_preview(
             if canonical_type == "credentials"
             else {_preview_match_key(resource_type, item) for item in dst_items}
         )
+        # Fallback: match by name alone for parent-scoped resources (e.g. schedules) where
+        # the destination API may return the parent with different metadata, causing the
+        # composite key to miss even when the resource clearly already exists.
+        dst_names_fallback = (
+            {_preview_resource_identifier(resource_type, item) for item in dst_items}
+            if canonical_type in PARENT_SCOPED_RESOURCES
+            else set()
+        )
 
         display_resources: list[dict] = []
         total_count = 0
         create_count = 0
         should_truncate = resource_type in PREVIEW_TRUNCATE_TYPES
         for item in src_items:
+            item_key = _preview_match_key(resource_type, item)
+            item_name = _preview_resource_identifier(resource_type, item)
             action = (
                 "create"
                 if canonical_type == "credentials"
                 else "skip_exists"
-                if _preview_match_key(resource_type, item) in dst_keys
+                if item_key in dst_keys or item_name in dst_names_fallback
                 else "create"
             )
             total_count += 1

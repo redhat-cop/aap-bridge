@@ -7,6 +7,7 @@ import pytest
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.cli_workflows import (
+    _is_exportable_schedule,
     build_migration_context_pair,
     filtered_migration_resource_types,
     migration_resource_types,
@@ -47,6 +48,34 @@ def test_build_migration_context_pair_sets_config_path_for_cli_commands(
 
     assert ctx.config_path == config_path.resolve()
     assert ctx._config is not None
+
+
+def test_is_exportable_schedule_excludes_system_job_schedules() -> None:
+    cleanup = {
+        "name": "Cleanup Job Schedule",
+        "enabled": True,
+        "summary_fields": {
+            "unified_job_template": {"unified_job_type": "system_job", "id": 1},
+        },
+    }
+    demo = {
+        "name": "Demo Schedule",
+        "enabled": True,
+        "summary_fields": {
+            "unified_job_template": {"unified_job_type": "job_template", "id": 6},
+        },
+    }
+    disabled = {
+        "name": "Old Schedule",
+        "enabled": False,
+        "summary_fields": {
+            "unified_job_template": {"unified_job_type": "job_template", "id": 7},
+        },
+    }
+
+    assert not _is_exportable_schedule(cleanup)
+    assert _is_exportable_schedule(demo)
+    assert not _is_exportable_schedule(disabled)
 
 
 @pytest.mark.asyncio

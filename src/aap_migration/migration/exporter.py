@@ -1856,9 +1856,10 @@ class RoleDefinitionExporter(ResourceExporter):
     Role definitions define the available RBAC roles in AAP 2.6.
     They are exported to map source roles to target roles.
 
-    On AAP 2.5+ gateway topology, custom role definitions live on the
-    controller API while platform roles live on the gateway. Both bases
-    are queried and deduplicated by name.
+    On AAP 2.5+ gateway topology, custom role definitions may appear on both
+    the gateway and controller APIs. Both bases are queried; duplicates are
+    dropped by name, preferring the controller copy for ``awx.*`` roles and
+    the gateway copy for platform ``shared.*`` roles.
     """
 
     async def get_count(self, endpoint: str, filters: dict[str, Any] | None = None) -> int:
@@ -1911,6 +1912,9 @@ class RoleDefinitionExporter(ResourceExporter):
 
         layout = self.client.api_layout
         bases = layout.role_assignment_bases()
+        # Prefer controller-first so awx.* roles keep controller source IDs.
+        if len(bases) > 1:
+            bases = tuple(reversed(bases))
         seen_names: set[str] = set()
 
         for base in bases:
@@ -1999,10 +2003,42 @@ class RoleDefinitionExporter(ResourceExporter):
 class RoleAssignmentListExporter(ResourceExporter):
     """Export role_user_assignments or role_team_assignments from all API bases.
 
-    On AAP 2.5+ gateway topology, platform assignments live under
-    /api/gateway/v1/ and automation-controller assignments under
-    /api/controller/v2/. Both are queried and merged by assignment id.
+    On AAP 2.5+ gateway topology, the same assignment may appear on both the
+    gateway and controller APIs with different surrogate primary keys and
+    principal FK values. Exports deduplicate by principal identity + content
+    object + role definition name, keeping the copy from the API surface where
+    that assignment is created (``shared.*`` → gateway, ``awx.*`` → controller).
     """
+
+    @staticmethod
+    def _assignment_dedupe_key(
+        resource: dict[str, Any], resource_type: str
+    ) -> tuple[Any, ...] | None:
+        """Logical identity for a role assignment (ignores per-API surrogate ids)."""
+        from aap_migration.client.api_layout import normalize_rbac_content_type
+
+        content_type = normalize_rbac_content_type(
+            resource.get("content_type")
+        ) or resource.get("content_type")
+        object_id = resource.get("object_id")
+        summary = resource.get("summary_fields") or {}
+        role_def_name = (summary.get("role_definition") or {}).get("name")
+        if resource_type == "role_team_assignments":
+            principal = (
+                resource.get("team_ansible_id")
+                or (summary.get("team") or {}).get("name")
+                or resource.get("team")
+            )
+        else:
+            user_summary = summary.get("user") or {}
+            principal = (
+                user_summary.get("username")
+                or resource.get("user_ansible_id")
+                or resource.get("user")
+            )
+        if not content_type or object_id is None or not role_def_name or principal is None:
+            return None
+        return (content_type, str(object_id), role_def_name, principal)
 
     async def export_parallel(
         self,
@@ -2016,6 +2052,9 @@ class RoleAssignmentListExporter(ResourceExporter):
         layout = self.client.api_layout
         bases = layout.role_assignment_bases()
         seen_ids: set[int] = set()
+        # key -> (api_base, raw resource); prefer the base where import creates assignments
+        logical_assignments: dict[tuple[Any, ...], tuple[str, dict[str, Any]]] = {}
+        id_only_resources: list[dict[str, Any]] = []
         total_fetched = 0
 
         logger.info(
@@ -2047,21 +2086,51 @@ class RoleAssignmentListExporter(ResourceExporter):
                     rid = resource.get("id")
                     if rid is not None and rid in seen_ids:
                         continue
+                    dedupe_key = self._assignment_dedupe_key(resource, resource_type)
+                    if dedupe_key is None:
+                        if rid is not None:
+                            seen_ids.add(rid)
+                        id_only_resources.append(resource)
+                        continue
+
+                    preferred_base = layout.base_for_role_assignment(
+                        resource.get("content_type")
+                    )
+                    existing = logical_assignments.get(dedupe_key)
+                    if existing is None:
+                        logical_assignments[dedupe_key] = (base, resource)
+                    else:
+                        existing_base, _ = existing
+                        if base == preferred_base and existing_base != preferred_base:
+                            logical_assignments[dedupe_key] = (base, resource)
                     if rid is not None:
                         seen_ids.add(rid)
-                    processed = await self._process_resource(resource, resource_type)
-                    if processed:
-                        if processed.get("_skipped"):
-                            self.stats["skipped_count"] += 1
-                            yield processed
-                        else:
-                            self.stats["exported_count"] += 1
-                            total_fetched += 1
-                            yield processed
 
                 if not response.get("next") or not results:
                     break
                 page += 1
+
+        for resource in id_only_resources:
+            processed = await self._process_resource(resource, resource_type)
+            if processed:
+                if processed.get("_skipped"):
+                    self.stats["skipped_count"] += 1
+                    yield processed
+                else:
+                    self.stats["exported_count"] += 1
+                    total_fetched += 1
+                    yield processed
+
+        for _, resource in logical_assignments.values():
+            processed = await self._process_resource(resource, resource_type)
+            if processed:
+                if processed.get("_skipped"):
+                    self.stats["skipped_count"] += 1
+                    yield processed
+                else:
+                    self.stats["exported_count"] += 1
+                    total_fetched += 1
+                    yield processed
 
         logger.info(
             "role_assignment_export_completed",

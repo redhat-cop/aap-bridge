@@ -22,7 +22,7 @@ from aap_migration.migration.models import (
     IDMapping,
     MigrationProgress,
 )
-from aap_migration.utils.logging import get_logger
+from aap_migration.utils.logging import get_logger, redact_database_url
 
 logger = get_logger(__name__)
 
@@ -127,7 +127,7 @@ class MigrationState:
             logger.info(
                 "Migration state initialized",
                 migration_id=self.migration_id,
-                database_path=config.db_path,
+                database_path=redact_database_url(config.db_path),
             )
         except Exception as e:
             logger.error("Failed to initialize migration state", error=str(e))

@@ -12,7 +12,8 @@ in the repository.
 
 **New Features:**
 
-- Source version support expanded to AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6
+- AAP 2.7 supported as a migration source and target
+- Source version support expanded to AAP 1.0 through 2.7 (sources) and AAP 2.6 and 2.7 (targets)
 - Survey spec migration for job templates and workflow job templates
 - Notification template association migration (started/success/error/approvals)
 - Nested inventory group hierarchy export and import

@@ -1,11 +1,11 @@
-# Resource Support Matrix (AAP 2.3 → 2.6)
+# Resource Support Matrix
 
 This document lists all resources supported by the AAP Bridge migration tool, their
-classification, and any caveats associated with their migration.
+classification, and any caveats associated with their migration to AAP 2.6 and 2.7 targets.
 
 ## Migration Categories
 
-- **Migrate**: Business resources with durable value that are recreated on the target AAP 2.6
+- **Migrate**: Business resources with durable value that are recreated on the target AAP 2.6 or 2.7
   instance.
 - **Export-Only**: Resources exported from the source for audit, reporting, or analysis
   purposes, but **not recreated** on the target.
@@ -41,13 +41,13 @@ classification, and any caveats associated with their migration.
 | `jobs` | `jobs/` | Export-Only | - | Historical runtime data, not imported |
 | `activity_stream` | `activity_stream/` | Never Migrate | - | Audit log, historical (auto-generated on target) |
 | `ad_hoc_commands` | `ad_hoc_commands/` | Never Migrate | - | Ad-hoc command records (historical) |
-| `analytics` | `analytics/` | Never Migrate | - | Analytics data, read-only (2.6 only) |
+| `analytics` | `analytics/` | Never Migrate | - | Analytics data, read-only (2.5+) |
 | `applications` | `applications/` | Never Migrate | - | OAuth applications, deferred from current phase |
 | `bulk` | `bulk/` | Never Migrate | - | Bulk API operational endpoint, not a resource |
 | `config` | `config/` | Never Migrate | - | System configuration, read-only |
 | `dashboard` | `dashboard/` | Never Migrate | - | Dashboard aggregation, read-only |
-| `host_metric_summary_monthly` | `host_metric_summary_monthly/` | Never Migrate | - | Monthly usage summary, auto-expires (2.6 only) |
-| `host_metrics` | `host_metrics/` | Never Migrate | - | Host usage metrics, auto-generated (2.6 only) |
+| `host_metric_summary_monthly` | `host_metric_summary_monthly/` | Never Migrate | - | Monthly usage summary, auto-expires (2.5+) |
+| `host_metrics` | `host_metrics/` | Never Migrate | - | Host usage metrics, auto-generated (2.5+) |
 | `instance_groups` | `instance_groups/` | Never Migrate | - | Must exist on target with same name; resolved by name during RBAC import |
 | `instances` | `instances/` | Never Migrate | - | Controller infrastructure, not migrated |
 | `inventory_updates` | `inventory_updates/` | Never Migrate | - | Inventory source sync logs (historical) |
@@ -57,9 +57,9 @@ classification, and any caveats associated with their migration.
 | `notifications` | `notifications/` | Never Migrate | - | Runtime notification instances (historical) |
 | `ping` | `ping/` | Never Migrate | - | Read-only health check |
 | `project_updates` | `project_updates/` | Never Migrate | - | Project SCM sync logs (historical) |
-| `receptor_addresses` | `receptor_addresses/` | Never Migrate | - | Receptor mesh addresses, infrastructure (2.6 only) |
+| `receptor_addresses` | `receptor_addresses/` | Never Migrate | - | Receptor mesh addresses, infrastructure (2.5+) |
 | `roles` | `roles/` | Never Migrate | - | Deprecated; replaced by RBAC |
-| `service_index` | `service_index/` | Never Migrate | - | Service discovery index, read-only (2.6 only) |
+| `service_index` | `service_index/` | Never Migrate | - | Service discovery index, read-only (2.5+) |
 | `settings` | `settings/` | Never Migrate | - | Global system settings, requires manual review |
 | `system_jobs` | `system_jobs/` | Never Migrate | - | System job records (historical) |
 | `tokens` | `tokens/` | Never Migrate | - | OAuth tokens, short-lived, must be recreated manually |
@@ -78,6 +78,6 @@ resources. They are embedded within their parent `workflow_job_templates`.
 
 ### System Job Templates
 
-System job templates are auto-created by the target AAP 2.6 instance. The migration tool only
+System job templates are auto-created by the target AAP 2.6 or 2.7 instance. The migration tool only
 creates ID mappings so that schedules referencing these templates can be correctly linked on
 the target.

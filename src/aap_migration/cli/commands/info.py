@@ -27,7 +27,7 @@ def info() -> None:
 @click.pass_context
 def resources(ctx: click.Context) -> None:
     """Show the resource support matrix."""
-    table = Table(title="Resource Support Matrix (AAP 2.3 → 2.6)")
+    table = Table(title="Resource Support Matrix")
     table.add_column("Canonical Name", style="cyan")
     table.add_column("API Endpoint", style="green")
     table.add_column("Category", style="magenta")

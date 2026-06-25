@@ -132,6 +132,108 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
             "Instance groups referenced by RBAC assignments must exist on the target with the same name",
         ],
     ),
+    VersionPath(
+        source="1.0",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="1.1",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="1.2",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.0",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.1",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.2",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.3",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.4",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+        ],
+    ),
+    VersionPath(
+        source="2.5",
+        target="2.7",
+        status="supported",
+        notes="Primary migration path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+        ],
+    ),
+    VersionPath(
+        source="2.6",
+        target="2.7",
+        status="supported",
+        notes="Primary upgrade path. Fully tested.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+        ],
+    ),
+    VersionPath(
+        source="2.7",
+        target="2.7",
+        status="supported",
+        notes="Same-version migration path. Schema fully compatible.",
+        known_exceptions=[
+            "Encrypted credentials cannot be extracted from source API",
+            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+        ],
+    ),
 ]
 
 
@@ -479,8 +581,8 @@ NEVER_MIGRATE_RESOURCES: dict[str, str] = {
     "me": "Current user session, read-only",
     "metrics": "Prometheus metrics, read-only",
     "mesh_visualizer": "Receptor mesh visualization, read-only",
-    "analytics": "Analytics data, read-only (2.6 only)",
-    "service_index": "Service discovery index, read-only (2.6 only)",
+    "analytics": "Analytics data, read-only (2.5+)",
+    "service_index": "Service discovery index, read-only (2.5+)",
     # Virtual / Aggregation
     "unified_job_templates": "Virtual meta-endpoint aggregating all template types",
     "unified_jobs": "Virtual meta-endpoint aggregating all job types",
@@ -494,9 +596,9 @@ NEVER_MIGRATE_RESOURCES: dict[str, str] = {
     "notifications": "Runtime notification instances (historical)",
     "workflow_approvals": "Workflow approval records (historical)",
     # Infrastructure / Operational
-    "receptor_addresses": "Receptor mesh addresses, infrastructure (2.6 only)",
-    "host_metrics": "Host usage metrics, auto-generated (2.6 only)",
-    "host_metric_summary_monthly": "Monthly usage summary, auto-expires (2.6 only)",
+    "receptor_addresses": "Receptor mesh addresses, infrastructure (2.5+)",
+    "host_metrics": "Host usage metrics, auto-generated (2.5+)",
+    "host_metric_summary_monthly": "Monthly usage summary, auto-expires (2.5+)",
     "bulk": "Bulk API operational endpoint, not a resource",
     "activity_stream": "Audit log, historical (auto-generated on target)",
     # Manual / Deferred (REQ-002)

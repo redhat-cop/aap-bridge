@@ -10,8 +10,9 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Source Version Support**: AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6 are now
-  supported as migration sources in addition to the original 2.3/2.4/2.5 paths
+- **AAP 2.7 Support**: AAP 2.7 is supported as both a migration source and target
+- **Source Version Support**: AAP 1.0 through 2.7 are supported as migration sources to
+  AAP 2.6 and 2.7 targets
 - **Survey Spec Migration**: Job template and workflow job template survey specs are now
   exported via `GET …/{id}/survey_spec/` and imported via `POST …/{id}/survey_spec/`
 - **Notification Template Associations**: Notification template relationships for job
@@ -58,8 +59,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   credentials before projects; users and teams deferred until after all content objects
   are in place). The export progress display reflects this order even when parallel
   export is enabled.
-- **All Migration Paths Marked Fully Supported**: The 2.3 → 2.6, 2.4 → 2.6, and
-  2.5 → 2.6 paths are all now marked as fully supported; messaging is standardised
+- **Compatibility Matrix**: All supported migration paths (AAP 1.0–2.7 sources to AAP
+  2.6 and 2.7 targets) are marked fully supported; messaging is standardised
 - **`inventory_sources` Re-ordered**: Inventory sources are now imported before
   constructed inventories and smart inventories to satisfy sync dependencies
 - **Smart Inventories Deferred**: Smart inventory import is now a dedicated phase that
@@ -147,6 +148,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   honour `shared.*` content types; dual-base export/import for `role_definitions`
   and role assignments; `_api_base` from export is remapped to the target host on
   import
+- **RBAC – Gateway Assignment Dedupe and Principal Resolution**: Role assignment
+  export no longer duplicates records listed on both gateway and controller APIs;
+  dedupe keeps the copy from the API surface where each assignment is created
+  (`shared.*` → gateway, `awx.*` → controller). Import resolves users and teams by
+  username/name when surrogate principal IDs differ between APIs, and custom role
+  definitions are looked up on the controller for `awx.*` assignments
 - **RBAC – Legacy Sources (1.0–2.4 → 2.6)**: Classic `users/{id}/roles/` and
   `teams/{id}/roles/` grants are converted to `role_user_assignments` and
   `role_team_assignments` on gateway targets instead of being skipped

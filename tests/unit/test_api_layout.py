@@ -88,6 +88,7 @@ class TestVersionParsing:
             ("2.4.9", False),
             ("2.5", True),
             ("2.6", True),
+            ("2.7", True),
         ],
     )
     def test_uses_gateway_topology(self, version: str, uses_gateway: bool) -> None:

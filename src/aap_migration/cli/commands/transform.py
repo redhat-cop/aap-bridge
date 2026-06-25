@@ -380,9 +380,12 @@ def transform(
             )
 
             # Log transformer config to file
+            src_ver = ctx.config.source.version or "?"
+            tgt_ver = ctx.config.target.version or "?"
+            migration_label = f"AAP {src_ver} → {tgt_ver}"
             logger.info(
                 "transformer_config",
-                mode="AAP 2.3 → 2.6",
+                mode=migration_label,
                 schema_file=schema_file_path,
                 auto_apply=schema_file_path is not None,
                 defer_project_sync=defer_project_sync,
@@ -417,7 +420,8 @@ def transform(
             progress_enabled = not quiet and not disable_progress
 
             with MigrationProgressDisplay(
-                title="🔄 AAP Transform Progress (2.3 → 2.6)", enabled=progress_enabled
+                title=f"🔄 AAP Transform Progress ({src_ver} → {tgt_ver})",
+                enabled=progress_enabled,
             ) as progress:
                 if progress_enabled:
                     # Set total phases BEFORE initialize_phases to avoid jitter

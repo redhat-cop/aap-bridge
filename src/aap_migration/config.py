@@ -84,7 +84,7 @@ class AAPInstanceConfig(BaseModel):
     )
     version: str | None = Field(
         default=None,
-        description="AAP version (e.g. '2.4' or '2.6'); required for API routing",
+        description="AAP version (e.g. '2.4', '2.6', or '2.7'); required for API routing",
     )
     verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
     timeout: int = Field(default=30, ge=1, le=1200, description="API request timeout in seconds")

@@ -5097,6 +5097,24 @@ async def _resolve_role_definition_target_id(
     (shared.*) live on different API bases — lookups must use the same base as
     the assignment being created.
     """
+    lookup_base = role_definition_api_base(client.api_layout, content_type, api_base)
+
+    if role_def_name:
+        try:
+            results = await client.get_on_base(
+                lookup_base, "role_definitions/", params={"name": role_def_name}
+            )
+            resources = results.get("results", [])
+            if resources:
+                return resources[0]["id"]
+        except Exception as e:
+            logger.error(
+                "role_definition_name_lookup_failed",
+                role_def_name=role_def_name,
+                api_base=lookup_base,
+                error=str(e),
+            )
+
     target_id = state.get_mapped_id("role_definitions", role_def_source_id)
     if target_id:
         return target_id
@@ -5109,23 +5127,6 @@ async def _resolve_role_definition_target_id(
         )
         return None
 
-    lookup_base = role_definition_api_base(client.api_layout, content_type, api_base)
-
-    try:
-        results = await client.get_on_base(
-            lookup_base, "role_definitions/", params={"name": role_def_name}
-        )
-        resources = results.get("results", [])
-        if resources:
-            return resources[0]["id"]
-    except Exception as e:
-        logger.error(
-            "role_definition_name_lookup_failed",
-            role_def_name=role_def_name,
-            api_base=lookup_base,
-            error=str(e),
-        )
-
     logger.warning(
         "role_definition_not_found_on_target",
         role_def_name=role_def_name,
@@ -5134,6 +5135,53 @@ async def _resolve_role_definition_target_id(
         api_base=lookup_base,
     )
     return None
+
+
+def _resolve_user_target_id_for_assignment(
+    state: Any,
+    assignment: dict[str, Any],
+    user_source_id: Any,
+) -> int | None:
+    """Resolve target user ID for a role_user_assignment.
+
+    Gateway user exports use gateway surrogate IDs, but the same assignment can
+    be listed from the controller API with a different user FK. Prefer username
+    from export/transform when available.
+    """
+    username = assignment.get("user_username")
+    if username:
+        mapping = state.get_mapping_by_name("users", str(username))
+        if mapping and mapping.target_id:
+            return int(mapping.target_id)
+
+    if user_source_id is None:
+        return None
+    try:
+        source_id = int(user_source_id)
+    except (TypeError, ValueError):
+        return None
+    return state.get_mapped_id("users", source_id)
+
+
+def _resolve_team_target_id_for_assignment(
+    state: Any,
+    assignment: dict[str, Any],
+    team_source_id: Any,
+) -> int | None:
+    """Resolve target team ID for a role_team_assignment."""
+    team_name = assignment.get("team_name")
+    if team_name:
+        mapping = state.get_mapping_by_name("teams", str(team_name))
+        if mapping and mapping.target_id:
+            return int(mapping.target_id)
+
+    if team_source_id is None:
+        return None
+    try:
+        source_id = int(team_source_id)
+    except (TypeError, ValueError):
+        return None
+    return state.get_mapped_id("teams", source_id)
 
 
 class RoleUserAssignmentImporter(ResourceImporter):
@@ -5215,7 +5263,9 @@ class RoleUserAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve user
-            target_user_id = self.state.get_mapped_id("users", user_source_id)
+            target_user_id = _resolve_user_target_id_for_assignment(
+                self.state, assignment, user_source_id
+            )
             if not target_user_id:
                 logger.warning(
                     "role_assignment_user_not_found",
@@ -5331,7 +5381,9 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve team
-            target_team_id = self.state.get_mapped_id("teams", team_source_id)
+            target_team_id = _resolve_team_target_id_for_assignment(
+                self.state, assignment, team_source_id
+            )
             if not target_team_id:
                 logger.warning(
                     "role_assignment_team_not_found",

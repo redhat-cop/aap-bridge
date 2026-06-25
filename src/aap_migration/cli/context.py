@@ -13,7 +13,7 @@ from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.vault_client import VaultClient
 from aap_migration.config import AAPInstanceConfig, MigrationConfig, load_config_from_yaml
 from aap_migration.migration.state import MigrationState
-from aap_migration.utils.logging import get_logger
+from aap_migration.utils.logging import get_logger, redact_database_url
 
 logger = get_logger(__name__)
 
@@ -156,7 +156,7 @@ class MigrationContext:
         if self._migration_state is None:
             logger.debug(
                 "Initializing migration state",
-                db_path=str(self.config.state.db_path),
+                db_path=redact_database_url(str(self.config.state.db_path)),
             )
             self._migration_state = MigrationState(
                 config=self.config.state,

@@ -1,0 +1,21 @@
+.ansi-black-fg { color: var(--pf-v5-global--palette--black-700); }
+.ansi-red-fg { color: var(--pf-v5-global--danger-color--100); }
+.ansi-green-fg { color: var(--pf-v5-global--success-color--100); }
+.ansi-yellow-fg { color: var(--pf-v5-global--warning-color--100); }
+.ansi-blue-fg { color: var(--pf-v5-global--info-color--100); }
+.ansi-magenta-fg { color: #c586c0; }
+.ansi-cyan-fg { color: #4ec9b0; }
+.ansi-white-fg { color: var(--pf-v5-global--Color--light-100); }
+
+.ansi-bright-black-fg { color: var(--pf-v5-global--palette--black-500); }
+.ansi-bright-red-fg { color: #f97583; }
+.ansi-bright-green-fg { color: #85e89d; }
+.ansi-bright-yellow-fg { color: #ffea7f; }
+.ansi-bright-blue-fg { color: #79b8ff; }
+.ansi-bright-magenta-fg { color: #b392f0; }
+.ansi-bright-cyan-fg { color: #56d4dd; }
+.ansi-bright-white-fg { color: #ffffff; }
+
+.ansi-bold { font-weight: 700; }
+.ansi-italic { font-style: italic; }
+.ansi-underline { text-decoration: underline; }

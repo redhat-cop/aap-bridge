@@ -22,6 +22,8 @@ from aap_migration.cli.utils import (
     echo_warning,
     format_count,
 )
+from aap_migration.client.api_layout import parse_aap_major_minor
+from aap_migration.client.exceptions import APIError, NotFoundError
 from aap_migration.migration.parallel_transformer import ParallelTransformCoordinator
 from aap_migration.migration.state import MigrationState
 from aap_migration.migration.transformer import SkipResourceError, create_transformer
@@ -65,6 +67,93 @@ def sort_by_transform_order(resource_types: list[str]) -> list[str]:
     return [rtype for rtype, _ in known] + unknown
 
 
+_MANAGED_CREDENTIAL_TYPE_MIN_VERSION = (2, 3)
+
+
+def credential_types_support_managed_filter(aap_version: str) -> bool:
+    """Return True when the source/target API supports ?managed= on credential types."""
+    major, minor = parse_aap_major_minor(aap_version)
+    return (major, minor) >= _MANAGED_CREDENTIAL_TYPE_MIN_VERSION
+
+
+def is_builtin_credential_type(credential_type: dict) -> bool:
+    """Return True for built-in credential types on legacy sources without managed=."""
+    if credential_type.get("managed"):
+        return True
+    return bool(credential_type.get("namespace"))
+
+
+async def seed_skipped_execution_environments(
+    ctx: MigrationContext, state: MigrationState
+) -> int:
+    """Seed id_mappings for execution environments that are skipped during export.
+
+    Built-in EEs (Control Plane, Default, Hub, etc.) are omitted from the
+    export to avoid overwriting target defaults, but projects reference them by
+    source ID. Without a mapping these show up as unresolved_dependency warnings
+    during import. This function looks each skipped EE up by name on the target
+    and records source_id → target_id so the import can resolve them.
+
+    Returns:
+        Number of EE mappings seeded.
+    """
+    raw = ctx.config.export.skip_execution_environment_names or []
+    skip_names = frozenset(n.strip().casefold() for n in raw if n.strip())
+    if not skip_names:
+        return 0
+
+    source_ees: dict[str, int] = {}
+    try:
+        source_ee_list = await ctx.source_client.get_execution_environments()
+    except NotFoundError:
+        logger.debug(
+            "seed_execution_environments_not_applicable",
+            source_version=ctx.config.source.version,
+            message="Source has no execution_environments API",
+        )
+        return 0
+
+    for ee in source_ee_list:
+        name = str(ee.get("name", "")).strip()
+        if name.casefold() in skip_names:
+            source_ees[name] = ee["id"]
+
+    if not source_ees:
+        return 0
+
+    target_ees: dict[str, int] = {}
+    for ee in await ctx.target_client.list_resources("execution_environments"):
+        name = str(ee.get("name", "")).strip()
+        target_ees[name.casefold()] = ee["id"]
+
+    seeded = 0
+    for name, source_id in source_ees.items():
+        target_id = target_ees.get(name.casefold())
+        if target_id:
+            state.mark_completed(
+                resource_type="execution_environments",
+                source_id=source_id,
+                target_id=target_id,
+                target_name=name,
+                source_name=name,
+            )
+            seeded += 1
+            logger.debug(
+                "seeded_skipped_execution_environment",
+                name=name,
+                source_id=source_id,
+                target_id=target_id,
+            )
+        else:
+            logger.warning(
+                "skipped_ee_not_found_in_target",
+                name=name,
+                source_id=source_id,
+            )
+
+    return seeded
+
+
 async def seed_builtin_credential_types(ctx: MigrationContext, state: MigrationState) -> int:
     """Seed id_mappings with built-in credential types from source and target AAP.
 
@@ -82,11 +171,23 @@ async def seed_builtin_credential_types(ctx: MigrationContext, state: MigrationS
         Number of built-in credential types seeded
     """
     try:
-        # Fetch managed (built-in) credential types from source AAP 2.3
-        source_types = {}
-        source_credential_types = await ctx.source_client.get_credential_types(
-            params={"managed": "true"}
-        )
+        source_types: dict[str, int] = {}
+        source_version = ctx.config.source.version or "2.3"
+        if credential_types_support_managed_filter(source_version):
+            source_credential_types = await ctx.source_client.get_credential_types(
+                params={"managed": "true"}
+            )
+        else:
+            try:
+                source_credential_types = await ctx.source_client.get_credential_types()
+            except APIError as exc:
+                if "managed" not in str(exc).casefold():
+                    raise
+                source_credential_types = await ctx.source_client.get_credential_types()
+            source_credential_types = [
+                ct for ct in source_credential_types if is_builtin_credential_type(ct)
+            ]
+
         for ct in source_credential_types:
             source_types[ct["name"]] = ct["id"]
 
@@ -402,6 +503,19 @@ def transform(
                         message="Could not seed credential types - continuing without",
                     )
 
+            # Seed skipped execution environment mappings so projects that
+            # reference those EEs by source ID can resolve them during import.
+            try:
+                state = ctx.migration_state
+                seeded_ees = await seed_skipped_execution_environments(ctx, state)
+                logger.info("seeded_execution_environment_mappings", count=seeded_ees)
+            except Exception as e:
+                logger.warning(
+                    "seed_execution_environments_skipped",
+                    error=str(e),
+                    message="Could not seed execution environment mappings - continuing without",
+                )
+
             # Build phases for progress display
             phases = []
             for rtype in types_to_transform:
@@ -416,8 +530,10 @@ def transform(
             # Use Live progress display
             progress_enabled = not quiet and not disable_progress
 
+            src_ver = ctx.config.source.version or "source"
+            tgt_ver = ctx.config.target.version or "target"
             with MigrationProgressDisplay(
-                title="🔄 AAP Transform Progress (2.3 → 2.6)", enabled=progress_enabled
+                title=f"🔄 AAP Transform Progress ({src_ver} → {tgt_ver})", enabled=progress_enabled
             ) as progress:
                 if progress_enabled:
                     # Set total phases BEFORE initialize_phases to avoid jitter

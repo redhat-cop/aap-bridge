@@ -133,7 +133,7 @@ def requires_config(f: Callable) -> Callable:
 
     @functools.wraps(f)
     def wrapper(ctx: MigrationContext, *args, **kwargs):
-        if ctx.config_path is None:
+        if ctx.config_path is None and ctx._config is None:
             click.echo(
                 "Error: Configuration file required. Use --config option or set AAP_BRIDGE_CONFIG.",
                 err=True,

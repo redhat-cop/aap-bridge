@@ -53,7 +53,7 @@ class AAPSourceClient(BaseAPIClient):
             )
 
         super().__init__(
-            host_url=normalize_host_url(config.url),
+            host_url=normalize_host_url(config.url, instance="source"),
             token=config.token,
             aap_version=config.version,
             verify_ssl=config.verify_ssl,

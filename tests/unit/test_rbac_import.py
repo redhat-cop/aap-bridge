@@ -57,6 +57,16 @@ class TestRoleDefinitionApiBase:
             "https://aap25.example.com/api/controller/v2",
         ) == ("https://aap.example.com/api/controller/v2")
 
+    def test_gateway_exported_automation_role_uses_target_controller(self) -> None:
+        layout = self._gateway_layout()
+        # awx.* roles may be listed from the gateway API during export, but
+        # assignments are created on the controller — lookups must follow.
+        assert role_definition_api_base(
+            layout,
+            "awx.project",
+            "https://aap25.example.com/api/gateway/v1",
+        ) == ("https://aap.example.com/api/controller/v2")
+
     def test_exported_source_api_base_maps_to_target_gateway(self) -> None:
         layout = self._gateway_layout()
         assert role_definition_api_base(
@@ -64,3 +74,46 @@ class TestRoleDefinitionApiBase:
             "shared.organization",
             "https://aap25.example.com/api/gateway/v1",
         ) == ("https://aap.example.com/api/gateway/v1")
+
+
+class TestRoleAssignmentDedupeKey:
+    def test_user_assignment_key_uses_username_not_controller_fk(self) -> None:
+        from aap_migration.migration.exporter import RoleAssignmentListExporter
+
+        resource = {
+            "content_type": "shared.organization",
+            "object_id": "1",
+            "user": 47,
+            "user_ansible_id": "fb4a1b19-46d2-43ec-8627-9dbb21683e80",
+            "summary_fields": {
+                "role_definition": {"name": "Organization Member"},
+                "user": {"id": 47, "username": "jadoe"},
+            },
+        }
+        key = RoleAssignmentListExporter._assignment_dedupe_key(
+            resource, "role_user_assignments"
+        )
+        assert key == ("awx.organization", "1", "Organization Member", "jadoe")
+
+
+class TestResolveUserTargetIdForAssignment:
+    def test_prefers_username_over_mismatched_source_fk(self) -> None:
+        from unittest.mock import MagicMock
+
+        from aap_migration.migration.importer import _resolve_user_target_id_for_assignment
+
+        state = MagicMock()
+        mapping = MagicMock()
+        mapping.target_id = 11
+        state.get_mapping_by_name.return_value = mapping
+        state.get_mapped_id.return_value = 10
+
+        target_id = _resolve_user_target_id_for_assignment(
+            state,
+            {"user_username": "jadoe", "user": 47},
+            47,
+        )
+
+        assert target_id == 11
+        state.get_mapping_by_name.assert_called_once_with("users", "jadoe")
+        state.get_mapped_id.assert_not_called()

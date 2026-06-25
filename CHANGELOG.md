@@ -147,6 +147,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   honour `shared.*` content types; dual-base export/import for `role_definitions`
   and role assignments; `_api_base` from export is remapped to the target host on
   import
+- **RBAC – Gateway Assignment Dedupe and Principal Resolution**: Role assignment
+  export no longer duplicates records listed on both gateway and controller APIs;
+  dedupe keeps the copy from the API surface where each assignment is created
+  (`shared.*` → gateway, `awx.*` → controller). Import resolves users and teams by
+  username/name when surrogate principal IDs differ between APIs, and custom role
+  definitions are looked up on the controller for `awx.*` assignments
 - **RBAC – Legacy Sources (1.0–2.4 → 2.6)**: Classic `users/{id}/roles/` and
   `teams/{id}/roles/` grants are converted to `role_user_assignments` and
   `role_team_assignments` on gateway targets instead of being skipped

@@ -179,6 +179,36 @@ def test_update_clears_stale_discovery_metadata(db_session, monkeypatch: pytest.
     assert updated.last_checked is None
 
 
+def test_update_token_resets_only_auth_metadata(db_session, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, Fernet.generate_key().decode())
+    service = ConnectionService(db_session)
+    conn = service.create(
+        ConnectionCreate(
+            name="AAP gateway",
+            type="aap",
+            role="destination",
+            url="https://localhost:20947/api/controller/v2",
+            token="token",
+            verify_ssl=False,
+        )
+    )
+    conn.version = "2.5"
+    conn.ping_status = "ok"
+    conn.auth_status = "ok"
+    conn.auth_error = "old-auth-error"
+    conn.last_checked = datetime.now(UTC)
+    db_session.commit()
+
+    updated = service.update(conn.id, ConnectionUpdate(token="new-token"))
+
+    assert updated is not None
+    assert updated.version == "2.5"
+    assert updated.ping_status == "ok"
+    assert updated.auth_status == "unknown"
+    assert updated.auth_error is None
+    assert updated.last_checked is None
+
+
 def test_update_preserves_masked_token(db_session, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, Fernet.generate_key().decode())
     service = ConnectionService(db_session)
@@ -233,6 +263,37 @@ def test_update_encrypts_replaced_token(db_session, monkeypatch: pytest.MonkeyPa
     assert updated.token != original_token
     assert updated.token.startswith(ENCRYPTED_TOKEN_PREFIX)
     assert service.get_token(updated) == "new-token"
+
+
+def test_failed_connection_test_preserves_existing_api_prefix(
+    db_session, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv(TOKEN_ENCRYPTION_KEY_ENV, Fernet.generate_key().decode())
+    service = ConnectionService(db_session)
+    conn = service.create(
+        ConnectionCreate(
+            name="AAP gateway",
+            type="aap",
+            role="destination",
+            url="https://localhost:20947/api/controller/v2",
+            token="token",
+            verify_ssl=False,
+        )
+    )
+
+    class FakeResponse:
+        status_code = 503
+
+        @staticmethod
+        def json():
+            return {}
+
+    monkeypatch.setattr("aap_migration.api.services.connection_service.httpx.get", lambda *args, **kwargs: FakeResponse())
+
+    result = service.test_connection(conn)
+
+    assert result.ok is False
+    assert conn.api_prefix == "/api/controller/v2"
 
 
 def test_engine_adapter_decrypts_encrypted_token(monkeypatch: pytest.MonkeyPatch):

@@ -1,0 +1,72 @@
+FROM registry.redhat.io/ubi8/ubi-init:latest
+
+LABEL maintainer="aap-bridge testing" \
+      description="UBI 8 base for AAP 1.x / 2.0-2.4 installation" \
+      io.aap-bridge.role="aap-base" \
+      io.aap-bridge.rhel="8"
+
+RUN dnf install -y \
+        openssh-server \
+        openssh-clients \
+        python39 \
+        python39-pip \
+        sudo \
+        which \
+        hostname \
+        procps-ng \
+        iproute \
+        net-tools \
+        rsync \
+        tar \
+        gzip \
+        findutils \
+        openssl \
+        sshpass \
+        dnf-utils \
+        glibc-langpack-en \
+        policycoreutils \
+        policycoreutils-python-utils \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+# The AAP installer runs "dnf module -y reset postgresql" which fails on UBI
+# because UBI repos don't include module metadata. Wrap dnf so any
+# "dnf module ..." command succeeds silently on failure.
+RUN mv /usr/bin/dnf /usr/bin/dnf.real && \
+    printf '#!/bin/bash\nif [[ "$1" == "module" ]]; then\n  /usr/bin/dnf.real "$@" 2>/dev/null || true\nelse\n  exec /usr/bin/dnf.real "$@"\nfi\n' > /usr/bin/dnf && \
+    chmod +x /usr/bin/dnf
+
+RUN ssh-keygen -A \
+    && mkdir -p /root/.ssh \
+    && chmod 700 /root/.ssh \
+    && ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -N "" \
+    && cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys \
+    && chmod 600 /root/.ssh/authorized_keys
+
+RUN systemctl mask \
+        systemd-remount-fs.service \
+        dev-hugepages.mount \
+        sys-fs-fuse-connections.mount \
+        getty.target \
+        console-getty.service
+
+RUN systemctl unmask systemd-logind.service
+
+# AAP 2.0/2.1 install libcgroup-tools at runtime which provides cgconfig.service.
+# cgconfigparser fails on cgroup v2 hosts. Create a systemd drop-in override
+# that replaces ExecStart with /bin/true. Drop-ins survive RPM installs.
+RUN mkdir -p /etc/systemd/system/cgconfig.service.d && \
+    printf '[Service]\nExecStart=\nExecStart=/bin/true\n' \
+    > /etc/systemd/system/cgconfig.service.d/override.conf
+
+RUN systemctl enable sshd
+
+RUN echo "root ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/root
+
+RUN echo "aap-bridge-testing-base-ubi8" > /etc/aap-bridge-base
+
+EXPOSE 22 80 443 5432 8443
+
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/sbin/init"]

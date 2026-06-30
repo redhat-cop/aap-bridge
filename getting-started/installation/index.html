@@ -668,6 +668,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#web-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web UI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Web UI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirements_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verify-installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -867,6 +928,34 @@
     
   
     CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI
   
 
     
@@ -1242,6 +1331,11 @@
 <td>Podman images and compose services</td>
 <td>Isolated CLI workflow with PostgreSQL included</td>
 </tr>
+<tr>
+<td><strong>Web UI</strong></td>
+<td>Podman images, compose services, and a browser</td>
+<td>Browser-based connection management and migration runs</td>
+</tr>
 </tbody>
 </table>
 <p>The containerized workflow is optional. The original local host setup remains fully supported.</p>
@@ -1395,17 +1489,51 @@ This mode keeps the same host-side <code>.env</code> and config files, but you d
 <li>The compose stack now prepares its own writable volumes, so <code>podman compose up -d db bridge</code> works without any Makefile ownership helpers.</li>
 <li><code>make up-dev</code> is a thin wrapper around the same compose workflow if you prefer the shortcut.</li>
 <li>The bridge container stores logs, exports, and reports in compose-managed volumes mounted under <code>/app</code>.</li>
-<li>The container workflow is intended for the CLI/TUI path only in this PR.</li>
+<li>The container workflow is intended for the CLI/TUI path; the browser workflow uses the same <code>.env</code> from <code>make init-env</code> with the dedicated engine and UI services described below.</li>
+</ul>
+<h2 id="web-ui">Web UI<a class="headerlink" href="#web-ui" title="Permanent link">&para;</a></h2>
+<p>Run the browser-based interface with a FastAPI engine and nginx-served frontend.
+This workflow builds on the same local/container foundation as the CLI flow, but
+adds API and UI services on top of the bundled PostgreSQL database.</p>
+<h3 id="requirements_2">Requirements<a class="headerlink" href="#requirements_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>podman</strong> with compose support</li>
+<li><strong>make</strong></li>
+<li>Access to <code>registry.redhat.io</code> to pull the Red Hat PostgreSQL image</li>
+</ul>
+<h3 id="setup_2">Setup<a class="headerlink" href="#setup_2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/redhat-cop/aap-bridge.git
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>aap-bridge
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Create .env if you do not already have one</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>make<span class="w"> </span>init-env
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Authenticate once so compose can pull the Red Hat PostgreSQL image</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>podman<span class="w"> </span>login<span class="w"> </span>registry.redhat.io
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Build the engine and UI images</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>make<span class="w"> </span>build-all
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Start db + engine + ui</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>make<span class="w"> </span>up
+</code></pre></div>
+<h3 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h3>
+<p>Open <a href="http://localhost:8080">http://localhost:8080</a> in your browser.</p>
+<h3 id="notes_1">Notes<a class="headerlink" href="#notes_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>make up</code> uses the same self-preparing PostgreSQL container setup as the CLI workflow.</li>
+<li>The UI proxies <code>/api</code> and <code>/ws</code> traffic to the FastAPI engine running on port <code>8000</code>.</li>
+<li>For frontend-only development, run <code>aap-bridge serve --reload</code> in one terminal and <code>make web-dev</code> in another.</li>
 </ul>
 <h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
 <h3 id="local-host-install_1">Local host install<a class="headerlink" href="#local-host-install_1" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>aap-bridge<span class="w"> </span>--version
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>aap-bridge<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>--version
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aap-bridge<span class="w"> </span>--help
 </code></pre></div>
 <h3 id="container-cli_1">Container CLI<a class="headerlink" href="#container-cli_1" title="Permanent link">&para;</a></h3>
 <p>Inside the container opened with <code>make shell</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>--version
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aap-bridge<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>aap-bridge<span class="w"> </span>--version
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>aap-bridge<span class="w"> </span>--help
 </code></pre></div>
 <h2 id="useful-commands">Useful Commands<a class="headerlink" href="#useful-commands" title="Permanent link">&para;</a></h2>
 <table>
@@ -1429,12 +1557,28 @@ This mode keeps the same host-side <code>.env</code> and config files, but you d
 <td>Build the container images used by the CLI workflow</td>
 </tr>
 <tr>
+<td><code>make build-all</code></td>
+<td>Build the API and UI images for the browser workflow</td>
+</tr>
+<tr>
+<td><code>make up</code></td>
+<td>Start the PostgreSQL + engine + UI services</td>
+</tr>
+<tr>
 <td><code>make up-dev</code></td>
 <td>Start the PostgreSQL + bridge containers</td>
 </tr>
 <tr>
 <td><code>make shell</code></td>
 <td>Open a shell in the running bridge container</td>
+</tr>
+<tr>
+<td><code>make shell-engine</code></td>
+<td>Open a shell in the engine container</td>
+</tr>
+<tr>
+<td><code>make web-dev</code></td>
+<td>Start the Vite frontend dev server</td>
 </tr>
 <tr>
 <td><code>make logs</code></td>

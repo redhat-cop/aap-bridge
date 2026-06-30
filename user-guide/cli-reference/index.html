@@ -16,7 +16,7 @@
         <link rel="prev" href="../../getting-started/configuration/">
       
       
-        <link rel="next" href="../migration-workflow/">
+        <link rel="next" href="../web-ui/">
       
       
         
@@ -794,6 +794,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        serve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#report" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -835,6 +846,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1475,40 +1514,91 @@
 <a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>clear<span class="w"> </span>--confirm
 </code></pre></div>
 <hr />
+<h3 id="serve">serve<a class="headerlink" href="#serve" title="Permanent link">&para;</a></h3>
+<p>Start the web API server.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</code></pre></div>
+<p><strong>What it does:</strong></p>
+<ul>
+<li>Starts a FastAPI/uvicorn server exposing the migration engine via REST API</li>
+<li>Enables the web UI (when served via nginx or Vite dev server)</li>
+<li>Provides WebSocket endpoints for real-time log streaming</li>
+</ul>
+<p><strong>Options:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--host</code></td>
+<td>Bind address (default: 0.0.0.0)</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td>Bind port (default: 8000)</td>
+</tr>
+<tr>
+<td><code>--reload</code></td>
+<td>Enable auto-reload for development</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Start API server with defaults</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>aap-bridge<span class="w"> </span>serve
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Start on custom port</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="c1"># Development mode with auto-reload</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--reload
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># Serve still uses `MIGRATION_STATE_DB_PATH` for its database location</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>sqlite:///aap_bridge.db<span class="w"> </span>aap-bridge<span class="w"> </span>serve
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Requires the <code>api</code> extras: <code>pip install '.[api]'</code></p>
+</div>
+<hr />
 <h3 id="report">report<a class="headerlink" href="#report" title="Permanent link">&para;</a></h3>
 <p>Generate migration reports.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>SUBCOMMAND
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>SUBCOMMAND
 </code></pre></div>
 <p><strong>Subcommands:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Summary report</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>summary
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Detailed report</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>detailed<span class="w"> </span>--output<span class="w"> </span>report.html
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Summary report</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>summary
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Detailed report</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>detailed<span class="w"> </span>--output<span class="w"> </span>report.html
 </code></pre></div>
 <hr />
 <h2 id="output-modes">Output Modes<a class="headerlink" href="#output-modes" title="Permanent link">&para;</a></h2>
 <p>Control output verbosity:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Default: Live progress with WARNING logs</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Quiet: Errors only</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--quiet
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># CI/CD: No live display</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--disable-progress
-<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>
-<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="c1"># Detailed: Extra statistics</span>
-<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--show-stats
-<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>
-<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="c1"># Combined: Quiet + no progress</span>
-<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--quiet<span class="w"> </span>--disable-progress
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Default: Live progress with WARNING logs</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Quiet: Errors only</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--quiet
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># CI/CD: No live display</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--disable-progress
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># Detailed: Extra statistics</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--show-stats
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="c1"># Combined: Quiet + no progress</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full<span class="w"> </span>--quiet<span class="w"> </span>--disable-progress
 </code></pre></div>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <p>Override options via environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__CONSOLE_LEVEL</span><span class="o">=</span>DEBUG
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__DISABLE_PROGRESS</span><span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__CONSOLE_LEVEL</span><span class="o">=</span>DEBUG
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__DISABLE_PROGRESS</span><span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full
 </code></pre></div>
 
 

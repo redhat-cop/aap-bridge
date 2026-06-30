@@ -622,6 +622,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1078,6 +1106,10 @@ in the repository.</p>
 <h3 id="unreleased-since-v010">Unreleased (since v0.1.0)<a class="headerlink" href="#unreleased-since-v010" title="Permanent link">&para;</a></h3>
 <p><strong>New Features:</strong></p>
 <ul>
+<li>Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and
+  bridge images (<code>make build</code>, <code>make up-dev</code>, <code>make shell</code>, etc.)</li>
+<li>Web UI: React/PatternFly browser interface with connection management, migration
+  preview, TUI-matching phased migration controls, job history, and live log streaming</li>
 <li>Source version support expanded to AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6</li>
 <li>Survey spec migration for job templates and workflow job templates</li>
 <li>Notification template association migration (started/success/error/approvals)</li>
@@ -1098,6 +1130,7 @@ in the repository.</p>
 </ul>
 <p><strong>Improvements:</strong></p>
 <ul>
+<li><code>make setup</code> auto-detects uv or falls back to stdlib venv + pip</li>
 <li>Export and transform phase order now matches the import dependency order (credential
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.</li>

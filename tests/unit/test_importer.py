@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aap_migration.client.aap_target_client import AAPTargetClient
-from aap_migration.client.exceptions import APIError, ConflictError
+from aap_migration.client.exceptions import APIError, AuthorizationError, ConflictError
 from aap_migration.config import PerformanceConfig
 from aap_migration.migration.importer import (
     CredentialImporter,
@@ -734,6 +734,31 @@ class TestWorkflowImporter:
         # Nodes should not be in the create call
         call_args = mock_client.create_resource.call_args_list[0][1]["data"]
         assert "_workflow_job_template_nodes" not in call_args
+
+    @pytest.mark.asyncio
+    async def test_import_workflows_continues_after_api_error(self, workflow_importer, mock_client):
+        """A single workflow failure must not abort the remaining imports."""
+        mock_client.create_resource = AsyncMock(
+            side_effect=[
+                AuthorizationError(
+                    message="Authorization failed",
+                    status_code=403,
+                    response={"detail": "Forbidden"},
+                ),
+                {"id": 601, "name": "Workflow Two"},
+            ]
+        )
+
+        workflows = [
+            {"_source_id": 1, "name": "Workflow One", "organization": 1},
+            {"_source_id": 2, "name": "Workflow Two", "organization": 1},
+        ]
+
+        results = await workflow_importer.import_workflows(workflows)
+
+        assert len(results) == 1
+        assert results[0]["id"] == 601
+        assert mock_client.create_resource.call_count == 2
 
     @pytest.mark.asyncio
     async def test_import_workflow_posts_survey_spec(self, workflow_importer, mock_client):

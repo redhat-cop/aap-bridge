@@ -313,6 +313,36 @@ def log_error(
     )
 
 
+def redact_database_url(url: str) -> str:
+    """Redact credentials from a database connection URL for safe logging.
+
+    PostgreSQL and MySQL URLs with embedded credentials are masked; SQLite
+    paths are returned unchanged.
+
+    Args:
+        url: Database connection URL or file path
+
+    Returns:
+        URL with username and password replaced by ``***``, or the original value for SQLite
+    """
+    if not url or url.startswith("sqlite"):
+        return url
+
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if not parsed.username and not parsed.password:
+            return url
+
+        host = parsed.hostname or ""
+        port = f":{parsed.port}" if parsed.port else ""
+        netloc = f"***@{host}{port}"
+        return urlunparse(parsed._replace(netloc=netloc))
+    except Exception:
+        return "[REDACTED]"
+
+
 def sanitize_payload(payload: dict[str, Any] | list[Any] | Any, max_depth: int = 10) -> Any:
     """Sanitize sensitive fields in API payloads before logging.
 

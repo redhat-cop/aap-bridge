@@ -232,3 +232,7 @@ workflow/
 
 # Local-only project metadata
 project.yaml
+
+# Web UI
+web/node_modules/
+web/dist/

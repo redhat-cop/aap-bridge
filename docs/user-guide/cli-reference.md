@@ -291,6 +291,51 @@ aap-bridge state clear --confirm
 
 ---
 
+### serve
+
+Start the web API server.
+
+```bash
+aap-bridge serve [OPTIONS]
+
+```
+
+**What it does:**
+
+- Starts a FastAPI/uvicorn server exposing the migration engine via REST API
+- Enables the web UI (when served via nginx or Vite dev server)
+- Provides WebSocket endpoints for real-time log streaming
+
+**Options:**
+
+| Option | Description |
+| --- | --- |
+| `--host` | Bind address (default: 0.0.0.0) |
+| `--port` | Bind port (default: 8000) |
+| `--reload` | Enable auto-reload for development |
+
+**Examples:**
+
+```bash
+# Start API server with defaults
+aap-bridge serve
+
+# Start on custom port
+aap-bridge serve --port 9000
+
+# Development mode with auto-reload
+aap-bridge serve --reload
+
+# Serve still uses `MIGRATION_STATE_DB_PATH` for its database location
+MIGRATION_STATE_DB_PATH=sqlite:///aap_bridge.db aap-bridge serve
+
+```
+
+!!! note
+    Requires the `api` extras: `pip install '.[api]'`
+
+---
+
 ### report
 
 Generate migration reports.

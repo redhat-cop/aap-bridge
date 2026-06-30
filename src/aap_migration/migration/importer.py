@@ -5076,6 +5076,70 @@ async def _resolve_content_object_target_id(
     return None
 
 
+async def _lookup_principal_id_on_base(
+    client: Any,
+    api_base: str,
+    principal_type: str,
+    principal_name: str,
+) -> int | None:
+    """Look up a user or team id by name on a specific API base."""
+    if principal_type == "users":
+        params = {"username": principal_name, "page_size": 1}
+    else:
+        params = {"name": principal_name, "page_size": 1}
+
+    try:
+        response = await client.get_on_base(api_base, f"{principal_type}/", params=params)
+        results = response.get("results", [])
+        if results:
+            return int(results[0]["id"])
+    except Exception:
+        return None
+    return None
+
+
+async def _resolve_rbac_principal_id_for_assignment(
+    state: Any,
+    client: Any,
+    principal_type: str,
+    source_id: int,
+    assignment_api_base: str,
+) -> int | None:
+    """Return a principal pk valid for role_*_assignments on assignment_api_base.
+
+    Users and teams are created on the gateway API, but controller-scoped role
+    assignments are posted to the controller API. Resolve by username/name on the
+    assignment base when gateway topology is in use.
+    """
+    from aap_migration.client.api_layout import ApiMode
+
+    mapped_id = state.get_mapped_id(principal_type, source_id)
+    layout = client.api_layout
+
+    if layout.mode is not ApiMode.GATEWAY:
+        return mapped_id
+
+    principal_name = state.get_mapping_source_name(principal_type, source_id)
+
+    if principal_name:
+        resolved = await _lookup_principal_id_on_base(
+            client, assignment_api_base, principal_type, principal_name
+        )
+        if resolved is not None:
+            return resolved
+
+    if mapped_id is not None:
+        try:
+            await client.get_on_base(
+                assignment_api_base, f"{principal_type}/{mapped_id}/"
+            )
+            return mapped_id
+        except Exception:
+            pass
+
+    return None
+
+
 async def _resolve_role_definition_target_id(
     state: Any,
     client: Any,
@@ -5215,7 +5279,10 @@ class RoleUserAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve user
-            target_user_id = self.state.get_mapped_id("users", user_source_id)
+            api_base = self.client.api_layout.base_for_role_assignment(content_type)
+            target_user_id = await _resolve_rbac_principal_id_for_assignment(
+                self.state, self.client, "users", int(user_source_id), api_base
+            )
             if not target_user_id:
                 logger.warning(
                     "role_assignment_user_not_found",
@@ -5230,7 +5297,6 @@ class RoleUserAssignmentImporter(ResourceImporter):
                     "object_id": target_resource_id,
                     "user": target_user_id,
                 }
-                api_base = self.client.api_layout.base_for_role_assignment(content_type)
                 await self.client.post_on_base(
                     api_base, "role_user_assignments/", json_data=payload
                 )
@@ -5331,7 +5397,10 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve team
-            target_team_id = self.state.get_mapped_id("teams", team_source_id)
+            api_base = self.client.api_layout.base_for_role_assignment(content_type)
+            target_team_id = await _resolve_rbac_principal_id_for_assignment(
+                self.state, self.client, "teams", int(team_source_id), api_base
+            )
             if not target_team_id:
                 logger.warning(
                     "role_assignment_team_not_found",
@@ -5346,7 +5415,6 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                     "object_id": target_resource_id,
                     "team": target_team_id,
                 }
-                api_base = self.client.api_layout.base_for_role_assignment(content_type)
                 await self.client.post_on_base(
                     api_base, "role_team_assignments/", json_data=payload
                 )

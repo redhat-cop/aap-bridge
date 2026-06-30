@@ -6,6 +6,7 @@ AAP Bridge supports two workflows:
 | --- | --- | --- |
 | **Local host install** | Python environment + PostgreSQL | Default day-to-day development and direct host usage |
 | **Container CLI** | Podman images and compose services | Isolated CLI workflow with PostgreSQL included |
+| **Web UI** | Podman images, compose services, and a browser | Browser-based connection management and migration runs |
 
 The containerized workflow is optional. The original local host setup remains fully supported.
 
@@ -141,7 +142,48 @@ make shell
 - The compose stack now prepares its own writable volumes, so `podman compose up -d db bridge` works without any Makefile ownership helpers.
 - `make up-dev` is a thin wrapper around the same compose workflow if you prefer the shortcut.
 - The bridge container stores logs, exports, and reports in compose-managed volumes mounted under `/app`.
-- The container workflow is intended for the CLI/TUI path only in this PR.
+- The container workflow is intended for the CLI/TUI path; the browser workflow uses the same `.env` from `make init-env` with the dedicated engine and UI services described below.
+
+## Web UI
+
+Run the browser-based interface with a FastAPI engine and nginx-served frontend.
+This workflow builds on the same local/container foundation as the CLI flow, but
+adds API and UI services on top of the bundled PostgreSQL database.
+
+### Requirements
+
+- **podman** with compose support
+- **make**
+- Access to `registry.redhat.io` to pull the Red Hat PostgreSQL image
+
+### Setup
+
+```bash
+git clone https://github.com/redhat-cop/aap-bridge.git
+cd aap-bridge
+
+# Create .env if you do not already have one
+make init-env
+
+# Authenticate once so compose can pull the Red Hat PostgreSQL image
+podman login registry.redhat.io
+
+# Build the engine and UI images
+make build-all
+
+# Start db + engine + ui
+make up
+```
+
+### Verify
+
+Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+### Notes
+
+- `make up` uses the same self-preparing PostgreSQL container setup as the CLI workflow.
+- The UI proxies `/api` and `/ws` traffic to the FastAPI engine running on port `8000`.
+- For frontend-only development, run `aap-bridge serve --reload` in one terminal and `make web-dev` in another.
 
 ## Verify Installation
 
@@ -168,8 +210,12 @@ aap-bridge --help
 | `make setup` | Complete local host setup (auto-detects uv or pip) |
 | `make setup USE_UV=0` | Local host setup using stdlib venv + pip |
 | `make build` | Build the container images used by the CLI workflow |
+| `make build-all` | Build the API and UI images for the browser workflow |
+| `make up` | Start the PostgreSQL + engine + UI services |
 | `make up-dev` | Start the PostgreSQL + bridge containers |
 | `make shell` | Open a shell in the running bridge container |
+| `make shell-engine` | Open a shell in the engine container |
+| `make web-dev` | Start the Vite frontend dev server |
 | `make logs` | Tail compose service logs |
 | `make down` | Stop the containerized workflow |
 

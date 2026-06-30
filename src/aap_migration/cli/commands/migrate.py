@@ -167,8 +167,8 @@ def _run_migration_workflow(
     """
     from aap_migration.cli.commands.export_import import export, import_cmd
     from aap_migration.cli.commands.patch_projects import patch_project_scm_details
-    from aap_migration.cli.commands.prep import prep as prep_cmd
     from aap_migration.cli.commands.transform import transform as transform_cmd
+    from aap_migration.prep.workflow import run_prep_workflow_sync
     from aap_migration.resources import get_exportable_types, get_importable_types
 
     # Define directories for workflow
@@ -183,17 +183,18 @@ def _run_migration_workflow(
         echo_info("Phase 0: Discovering endpoints and generating schemas...")
         click.echo()
 
-        # Call prep command programmatically
-        prep_ctx = click.Context(prep_cmd)
-        prep_ctx.obj = ctx
-        prep_ctx.invoke(
-            prep_cmd,
-            output_dir=schemas_dir,
+        prep_result = run_prep_workflow_sync(
+            ctx,
+            schemas_dir,
             force=force,
+            skip_if_exists=not force,
         )
-
-        click.echo()
-        echo_success("Phase 0 complete: Prep finished")
+        if prep_result.status == "failed":
+            raise click.ClickException(prep_result.message or "Prep failed")
+        if prep_result.skipped:
+            echo_info("Using existing schema files")
+        else:
+            echo_success("Phase 0 complete: Prep finished")
         click.echo()
     else:
         echo_info("Skipping prep phase (--skip-prep)")

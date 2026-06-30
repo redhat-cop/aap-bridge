@@ -20,6 +20,10 @@ from aap_migration.migration.transformer import SkipResourceError, create_transf
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.reporting.progress import ProgressTracker
 from aap_migration.reporting.report import generate_migration_report
+from aap_migration.resources import (
+    ORGANIZATION_SCOPED_RESOURCES,
+    PARENT_SCOPED_RESOURCES,
+)
 from aap_migration.schema.comparator import SchemaComparator
 from aap_migration.schema.models import ComparisonResult
 from aap_migration.utils.logging import get_logger
@@ -186,6 +190,7 @@ class MigrationCoordinator:
         # Schema comparison results (populated by compare_schemas_before_migration)
         self.schema_comparisons: dict[str, ComparisonResult] = {}
         self.schema_comparator = SchemaComparator()
+        self._users_for_team_resync: list[dict[str, Any]] = []
 
         self.metrics = {
             "start_time": None,
@@ -206,6 +211,241 @@ class MigrationCoordinator:
             target_url=config.target.url,
             dry_run=config.dry_run,
         )
+
+    async def _batch_precheck_resources(
+        self,
+        resource_type: str,
+        resources: list[dict[str, Any]],
+        importer,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Detect pre-existing target resources and restore ID mappings before import."""
+        if not resources:
+            return [], 0
+
+        mapping_resource_type = (
+            "inventory" if resource_type == "constructed_inventories" else resource_type
+        )
+        source_ids_for_reset = [
+            sid for resource in resources if (sid := resource.get("_source_id")) is not None
+        ]
+        cleared_count = self.state.reset_target_ids_for_source_ids(
+            mapping_resource_type, source_ids_for_reset
+        )
+        logger.info(
+            "cleared_target_ids",
+            resource_type=resource_type,
+            mapping_resource_type=mapping_resource_type,
+            count=cleared_count,
+            source_id_count=len(source_ids_for_reset),
+        )
+
+        if resource_type == "credentials":
+            to_import: list[dict[str, Any]] = []
+            found_count = 0
+            for resource in resources:
+                source_id = resource.get("_source_id")
+                name = resource.get("name")
+                if source_id is None:
+                    to_import.append(resource)
+                    continue
+                target_id = self.state.get_progress_target_id("credentials", source_id)
+                if target_id is not None:
+                    self.state.save_id_mapping(
+                        resource_type="credentials",
+                        source_id=source_id,
+                        target_id=target_id,
+                        source_name=name,
+                        target_name=name,
+                    )
+                    found_count += 1
+                else:
+                    to_import.append(resource)
+            return to_import, found_count
+
+        identifier_field = getattr(importer, "IDENTIFIER_FIELD", "name")
+        resource_identifiers: list[str] = []
+        resource_by_identifier: dict[Any, dict[str, Any]] = {}
+
+        for resource in resources:
+            identifier = resource.get(identifier_field)
+            source_id = resource.get("_source_id")
+            if not identifier or source_id is None:
+                continue
+
+            resource_identifiers.append(identifier)
+            if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                dict_key = (identifier, resource.get("organization"))
+            elif resource_type in PARENT_SCOPED_RESOURCES:
+                parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                dict_key = (identifier, resource.get(parent_field))
+            else:
+                dict_key = identifier
+            resource_by_identifier[dict_key] = {"source_id": source_id, "data": resource}
+
+        if not resource_identifiers:
+            logger.warning(
+                "no_identifiers_found",
+                resource_type=resource_type,
+                identifier_field=identifier_field,
+            )
+            return resources, 0
+
+        logger.info(
+            "batch_checking_existing_resources",
+            resource_type=resource_type,
+            total=len(resource_identifiers),
+            identifier_field=identifier_field,
+        )
+
+        max_query_chars = 4000
+        existing_by_identifier: dict[Any, dict[str, Any]] = {}
+        exact_match_identifiers: list[str] = []
+        current_batch: list[str] = []
+        current_length = 0
+        batches: list[list[str]] = []
+
+        def record_existing_resource(existing_resource: dict[str, Any]) -> None:
+            if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                name = existing_resource.get("name")
+                org = existing_resource.get("organization")
+                if name is not None:
+                    key = (name, org) if org is not None else name
+                    existing_by_identifier[key] = existing_resource
+            elif resource_type in PARENT_SCOPED_RESOURCES:
+                parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                name = existing_resource.get("name")
+                parent_id = existing_resource.get(parent_field)
+                if name is not None:
+                    key = (name, parent_id) if parent_id is not None else name
+                    existing_by_identifier[key] = existing_resource
+            else:
+                existing_identifier = existing_resource.get(identifier_field)
+                if existing_identifier:
+                    existing_by_identifier[existing_identifier] = existing_resource
+
+        for identifier in resource_identifiers:
+            if "," in identifier:
+                exact_match_identifiers.append(identifier)
+                continue
+            identifier_length = len(identifier) + 1
+            if current_length + identifier_length > max_query_chars and current_batch:
+                batches.append(current_batch)
+                current_batch = [identifier]
+                current_length = identifier_length
+            else:
+                current_batch.append(identifier)
+                current_length += identifier_length
+        if current_batch:
+            batches.append(current_batch)
+
+        for batch_idx, batch_identifiers in enumerate(batches):
+            filter_key = f"{identifier_field}__in"
+            filters = {filter_key: ",".join(batch_identifiers)}
+            try:
+                existing_batch = await self.target_client.list_resources(
+                    resource_type=resource_type,
+                    filters=filters,
+                )
+                for existing_resource in existing_batch:
+                    record_existing_resource(existing_resource)
+            except Exception as e:
+                logger.error(
+                    "batch_query_failed",
+                    resource_type=resource_type,
+                    batch_idx=batch_idx,
+                    batch_size=len(batch_identifiers),
+                    error=str(e),
+                )
+                raise RuntimeError(
+                    f"Failed target precheck for {resource_type} batch {batch_idx}: {e}"
+                ) from e
+
+        for identifier in exact_match_identifiers:
+            try:
+                existing_batch = await self.target_client.list_resources(
+                    resource_type=resource_type,
+                    filters={identifier_field: identifier},
+                )
+                for existing_resource in existing_batch:
+                    if existing_resource.get(identifier_field) == identifier:
+                        record_existing_resource(existing_resource)
+            except Exception as e:
+                logger.error(
+                    "exact_identifier_query_failed",
+                    resource_type=resource_type,
+                    identifier=identifier,
+                    error=str(e),
+                )
+                raise RuntimeError(
+                    f"Failed exact target precheck for {resource_type} identifier {identifier}: {e}"
+                ) from e
+
+        found_count = 0
+        to_import: list[dict[str, Any]] = []
+        for identifier, resource_info in resource_by_identifier.items():
+            source_id = resource_info["source_id"]
+            resource_data = resource_info["data"]
+            resource_name = resource_data.get(identifier_field) or (
+                identifier[0] if isinstance(identifier, tuple) else identifier
+            )
+
+            if resource_type in ORGANIZATION_SCOPED_RESOURCES:
+                name = resource_data.get("name")
+                source_org_id = resource_data.get("organization")
+                target_org_id = (
+                    self.state.get_mapped_id("organizations", source_org_id)
+                    if source_org_id is not None
+                    else None
+                )
+                lookup_key = (name, target_org_id) if target_org_id is not None else name
+            elif resource_type in PARENT_SCOPED_RESOURCES:
+                parent_field = PARENT_SCOPED_RESOURCES[resource_type]
+                name = resource_data.get("name")
+                source_parent_id = resource_data.get(parent_field)
+                parent_resource_type = (
+                    resource_data.get("_ujt_resource_type") or parent_field
+                    if parent_field == "unified_job_template"
+                    else parent_field
+                )
+                target_parent_id = (
+                    self.state.get_mapped_id(parent_resource_type, source_parent_id)
+                    if source_parent_id is not None
+                    else None
+                )
+                lookup_key = (name, target_parent_id) if target_parent_id is not None else name
+            else:
+                lookup_key = identifier
+
+            if lookup_key in existing_by_identifier:
+                existing = existing_by_identifier[lookup_key]
+                self.state.save_id_mapping(
+                    resource_type=mapping_resource_type,
+                    source_id=source_id,
+                    target_id=existing["id"],
+                    source_name=resource_name,
+                    target_name=existing.get(identifier_field),
+                )
+                found_count += 1
+                logger.debug(
+                    "resource_exists_in_target",
+                    resource_type=resource_type,
+                    source_id=source_id,
+                    target_id=existing["id"],
+                    lookup_key=str(lookup_key),
+                )
+            else:
+                to_import.append(resource_data)
+
+        if found_count > 0:
+            logger.info(
+                "pre_existing_resources_found",
+                resource_type=resource_type,
+                already_existing=found_count,
+                to_import=len(to_import),
+                total=len(resources),
+            )
+
+        return to_import, found_count
 
     async def migrate_all(
         self,
@@ -603,16 +843,40 @@ class MigrationCoordinator:
                 import_failed = 0  # Failed imports
                 import_skipped = 0  # Already migrated (import-time skips)
                 inventory_source_ids_for_sync: list[int] = []
+                precheck_input = resources_to_import
+
+                if resource_type == "users":
+                    self._users_for_team_resync = [dict(resource) for resource in precheck_input]
+
+                if resource_type != "hosts":
+                    resources_to_import, preexisting_count = await self._batch_precheck_resources(
+                        resource_type=resource_type,
+                        resources=precheck_input,
+                        importer=importer,
+                    )
+                    if preexisting_count:
+                        stats["skipped"] += preexisting_count
+                        import_skipped += preexisting_count
+                        if self.progress_tracker:
+                            self.progress_tracker.update_resource(skipped=preexisting_count)
+                        if self.progress_display and self._current_phase_id:
+                            self.progress_display.update_phase(
+                                self._current_phase_id,
+                                completed=stats["imported"] + stats["failed"],
+                                failed=stats["failed"],
+                                skipped=stats["skipped"],
+                            )
 
                 for resource in resources_to_import:
-                    source_id = resource.pop("_source_id", None)
+                    resource_data = dict(resource)
+                    source_id = resource_data.pop("_source_id", None)
                     if not source_id:
                         continue
 
                     result = await importer.import_resource(
                         resource_type=resource_type,
                         source_id=source_id,
-                        data=resource,
+                        data=resource_data,
                     )
 
                     if result:
@@ -672,6 +936,29 @@ class MigrationCoordinator:
                         inventory_source_ids_for_sync,
                         self.config.performance,
                     )
+
+                if (
+                    resource_type == "constructed_inventories"
+                    and precheck_input
+                    and hasattr(importer, "sync_input_inventories_for_constructed_resources")
+                ):
+                    await importer.sync_input_inventories_for_constructed_resources(precheck_input)
+
+                if resource_type == "teams" and self._users_for_team_resync:
+                    user_importer = create_importer(
+                        "users",
+                        self.target_client,
+                        self.state,
+                        self.config.performance,
+                        self.config.resource_mappings,
+                        skip_execution_environment_names=self.config.export.skip_execution_environment_names,
+                        skip_credential_names=self.config.export.skip_credential_names,
+                    )
+                    if hasattr(user_importer, "sync_team_memberships_for_existing_users"):
+                        await user_importer.sync_team_memberships_for_existing_users(
+                            self._users_for_team_resync
+                        )
+                    self._users_for_team_resync = []
 
                 # Report any import errors
                 if importer.import_errors:

@@ -62,6 +62,8 @@ in the repository.
 - Host bulk import reruns now skip already-mapped hosts and persist host progress state
 - Gateway RBAC routing for 2.5+ sources (dual-base role definitions/assignments,
   `shared.*` content types, target `_api_base` remapping)
+- Gateway RBAC assignment dedupe and principal resolution when gateway and
+  controller APIs use different surrogate IDs for the same user, team, or assignment
 - Legacy source RBAC (1.0–2.4) converted to role assignments on AAP 2.6 targets
 - Role definitions export via parallel path on AAP 2.5+ sources
 - Team member sync when team create is skipped on rerun

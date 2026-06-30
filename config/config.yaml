@@ -6,6 +6,7 @@
 # ============================================================================
 source:
   url: ${SOURCE__URL}
+  version: ${SOURCE__VERSION}
   # token: ${SOURCE__TOKEN}
   # token_vault_path: source    # Use instead of token for Vault-backed auth
   verify_ssl: ${SOURCE__VERIFY_SSL}
@@ -13,6 +14,7 @@ source:
 
 target:
   url: ${TARGET__URL}
+  version: ${TARGET__VERSION}
   # token: ${TARGET__TOKEN}
   # token_vault_path: target    # Use instead of token for Vault-backed auth
   verify_ssl: ${TARGET__VERIFY_SSL}

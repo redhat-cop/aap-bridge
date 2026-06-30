@@ -5076,6 +5076,70 @@ async def _resolve_content_object_target_id(
     return None
 
 
+async def _lookup_principal_id_on_base(
+    client: Any,
+    api_base: str,
+    principal_type: str,
+    principal_name: str,
+) -> int | None:
+    """Look up a user or team id by name on a specific API base."""
+    if principal_type == "users":
+        params = {"username": principal_name, "page_size": 1}
+    else:
+        params = {"name": principal_name, "page_size": 1}
+
+    try:
+        response = await client.get_on_base(api_base, f"{principal_type}/", params=params)
+        results = response.get("results", [])
+        if results:
+            return int(results[0]["id"])
+    except Exception:
+        return None
+    return None
+
+
+async def _resolve_rbac_principal_id_for_assignment(
+    state: Any,
+    client: Any,
+    principal_type: str,
+    source_id: int,
+    assignment_api_base: str,
+) -> int | None:
+    """Return a principal pk valid for role_*_assignments on assignment_api_base.
+
+    Users and teams are created on the gateway API, but controller-scoped role
+    assignments are posted to the controller API. Resolve by username/name on the
+    assignment base when gateway topology is in use.
+    """
+    from aap_migration.client.api_layout import ApiMode
+
+    mapped_id = state.get_mapped_id(principal_type, source_id)
+    layout = client.api_layout
+
+    if layout.mode is not ApiMode.GATEWAY:
+        return mapped_id
+
+    principal_name = state.get_mapping_source_name(principal_type, source_id)
+
+    if principal_name:
+        resolved = await _lookup_principal_id_on_base(
+            client, assignment_api_base, principal_type, principal_name
+        )
+        if resolved is not None:
+            return resolved
+
+    if mapped_id is not None:
+        try:
+            await client.get_on_base(
+                assignment_api_base, f"{principal_type}/{mapped_id}/"
+            )
+            return mapped_id
+        except Exception:
+            pass
+
+    return None
+
+
 async def _resolve_role_definition_target_id(
     state: Any,
     client: Any,
@@ -5161,6 +5225,66 @@ def _resolve_user_target_id_for_assignment(
     except (TypeError, ValueError):
         return None
     return state.get_mapped_id("users", source_id)
+
+
+async def _resolve_assignment_user_id(
+    state: Any,
+    client: Any,
+    assignment: dict[str, Any],
+    user_source_id: Any,
+    api_base: str,
+) -> int | None:
+    """Resolve the user pk to use when POSTing a role_user_assignment."""
+    from aap_migration.client.api_layout import ApiMode
+
+    username = assignment.get("user_username")
+    if username and client.api_layout.mode is ApiMode.GATEWAY:
+        resolved = await _lookup_principal_id_on_base(
+            client, api_base, "users", str(username)
+        )
+        if resolved is not None:
+            return resolved
+
+    target_user_id = _resolve_user_target_id_for_assignment(
+        state, assignment, user_source_id
+    )
+    if user_source_id is not None:
+        resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
+            state, client, "users", int(user_source_id), api_base
+        )
+        if resolved_on_base is not None:
+            return resolved_on_base
+    return target_user_id
+
+
+async def _resolve_assignment_team_id(
+    state: Any,
+    client: Any,
+    assignment: dict[str, Any],
+    team_source_id: Any,
+    api_base: str,
+) -> int | None:
+    """Resolve the team pk to use when POSTing a role_team_assignment."""
+    from aap_migration.client.api_layout import ApiMode
+
+    team_name = assignment.get("team_name")
+    if team_name and client.api_layout.mode is ApiMode.GATEWAY:
+        resolved = await _lookup_principal_id_on_base(
+            client, api_base, "teams", str(team_name)
+        )
+        if resolved is not None:
+            return resolved
+
+    target_team_id = _resolve_team_target_id_for_assignment(
+        state, assignment, team_source_id
+    )
+    if team_source_id is not None:
+        resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
+            state, client, "teams", int(team_source_id), api_base
+        )
+        if resolved_on_base is not None:
+            return resolved_on_base
+    return target_team_id
 
 
 def _resolve_team_target_id_for_assignment(
@@ -5263,8 +5387,9 @@ class RoleUserAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve user
-            target_user_id = _resolve_user_target_id_for_assignment(
-                self.state, assignment, user_source_id
+            api_base = self.client.api_layout.base_for_role_assignment(content_type)
+            target_user_id = await _resolve_assignment_user_id(
+                self.state, self.client, assignment, user_source_id, api_base
             )
             if not target_user_id:
                 logger.warning(
@@ -5280,7 +5405,6 @@ class RoleUserAssignmentImporter(ResourceImporter):
                     "object_id": target_resource_id,
                     "user": target_user_id,
                 }
-                api_base = self.client.api_layout.base_for_role_assignment(content_type)
                 await self.client.post_on_base(
                     api_base, "role_user_assignments/", json_data=payload
                 )
@@ -5381,8 +5505,9 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                 continue
 
             # Resolve team
-            target_team_id = _resolve_team_target_id_for_assignment(
-                self.state, assignment, team_source_id
+            api_base = self.client.api_layout.base_for_role_assignment(content_type)
+            target_team_id = await _resolve_assignment_team_id(
+                self.state, self.client, assignment, team_source_id, api_base
             )
             if not target_team_id:
                 logger.warning(
@@ -5398,7 +5523,6 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                     "object_id": target_resource_id,
                     "team": target_team_id,
                 }
-                api_base = self.client.api_layout.base_for_role_assignment(content_type)
                 await self.client.post_on_base(
                     api_base, "role_team_assignments/", json_data=payload
                 )

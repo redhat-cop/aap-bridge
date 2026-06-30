@@ -65,6 +65,12 @@ class TestNormalizeHostUrl:
     def test_strips_api_suffixes(self, raw: str, expected: str) -> None:
         assert normalize_host_url(raw) == expected
 
+    def test_accepts_instance_label(self) -> None:
+        assert (
+            normalize_host_url("https://aap.example.com", instance="source")
+            == "https://aap.example.com"
+        )
+
 
 class TestVersionParsing:
     """Tests for configured version parsing."""

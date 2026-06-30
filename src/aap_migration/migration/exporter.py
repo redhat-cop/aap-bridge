@@ -2051,7 +2051,8 @@ class RoleAssignmentListExporter(ResourceExporter):
         params = filters.copy() if filters else {}
         layout = self.client.api_layout
         bases = layout.role_assignment_bases()
-        seen_ids: set[int] = set()
+        # Assignment surrogate ids are only unique per API base — do not dedupe across bases.
+        seen_ids: set[tuple[str, int]] = set()
         # key -> (api_base, raw resource); prefer the base where import creates assignments
         logical_assignments: dict[tuple[Any, ...], tuple[str, dict[str, Any]]] = {}
         id_only_resources: list[dict[str, Any]] = []
@@ -2084,12 +2085,12 @@ class RoleAssignmentListExporter(ResourceExporter):
                 results = response.get("results", [])
                 for resource in results:
                     rid = resource.get("id")
-                    if rid is not None and rid in seen_ids:
+                    if rid is not None and (base, rid) in seen_ids:
                         continue
                     dedupe_key = self._assignment_dedupe_key(resource, resource_type)
                     if dedupe_key is None:
                         if rid is not None:
-                            seen_ids.add(rid)
+                            seen_ids.add((base, rid))
                         id_only_resources.append(resource)
                         continue
 
@@ -2104,7 +2105,7 @@ class RoleAssignmentListExporter(ResourceExporter):
                         if base == preferred_base and existing_base != preferred_base:
                             logical_assignments[dedupe_key] = (base, resource)
                     if rid is not None:
-                        seen_ids.add(rid)
+                        seen_ids.add((base, rid))
 
                 if not response.get("next") or not results:
                     break

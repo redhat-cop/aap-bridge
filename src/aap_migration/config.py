@@ -9,9 +9,16 @@ from pathlib import Path
 
 import yaml
 
-from aap_migration.client.api_layout import normalize_host_url
+from aap_migration.client.api_layout import normalize_host_url, parse_aap_major_minor
+from aap_migration.utils.logging import get_logger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_aap_version(version: str) -> str:
+    """Normalize and validate an AAP version string to major.minor."""
+    major, minor = parse_aap_major_minor(version.strip())
+    return f"{major}.{minor}"
 
 
 class PathConfig(BaseModel):
@@ -98,6 +105,17 @@ class AAPInstanceConfig(BaseModel):
         if not v.startswith("https://"):
             raise ValueError("URL should use HTTPS for security")
         return normalize_host_url(v)
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, v: str | None) -> str | None:
+        """Validate configured AAP version format when provided."""
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            return None
+        return normalize_aap_version(stripped)
 
     @model_validator(mode="after")
     def validate_token_source(self) -> "AAPInstanceConfig":
@@ -798,6 +816,31 @@ class MigrationConfig(BaseSettings):
                     pass
         return self
 
+    @model_validator(mode="after")
+    def validate_aap_versions(self) -> "MigrationConfig":
+        """Require valid source and target AAP versions for API routing."""
+        for label, instance in (("source", self.source), ("target", self.target)):
+            if not instance.version:
+                env_name = f"{label.upper()}__VERSION"
+                raise ValueError(
+                    f"{label.capitalize()} AAP version is required "
+                    f"(set {env_name} in .env, e.g. '2.4' or '2.6')"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def log_instance_configuration(self) -> "MigrationConfig":
+        """Log resolved source and target host URLs for visibility."""
+        logger = get_logger(__name__)
+        for label, instance in (("source", self.source), ("target", self.target)):
+            logger.info(
+                "migration_instance_configured",
+                instance=label,
+                host_url=instance.url,
+                aap_version=instance.version,
+            )
+        return self
+
 
 def find_project_root(start: Path | None = None) -> Path:
     """Return the repository root (directory containing pyproject.toml)."""
@@ -836,7 +879,10 @@ def resolve_config_path(config: str | Path | None = None) -> Path | None:
 
 
 def load_config_from_yaml(config_path: str | Path) -> MigrationConfig:
-    """Load configuration from YAML file.
+    """Load configuration for CLI and TUI workflows from YAML and ``.env``.
+
+    Source and target URLs, tokens, and versions come from ``SOURCE__*`` and
+    ``TARGET__*`` environment variables referenced in ``config/config.yaml``.
 
     Args:
         config_path: Path to YAML configuration file
@@ -866,6 +912,46 @@ def load_config_from_yaml(config_path: str | Path) -> MigrationConfig:
     config_data = _unwrap_env_results(config_data)
 
     return MigrationConfig(**config_data)
+
+
+def load_config_tuning_from_yaml(config_path: str | Path) -> dict:
+    """Load non-instance settings from a YAML configuration file (Web UI).
+
+    Source and target blocks are removed so the Web UI can supply instance
+    URLs, tokens, and versions from saved connections instead of ``SOURCE__*``
+    / ``TARGET__*`` environment variables.
+
+    Args:
+        config_path: Path to YAML configuration file
+
+    Returns:
+        dict: Tuning settings suitable for ``MigrationConfig(**tuning)``
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        ValueError: If config file is invalid
+    """
+    config_path = Path(config_path)
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    with open(config_path) as f:
+        config_data = yaml.safe_load(f)
+
+    if not config_data:
+        raise ValueError(f"Empty configuration file: {config_path}")
+
+    config_data = _expand_env_vars(config_data)
+    config_data = _prune_unconfigured_sections(config_data)
+    config_data = _unwrap_env_results(config_data)
+
+    if isinstance(config_data, dict):
+        config_data.pop("source", None)
+        config_data.pop("target", None)
+        return config_data
+
+    raise ValueError(f"Invalid configuration file: {config_path}")
 
 
 class _EnvVarResult:

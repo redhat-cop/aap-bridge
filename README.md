@@ -12,7 +12,9 @@ migrations (e.g., 80,000+ hosts)
 - **Idempotency**: Safely resume interrupted migrations without creating
   duplicates
 - **Broad Source Version Support**: Migrate from AAP 1.0, 1.1, 1.2, 2.0, 2.1,
-  2.2, 2.3, 2.4, 2.5, or 2.6 to a target AAP 2.6+ instance
+  2.2, 2.3, 2.4, 2.5, or 2.6 — or from upstream AWX at the equivalent release
+  level — to a target AAP 2.6+ instance (only AWX 24.6.1 has been tested as a
+  source; see [AWX Migration](docs/reference/awx-migration.md))
 - **Complete Resource Coverage**: Organizations, users, teams, credentials,
   execution environments, inventories, groups, hosts, projects, job templates,
   workflow job templates (including nodes, survey specs, and notification
@@ -54,6 +56,8 @@ The tool is organized into several key components:
 - **Network**: Access to Source AAP, Target AAP, and the state management
   PostgreSQL database (not AAP)
 - **Credentials**: API tokens for source and target AAP instances. The source
+  may be AAP or AWX (configure `SOURCE__VERSION` to the equivalent AAP version
+  for AWX; see [AWX Migration](docs/reference/awx-migration.md)). The source
   token needs read-only scope (sufficient RBAC to read all resources being
   migrated). The target token needs read/write scope (admin-level access to
   create and modify resources during import and cleanup).
@@ -81,7 +85,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv sync
 ```
 
-If `uv` is not available on your system, for instance, a RHEL 8 machine, the venv can be created with native packages
+If `uv` is not available on your system, for instance, a RHEL 8 machine, the venv can be created
+with native packages
+
 ```bash
 # Clone the repository
 git clone https://github.com/redhat-cop/aap-bridge.git
@@ -422,6 +428,8 @@ docs/
 │   ├── adding-resource-types.md       # How to add new resource types
 │   └── architecture.md                # Architecture overview
 └── reference/
+    ├── compatibility-matrix.md        # Source-to-target version paths
+    ├── awx-migration.md               # AWX source configuration and mapping
     └── changelog.md                   # Version history
 ```
 

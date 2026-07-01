@@ -58,6 +58,9 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - **AAP Token Retrieval Docs**: `curl` commands with `jq` for retrieving API tokens from
   AAP 2.4 and earlier (`/api/v2/tokens/`) and AAP 2.5+ (`/api/gateway/v1/tokens/`) are
   now documented
+- **AWX Migration Documentation**: Documented AWX as a supported migration source via
+  equivalent AAP version configuration; added version mapping reference and compatibility
+  matrix entries (only AWX 24.6.1 tested)
 
 ### Changed
 

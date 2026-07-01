@@ -9,11 +9,40 @@ The only tools needed on the host:
 
 - **podman** (with `podman compose` support)
 - **make**
+- Access to **registry.redhat.io** (PostgreSQL, UBI base images, and the builder image)
 - Red Hat subscription credentials (for RHSM registration inside containers)
 - Red Hat API offline token (for downloading AAP installer bundles)
 - AAP subscription manifest zip file (for licensing AAP instances after install)
 
 Get your offline token at [https://access.redhat.com/management/api](https://access.redhat.com/management/api).
+
+This workflow builds on the [container CLI setup](../getting-started/installation.md#container-cli)
+from the installation guide. You do not need Python, Ansible, or PostgreSQL installed on the
+host — the bridge and database run in containers.
+
+### Host kernel setting
+
+Golden image builds run privileged systemd containers (and podman-in-podman for AAP 2.5+).
+These workloads consume kernel keyring entries. The default limit on many systems
+(`kernel.keys.maxkeys=200`) is too low and can cause `add_key: quota exceeded` errors
+mid-build.
+
+Raise it once on your development host:
+
+```bash
+echo 'kernel.keys.maxkeys = 5000' | sudo tee /etc/sysctl.d/99-aap-bridge.conf
+sudo sysctl --system
+```
+
+Verify:
+
+```bash
+sysctl kernel.keys.maxkeys
+```
+
+This is a permanent, system-wide setting that survives reboots. It is a common tweak for
+container-heavy development machines. To undo it, delete `/etc/sysctl.d/99-aap-bridge.conf`
+and run `sudo sysctl --system`.
 
 ### Subscription Manifest
 
@@ -51,28 +80,60 @@ Host (podman + make)
 ## Quick Start
 
 ```bash
-# 1. Build the app and start the CLI dev container with postgres
+git clone https://github.com/redhat-cop/aap-bridge.git
+cd aap-bridge
+
+# 1. Create .env (generates PostgreSQL credentials and encryption key)
+#    Skip if you already have one from make setup
+make init-env
+
+# 2. Authenticate once so compose can pull Red Hat images
+podman login registry.redhat.io
+
+# 3. Place the subscription manifest zip in tests/integration/files/manifest/
+
+# 4. Build the app and start the CLI dev container with postgres
 make build
 make up-dev
 
-# 2. Run tests inside the bridge container
+# 5. Quick smoke check inside the bridge container
 make c-test
 
-# 3. Build the ansible builder image (once)
+# 6. Build the ansible builder image (once)
 make build-builder
 
-# 4. Build AAP base images (once)
+# 7. Build AAP base images (once)
 make build-aap-bases
 
-# 5. Build an AAP golden image (once per version, ~45 min)
+# 8. Build an AAP golden image (once per version, ~45 min)
+#    Requires kernel.keys.maxkeys >= 5000 (see Prerequisites)
+#    Set up secrets first (see Secrets Management below)
 make build-aap VERSION=2.4 RHSM_USER=myuser RHSM_PASS=mypass
 
-# 6. Run a migration test pair
+# 9. Run a migration test pair
 make run-pair SOURCE=2.4 TARGET=2.6
 make test-bridge SOURCE=2.4 TARGET=2.6
 
-# 7. Reset the pair (instant, from golden images)
+# 10. Reset the pair (instant, from golden images)
 make reset-pair SOURCE=2.4 TARGET=2.6
+```
+
+### Notes
+
+- `compose.yml` pulls `registry.redhat.io/rhel9/postgresql-15` for the bundled database service.
+- `make up-dev` is a shortcut for `podman compose up -d db bridge`.
+- The bridge container mounts `./src` and `./tests/unit` from the host so `make c-test`
+  and other `c-*` targets run against your working tree without rebuilding the image.
+- The bridge container stores logs, exports, and reports in compose-managed volumes under `/app`.
+- `make down` stops the bridge and database containers when you are finished.
+
+### Verify
+
+Inside the bridge container opened with `make shell`:
+
+```bash
+aap-bridge --version
+aap-bridge --help
 ```
 
 ## Secrets Management
@@ -113,7 +174,7 @@ group variables — no extra includes needed.
 2. Environment variables (`RHSM_USER`, `RHSM_PASS`, `RH_TOKEN`, `AAP_ADMIN_PASSWORD`, `AAP_PG_PASSWORD`)
 3. Role defaults — fallback to `redhat123!` for AAP passwords, omit for credentials
 
-Both `.vault_pass` and the bundles directory are gitignored.
+Both `.vault_pass`, `inventory/group_vars/vault.yml`, and the bundles directory are gitignored.
 
 ### Option 2: Environment variables
 
@@ -146,7 +207,8 @@ make build-aap VERSION=2.4 \
 
 ## Building AAP Golden Images
 
-Golden images are pre-installed AAP containers committed with `podman commit`. Build once, reuse many times.
+Golden images are pre-installed AAP containers committed with `podman commit`.
+Build once, reuse many times.
 
 ### Supported Versions
 
@@ -162,7 +224,8 @@ Golden images are pre-installed AAP containers committed with `podman commit`. B
 make build-aap VERSION=2.4
 ```
 
-This creates a container, runs the AAP installer inside it, commits the result as `localhost/aap-golden-2.4:latest`, and removes the build container.
+This creates a container, runs the AAP installer inside it, commits the result as
+`localhost/aap-golden-2.4:latest`, and removes the build container.
 
 ### Build all versions
 
@@ -264,7 +327,8 @@ make status
 
 ### Installer troubleshooting
 
-If the AAP installer fails, the build output shows the last 150 lines of the installer log automatically. Common issues:
+If the AAP installer fails, the build output shows the last 150 lines of the installer log
+automatically. Common issues:
 
 | Error | Fix |
 |-------|-----|
@@ -274,6 +338,7 @@ If the AAP installer fails, the build output shows the last 150 lines of the ins
 | `en_US.UTF-8` locale missing | Fixed: `glibc-langpack-en` in base image |
 | `loginctl enable-linger` fails | Fixed: `systemd-logind` unmasked |
 | `sysctl: Read-only file system` | Fixed: containers run privileged |
+| `add_key: quota exceeded` | Raise `kernel.keys.maxkeys` (see Prerequisites) |
 
 ## File Layout
 
@@ -290,7 +355,8 @@ tests/integration/
 │   └── matrix.yml                   # Version matrix (all per-version config)
 ├── inventory/
 │   └── group_vars/
-│       └── all.yml                  # Shared variables
+│       ├── all.yml                  # Shared variables
+│       └── vault.yml                # Vaulted secrets (gitignored)
 ├── roles/
 │   ├── aap_install/                 # Install AAP inside container
 │   ├── base_container/              # Create + start systemd container
@@ -303,6 +369,7 @@ tests/integration/
 │   ├── reset-pair.yml               # Reset pair from golden images
 │   └── ...
 ├── files/
+│   ├── manifest/                    # Subscription manifest zip (gitignored)
 │   └── aap-installer-bundles/       # Downloaded bundles (gitignored)
 └── generated/
     └── pairs/                       # Per-pair bridge configs (gitignored)

@@ -2321,6 +2321,13 @@ class RoleAssignmentTransformer(DataTransformer):
         if content_obj and content_obj.get("name"):
             data["content_object_name"] = content_obj["name"]
 
+        user_summary = summary.get("user") or {}
+        if user_summary.get("username"):
+            data["user_username"] = user_summary["username"]
+        team_summary = summary.get("team") or {}
+        if team_summary.get("name"):
+            data["team_name"] = team_summary["name"]
+
         content_type = data.get("content_type")
         if content_type:
             data["content_type"] = normalize_rbac_content_type(content_type) or content_type

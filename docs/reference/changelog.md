@@ -12,11 +12,12 @@ in the repository.
 
 **New Features:**
 
+- AAP 2.7 supported as a migration source and target
 - Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and
   bridge images (`make build`, `make up-dev`, `make shell`, etc.)
 - Web UI: React/PatternFly browser interface with connection management, migration
   preview, TUI-matching phased migration controls, job history, and live log streaming
-- Source version support expanded to AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6
+- Source version support expanded to AAP 1.0 through 2.7 (sources) and AAP 2.6 and 2.7 (targets)
 - Survey spec migration for job templates and workflow job templates
 - Notification template association migration (started/success/error/approvals)
 - Nested inventory group hierarchy export and import
@@ -62,6 +63,8 @@ in the repository.
 - Host bulk import reruns now skip already-mapped hosts and persist host progress state
 - Gateway RBAC routing for 2.5+ sources (dual-base role definitions/assignments,
   `shared.*` content types, target `_api_base` remapping)
+- Gateway RBAC assignment dedupe and principal resolution when gateway and
+  controller APIs use different surrogate IDs for the same user, team, or assignment
 - Legacy source RBAC (1.0–2.4) converted to role assignments on AAP 2.6 targets
 - Role definitions export via parallel path on AAP 2.5+ sources
 - Team member sync when team create is skipped on rerun

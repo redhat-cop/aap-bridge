@@ -56,8 +56,8 @@ the web UI layers a FastAPI engine plus React frontend on top of that core:
 
 ```mermaid
 graph LR
-    A[Source AAP<br/>2.3/2.4] -->|Export| B[AAP Bridge<br/>ETL Engine]
-    B -->|Load| C[Target AAP<br/>2.6+]
+    A[Source AAP<br/>1.0–2.7] -->|Export| B[AAP Bridge<br/>ETL Engine]
+    B -->|Load| C[Target AAP<br/>2.6/2.7]
     B <-->|State<br/>Management| D[(PostgreSQL<br/>State Database)]
 
     style A fill:#e1f5ff,stroke:#01579b,stroke-width:2px

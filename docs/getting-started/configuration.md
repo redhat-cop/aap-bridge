@@ -73,7 +73,7 @@ curl -k -X POST -u "<username>:<password>" \
   -d '{"description": "AAP Bridge Source Token", "scope": "read"}' \
   https://<source_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
 
-# Target (AAP 2.6+) — read/write scope via Platform Gateway
+# Target (AAP 2.6 or 2.7) — read/write scope via Platform Gateway
 curl -k -X POST -u "<username>:<password>" \
   -H "Content-Type: application/json" \
   -d '{"description": "AAP Bridge Target Token", "scope": "write"}' \

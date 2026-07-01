@@ -188,6 +188,7 @@ def test_update_token_resets_only_auth_metadata(db_session, monkeypatch: pytest.
             type="aap",
             role="destination",
             url="https://localhost:20947/api/controller/v2",
+            version="2.6",
             token="token",
             verify_ssl=False,
         )
@@ -276,6 +277,7 @@ def test_failed_connection_test_preserves_existing_api_prefix(
             type="aap",
             role="destination",
             url="https://localhost:20947/api/controller/v2",
+            version="2.6",
             token="token",
             verify_ssl=False,
         )

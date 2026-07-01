@@ -131,8 +131,10 @@ async def test_run_connection_cleanup_uses_cli_cleanup_helpers(tmp_path: Path) -
     assert result.cleared_progress == 12
     assert result.deleted_mappings == 34
     assert set(result.directories_removed) == {"exports", "xformed"}
-    assert not (tmp_path / "exports").exists()
-    assert not (tmp_path / "xformed").exists()
+    assert (tmp_path / "exports").exists()
+    assert not any((tmp_path / "exports").iterdir())
+    assert (tmp_path / "xformed").exists()
+    assert not any((tmp_path / "xformed").iterdir())
     assert mock_client.close.await_count == 1
 
 

@@ -3856,13 +3856,32 @@ class ProjectImporter(ResourceImporter):
         return await self._import_parallel("projects", projects, progress_callback)
 
 
+PROJECT_SYNC_ACTIVE_STATUSES = frozenset({"pending", "waiting", "running"})
+PROJECT_SYNC_FAILED_STATUSES = frozenset({"failed", "error", "canceled"})
+
+
+def normalize_project_sync_status(status: str | None) -> str:
+    """Normalize an AAP project sync status string."""
+    return (status or "").strip().lower()
+
+
+def project_sync_in_progress(status: str | None) -> bool:
+    """Return True when the project has an SCM sync job still running."""
+    return normalize_project_sync_status(status) in PROJECT_SYNC_ACTIVE_STATUSES
+
+
+def project_sync_failed(status: str | None) -> bool:
+    """Return True when the project's last SCM sync ended unsuccessfully."""
+    return normalize_project_sync_status(status) in PROJECT_SYNC_FAILED_STATUSES
+
+
 async def wait_for_project_sync(
     client: "AAPTargetClient",
     project_ids: list[int],
     timeout: int = 600,
     poll_interval: int = 10,
     progress_callback: Callable[[int, int, int], None] | None = None,
-) -> tuple[int, int, list[int]]:
+) -> tuple[int, int, list[int], list[int]]:
     """Wait for projects to complete SCM sync after import.
 
     After projects are imported to AAP, they automatically trigger an SCM sync.
@@ -3877,12 +3896,21 @@ async def wait_for_project_sync(
         progress_callback: Optional callback for progress updates (completed, total)
 
     Returns:
-        Tuple of (synced_count, failed_count, list_of_failed_project_ids)
+        Tuple of (
+            synced_count,
+            failed_count,
+            list_of_failed_project_ids,
+            list_of_in_progress_project_ids,
+        )
+
+        On timeout, projects whose last observed status was still syncing are returned
+        in ``in_progress_project_ids`` rather than ``failed_project_ids`` so callers
+        can keep waiting without triggering another SCM update.
     """
     import time
 
     if not project_ids:
-        return (0, 0, [])
+        return (0, 0, [], [])
 
     logger.info(
         "waiting_for_project_sync",
@@ -3894,20 +3922,34 @@ async def wait_for_project_sync(
     start_time = time.time()
     synced: set[int] = set()
     failed: set[int] = set()
+    last_status: dict[int, str] = {}
 
     while True:
         elapsed = time.time() - start_time
         if elapsed > timeout:
-            # Timeout - remaining projects count as failed
+            # Timeout - classify remaining projects by last observed status
             remaining = set(project_ids) - synced - failed
+            in_progress: list[int] = []
+            timed_out_other: list[int] = []
+            for project_id in remaining:
+                if project_sync_in_progress(last_status.get(project_id)):
+                    in_progress.append(project_id)
+                else:
+                    timed_out_other.append(project_id)
             logger.warning(
                 "project_sync_timeout",
                 synced=len(synced),
                 failed=len(failed),
-                timed_out=len(remaining),
+                in_progress=len(in_progress),
+                timed_out_other=len(timed_out_other),
                 elapsed_seconds=int(elapsed),
             )
-            return (len(synced), len(failed) + len(remaining), list(failed | remaining))
+            return (
+                len(synced),
+                len(failed) + len(timed_out_other),
+                list(failed | set(timed_out_other)),
+                in_progress,
+            )
 
         # Check status of remaining projects
         pending = set(project_ids) - synced - failed
@@ -3916,6 +3958,7 @@ async def wait_for_project_sync(
             try:
                 project = await client.get(f"projects/{project_id}/")
                 status = project.get("status", "unknown")
+                last_status[project_id] = normalize_project_sync_status(status)
                 scm_type = project.get("scm_type", "")
 
                 # Manual projects (no SCM) - no sync needed
@@ -3929,7 +3972,7 @@ async def wait_for_project_sync(
                     continue
 
                 # Project synced successfully
-                if status == "successful":
+                if last_status[project_id] == "successful":
                     synced.add(project_id)
                     logger.debug(
                         "project_sync_complete",
@@ -3937,7 +3980,7 @@ async def wait_for_project_sync(
                         name=project.get("name"),
                     )
                 # Project sync failed
-                elif status in ("failed", "error", "canceled"):
+                elif project_sync_failed(last_status[project_id]):
                     failed.add(project_id)
                     logger.warning(
                         "project_sync_failed",
@@ -3966,7 +4009,7 @@ async def wait_for_project_sync(
                 failed=len(failed),
                 elapsed_seconds=int(time.time() - start_time),
             )
-            return (len(synced), len(failed), list(failed))
+            return (len(synced), len(failed), list(failed), [])
 
         await asyncio.sleep(poll_interval)
 

@@ -22,11 +22,115 @@ from aap_migration.cli.utils import (
     echo_warning,
     step_progress,
 )
-from aap_migration.migration.importer import wait_for_project_sync
+from aap_migration.migration.importer import (
+    project_sync_failed,
+    project_sync_in_progress,
+    wait_for_project_sync,
+)
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+_PROJECT_SCM_BOOL_FIELDS = (
+    "scm_clean",
+    "scm_delete_on_update",
+    "scm_update_on_launch",
+)
+
+
+def load_projects_with_deferred_scm(input_dir: Path) -> list[dict]:
+    """Load transformed projects that still carry deferred SCM details."""
+    projects_dir = input_dir / "projects"
+    if not projects_dir.exists():
+        return []
+
+    projects: list[dict] = []
+    for json_file in sorted(projects_dir.glob("projects_*.json")):
+        try:
+            with open(json_file) as f:
+                for resource in json.load(f):
+                    if "_deferred_scm_details" in resource:
+                        projects.append(resource)
+        except Exception as e:
+            echo_error(f"Failed to load {json_file}: {e}")
+    return projects
+
+
+def _scm_fields_match(target: dict, deferred: dict, ctx: MigrationContext) -> bool:
+    """Return True when the target project already has the deferred SCM configuration."""
+    target_scm = target.get("scm_type") or ""
+    deferred_scm = deferred.get("scm_type") or ""
+    if not deferred_scm or target_scm != deferred_scm:
+        return False
+    if (target.get("scm_url") or "") != (deferred.get("scm_url") or ""):
+        return False
+    if (target.get("scm_branch") or "") != (deferred.get("scm_branch") or ""):
+        return False
+    for field in _PROJECT_SCM_BOOL_FIELDS:
+        if bool(target.get(field)) != bool(deferred.get(field, False)):
+            return False
+    if int(target.get("scm_update_cache_timeout") or 0) != int(
+        deferred.get("scm_update_cache_timeout") or 0
+    ):
+        return False
+
+    source_cred_id = deferred.get("credential")
+    if source_cred_id:
+        expected_cred = ctx.migration_state.get_mapped_id("credentials", source_cred_id)
+        if expected_cred and target.get("credential") != expected_cred:
+            return False
+    return True
+
+
+async def classify_project_patch_action(
+    ctx: MigrationContext,
+    target_id: int,
+    deferred: dict,
+) -> str:
+    """Classify how Phase 2 should handle one project.
+
+    Returns one of:
+      - ``patch``: apply deferred SCM details to the target project
+      - ``skip``: SCM already matches and no sync follow-up is needed
+      - ``wait_sync``: SCM already matches but a sync is still in progress
+      - ``retry_sync``: SCM already matches but the last sync failed
+    """
+    try:
+        target = await ctx.target_client.get(f"projects/{target_id}/")
+    except Exception as e:
+        logger.warning(
+            "project_patch_status_check_failed",
+            target_id=target_id,
+            error=str(e),
+        )
+        return "patch"
+
+    if not _scm_fields_match(target, deferred, ctx):
+        return "patch"
+
+    status = (target.get("status") or "").lower()
+    if status in ("pending", "waiting", "running"):
+        return "wait_sync"
+    if status in ("failed", "error", "canceled"):
+        return "retry_sync"
+    return "skip"
+
+
+async def count_projects_needing_scm_patch(ctx: MigrationContext, input_dir: Path) -> int:
+    """Count projects that still require Phase 2 patching or sync follow-up."""
+    count = 0
+    for project in load_projects_with_deferred_scm(input_dir):
+        source_id = project.get("_source_id")
+        target_id = ctx.migration_state.get_mapped_id("projects", source_id)
+        deferred = project.get("_deferred_scm_details", {})
+        if not target_id:
+            count += 1
+            continue
+        action = await classify_project_patch_action(ctx, target_id, deferred)
+        if action != "skip":
+            count += 1
+    return count
 
 
 class ProjectSyncFailedError(Exception):
@@ -47,26 +151,23 @@ class ProjectSyncFailedError(Exception):
         )
 
 
-async def _retry_project_sync(
+async def _trigger_project_sync_updates(
     ctx: MigrationContext,
-    failed_ids: list[int],
-    timeout: int,
-    poll_interval: int,
-) -> tuple[list[int], list[int]]:
-    """Trigger a manual sync for failed projects and wait for completion.
-
-    Args:
-        ctx: Migration context (provides client and config)
-        failed_ids: Target project IDs that previously failed
-        timeout: Seconds to wait for sync completion
-        poll_interval: Seconds between status polls
-
-    Returns:
-        Tuple of (still_failed_ids, recovered_ids)
-    """
+    project_ids: list[int],
+) -> list[int]:
+    """Trigger SCM updates only for projects that are not already syncing."""
     triggered: list[int] = []
-    for project_id in failed_ids:
+    for project_id in project_ids:
         try:
+            project = await ctx.target_client.get(f"projects/{project_id}/")
+            status = project.get("status")
+            if project_sync_in_progress(status):
+                logger.info(
+                    "project_sync_trigger_skipped_in_progress",
+                    project_id=project_id,
+                    status=status,
+                )
+                continue
             await ctx.target_client.post(f"projects/{project_id}/update/", json_data={})
             triggered.append(project_id)
             logger.info("project_sync_retry_triggered", project_id=project_id)
@@ -76,20 +177,75 @@ async def _retry_project_sync(
                 project_id=project_id,
                 error=str(e),
             )
+    return triggered
 
-    if not triggered:
-        return failed_ids, []
 
-    _, retry_failed_count, retry_failed_ids = await wait_for_project_sync(
+async def _retry_project_sync(
+    ctx: MigrationContext,
+    failed_ids: list[int],
+    timeout: int,
+    poll_interval: int,
+) -> tuple[list[int], list[int]]:
+    """Follow up on projects that did not finish syncing.
+
+    Re-triggers SCM updates only for projects whose last sync failed. Projects
+    that are still syncing (for example after a slow GitHub response) are left
+    alone and only polled so we do not queue duplicate project updates.
+
+    Args:
+        ctx: Migration context (provides client and config)
+        failed_ids: Target project IDs that need follow-up
+        timeout: Seconds to wait for sync completion
+        poll_interval: Seconds between status polls
+
+    Returns:
+        Tuple of (still_unfinished_ids, recovered_ids)
+    """
+    if not failed_ids:
+        return [], []
+
+    to_trigger: list[int] = []
+    to_wait: list[int] = []
+    recovered: list[int] = []
+
+    for project_id in failed_ids:
+        try:
+            project = await ctx.target_client.get(f"projects/{project_id}/")
+            status = project.get("status")
+            if (status or "").lower() == "successful":
+                recovered.append(project_id)
+            elif project_sync_in_progress(status):
+                to_wait.append(project_id)
+            elif project_sync_failed(status):
+                to_trigger.append(project_id)
+            elif project.get("scm_type"):
+                # SCM configured but status unknown - wait before re-triggering.
+                to_wait.append(project_id)
+            else:
+                to_trigger.append(project_id)
+        except Exception as e:
+            logger.warning(
+                "project_sync_follow_up_status_check_failed",
+                project_id=project_id,
+                error=str(e),
+            )
+            to_wait.append(project_id)
+
+    triggered = await _trigger_project_sync_updates(ctx, to_trigger)
+    wait_ids = list(dict.fromkeys(to_wait + triggered))
+    if not wait_ids:
+        still_unfinished = [pid for pid in failed_ids if pid not in recovered]
+        return still_unfinished, recovered
+
+    _, _, retry_failed_ids, retry_in_progress_ids = await wait_for_project_sync(
         client=ctx.target_client,
-        project_ids=triggered,
+        project_ids=wait_ids,
         timeout=timeout,
         poll_interval=poll_interval,
     )
 
-    still_failed = retry_failed_ids
-    recovered = [pid for pid in triggered if pid not in still_failed]
-    return still_failed, recovered
+    still_unfinished = list(dict.fromkeys(retry_failed_ids + retry_in_progress_ids))
+    return still_unfinished, recovered
 
 
 async def patch_project_scm_details(
@@ -118,19 +274,13 @@ async def patch_project_scm_details(
         interval: Seconds to sleep between batches (default 600)
         progress_display: Optional existing progress display to use
     """
-    projects_dir = input_dir / "projects"
-    if not projects_dir.exists():
-        echo_warning("No projects directory found in transformed output. Skipping Phase 2.")
+    projects_with_deferred = load_projects_with_deferred_scm(input_dir)
+    if not projects_with_deferred:
+        if not (input_dir / "projects").exists():
+            echo_warning("No projects directory found in transformed output. Skipping Phase 2.")
+        elif not progress_display:
+            echo_info("No projects found with deferred SCM details. Phase 2 not required.")
         return
-
-    # Find all project files
-    json_files = sorted(projects_dir.glob("projects_*.json"))
-    if not json_files:
-        echo_warning("No project files found. Skipping Phase 2.")
-        return
-
-    # Load all projects with deferred details
-    projects_to_patch = []
 
     # If progress_display is active, suppress step_progress to avoid Live display conflicts
     scan_ctx = (
@@ -139,23 +289,42 @@ async def patch_project_scm_details(
         else nullcontext()
     )
 
+    work_items: list[tuple[dict, str]] = []
+    skipped_already_configured = 0
     with scan_ctx:
-        for json_file in json_files:
-            try:
-                with open(json_file) as f:
-                    resources = json.load(f)
-                    for resource in resources:
-                        if "_deferred_scm_details" in resource:
-                            projects_to_patch.append(resource)
-            except Exception as e:
-                echo_error(f"Failed to load {json_file}: {e}")
+        for project in projects_with_deferred:
+            source_id = project.get("_source_id")
+            deferred = project.get("_deferred_scm_details", {})
+            target_id = ctx.migration_state.get_mapped_id("projects", source_id)
+            if not target_id:
+                work_items.append((project, "patch"))
+                continue
 
-    if not projects_to_patch:
+            action = await classify_project_patch_action(ctx, target_id, deferred)
+            if action == "skip":
+                skipped_already_configured += 1
+                logger.debug(
+                    "project_patch_skipped_already_configured",
+                    source_id=source_id,
+                    target_id=target_id,
+                    name=project.get("name"),
+                )
+            else:
+                work_items.append((project, action))
+
+    if not work_items:
+        logger.info(
+            "phase2_skipped_all_projects_already_configured",
+            skipped=skipped_already_configured,
+        )
         if not progress_display:
-            echo_info("No projects found with deferred SCM details. Phase 2 not required.")
+            echo_info(
+                f"All {skipped_already_configured} project(s) already have SCM configured. "
+                "Skipping Phase 2 patching."
+            )
         return
 
-    total_projects = len(projects_to_patch)
+    total_projects = len(work_items)
     max_retries = ctx.config.performance.project_sync_max_retries
     fail_on_failure = ctx.config.performance.project_sync_fail_on_sync_failure
     poll_interval = ctx.config.performance.project_sync_poll_interval
@@ -196,13 +365,19 @@ async def patch_project_scm_details(
         # Accumulates target IDs that failed sync across all batches after all retries
         permanently_failed_ids: list[int] = []
 
+        if skipped_already_configured and not progress_display:
+            echo_info(
+                f"Skipping {skipped_already_configured} project(s) already configured on target."
+            )
+
         # Process in batches
         for i in range(0, total_projects, batch_size):
-            batch = projects_to_patch[i : i + batch_size]
-            batch_target_ids = []
+            batch = work_items[i : i + batch_size]
+            batch_target_ids: list[int] = []
+            batch_retry_ids: list[int] = []
 
-            # Patch this batch
-            for project in batch:
+            # Patch or queue sync follow-up for this batch
+            for project, action in batch:
                 source_id = project.get("_source_id")
                 name = project.get("name")
                 deferred = project.get("_deferred_scm_details", {})
@@ -218,6 +393,18 @@ async def patch_project_scm_details(
                         message="Project not found in map (not imported?)",
                     )
                     failed_patch_count += 1
+                    progress.update_phase("patching", patched_count, failed_patch_count)
+                    continue
+
+                target_id_to_name[target_id] = name or f"project_{target_id}"
+
+                if action == "wait_sync":
+                    batch_target_ids.append(target_id)
+                    progress.update_phase("patching", patched_count, failed_patch_count)
+                    continue
+
+                if action == "retry_sync":
+                    batch_retry_ids.append(target_id)
                     progress.update_phase("patching", patched_count, failed_patch_count)
                     continue
 
@@ -255,7 +442,6 @@ async def patch_project_scm_details(
                     patched_count += 1
                     batch_target_ids.append(target_id)
                     all_target_ids.append(target_id)
-                    target_id_to_name[target_id] = name or f"project_{target_id}"
 
                     logger.info(
                         "project_patched_scm",
@@ -275,6 +461,11 @@ async def patch_project_scm_details(
 
                 progress.update_phase("patching", patched_count, failed_patch_count)
 
+            for project_id in batch_retry_ids:
+                triggered = await _trigger_project_sync_updates(ctx, [project_id])
+                if triggered:
+                    batch_target_ids.append(project_id)
+
             # After batch is patched, wait for SCM sync and retry failures
             if batch_target_ids:
                 logger.info(
@@ -284,22 +475,26 @@ async def patch_project_scm_details(
                     message=f"Waiting up to {interval}s for batch sync to complete.",
                 )
 
-                _, batch_failed_count, batch_failed_ids = await wait_for_project_sync(
-                    client=ctx.target_client,
-                    project_ids=batch_target_ids,
-                    timeout=interval,
-                    poll_interval=poll_interval,
+                batch_synced_count, batch_failed_count, batch_failed_ids, batch_in_progress_ids = (
+                    await wait_for_project_sync(
+                        client=ctx.target_client,
+                        project_ids=batch_target_ids,
+                        timeout=interval,
+                        poll_interval=poll_interval,
+                    )
                 )
 
-                batch_synced = len(batch_target_ids) - batch_failed_count
                 logger.info(
                     "phase2_batch_complete",
-                    synced=batch_synced,
+                    synced=batch_synced_count,
                     failed=batch_failed_count,
+                    in_progress=len(batch_in_progress_ids),
                 )
 
-                # Retry failed syncs
-                still_failed_ids = batch_failed_ids
+                # Retry failed syncs (and keep waiting on in-progress syncs)
+                still_failed_ids = list(
+                    dict.fromkeys(batch_failed_ids + batch_in_progress_ids)
+                )
                 for attempt in range(1, max_retries + 1):
                     if not still_failed_ids:
                         break

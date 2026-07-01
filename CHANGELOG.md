@@ -116,6 +116,14 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - **Project Sync – Failure Detection**: Project SCM sync failures are now detected,
   automatically retried up to `project_sync_max_retries` times, and the run is aborted
   if the failure persists (configurable via `project_sync_fail_on_sync_failure`)
+- **Phase 2 Import – Re-run Idempotency**: Re-running import phase 2 no longer
+  re-PATCHes projects or polls for SCM sync when the target already has the deferred
+  SCM configuration applied; the patching phase is skipped entirely when all projects
+  are already configured
+- **Phase 2 Import – Duplicate SCM Syncs**: Follow-up project sync logic no longer
+  posts a second `projects/{id}/update/` while a sync is still running; slow GitHub
+  responses that exceed the batch wait timeout are kept in an in-progress state and
+  polled rather than re-triggered
 - **Schedules – System-Job Schedules Excluded**: `system_job` type schedules are now
   skipped during export, import, and cleanup to avoid 400 errors on the target
 - **Credential Types – Namespace Fallback**: Built-in credential types that were renamed

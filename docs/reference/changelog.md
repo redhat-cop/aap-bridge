@@ -48,6 +48,10 @@ in the repository.
 - Batch precheck scoping fixed for org-scoped, parent-scoped, notification template, and
   schedule resources
 - Project sync failure detection with retry and configurable abort
+- Phase 2 import re-run skips project patching and sync polling when target projects
+  already have SCM configured
+- Phase 2 import no longer triggers duplicate project SCM syncs when GitHub is slow;
+  in-progress syncs are polled instead of re-triggered after a batch wait timeout
 - System-job schedules excluded from export/import/cleanup
 - Managed credential types matched by namespace when name differs between versions
 - User team memberships exported and re-applied on import

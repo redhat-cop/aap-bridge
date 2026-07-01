@@ -5,7 +5,10 @@ from pydantic import ValidationError
 
 from aap_migration.config import (
     AAPInstanceConfig,
+    MigrationConfig,
     VaultConfig,
+    load_config_tuning_from_yaml,
+    normalize_aap_version,
 )
 
 
@@ -93,6 +96,84 @@ class TestAAPInstanceConfig:
 
         assert config.url == "https://aap.example.com"
 
+    def test_version_normalization(self):
+        """Test AAP version is normalized to major.minor."""
+        config = AAPInstanceConfig(
+            url="https://aap.example.com",
+            token="test-token",
+            version="2.5.1",
+        )
+
+        assert config.version == "2.5"
+
+    def test_invalid_version_rejected(self):
+        """Test placeholder or malformed versions are rejected."""
+        with pytest.raises(ValidationError, match="Invalid AAP version"):
+            AAPInstanceConfig(
+                url="https://aap.example.com",
+                token="test-token",
+                version="2.x",
+            )
+
+
+class TestNormalizeAapVersion:
+    def test_valid_versions(self):
+        assert normalize_aap_version("2.6") == "2.6"
+        assert normalize_aap_version("2.6.20260325") == "2.6"
+
+    def test_invalid_version(self):
+        with pytest.raises(ValueError, match="Invalid AAP version"):
+            normalize_aap_version("2.x")
+
+
+def _minimal_migration_config(**overrides) -> MigrationConfig:
+    source = AAPInstanceConfig(
+        url="https://source.example.com",
+        token="source-token",
+        version="2.4",
+    )
+    target = AAPInstanceConfig(
+        url="https://target.example.com",
+        token="target-token",
+        version="2.6",
+    )
+    data = {"source": source, "target": target}
+    data.update(overrides)
+    return MigrationConfig(**data)
+
+
+class TestMigrationConfigVersions:
+    def test_requires_source_version(self):
+        source = AAPInstanceConfig(
+            url="https://source.example.com",
+            token="source-token",
+        )
+        target = AAPInstanceConfig(
+            url="https://target.example.com",
+            token="target-token",
+            version="2.6",
+        )
+        with pytest.raises(ValidationError, match="Source AAP version is required"):
+            MigrationConfig(source=source, target=target)
+
+    def test_requires_target_version(self):
+        source = AAPInstanceConfig(
+            url="https://source.example.com",
+            token="source-token",
+            version="2.4",
+        )
+        target = AAPInstanceConfig(
+            url="https://target.example.com",
+            token="target-token",
+        )
+        with pytest.raises(ValidationError, match="Target AAP version is required"):
+            MigrationConfig(source=source, target=target)
+
+    def test_accepts_valid_versions(self):
+        config = _minimal_migration_config()
+        assert config.source.version == "2.4"
+        assert config.target.version == "2.6"
+
 
 class TestVaultConfig:
     """Tests for VaultConfig."""
@@ -139,3 +220,33 @@ class TestVaultConfig:
         )
 
         assert config.path_prefix == "secret/aap"
+
+
+def test_load_config_tuning_from_yaml_omits_instances(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        """
+source:
+  url: ${SOURCE__URL}
+  token: ${SOURCE__TOKEN}
+  version: ${SOURCE__VERSION}
+target:
+  url: ${TARGET__URL}
+  token: ${TARGET__TOKEN}
+  version: ${TARGET__VERSION}
+paths:
+  base_dir: .
+  export_dir: exports
+export:
+  skip_credential_names:
+    - demo
+""".strip()
+    )
+
+    tuning = load_config_tuning_from_yaml(config_file)
+
+    assert "source" not in tuning
+    assert "target" not in tuning
+    assert tuning["paths"]["export_dir"] == "exports"
+    assert tuning["export"]["skip_credential_names"] == ["demo"]
+

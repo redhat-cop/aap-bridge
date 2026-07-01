@@ -11,6 +11,14 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **AAP 2.7 Support**: AAP 2.7 is supported as both a migration source and target
+- **Optional Container CLI Workflow**: Podman Compose stack with
+  `registry.redhat.io/rhel9/postgresql-15` and bridge runtime/dev images for
+  running the CLI/TUI without provisioning PostgreSQL on the host; includes
+  `make build`, `make up-dev`, `make shell`, and related targets
+- **Web UI**: Browser-based migration interface built with React and PatternFly 5,
+  a FastAPI engine, and an nginx-served frontend (`make build-all` / `make up`),
+  with connection management, migration preview, TUI-matching phased migration
+  controls, job history, and live log streaming
 - **Source Version Support**: AAP 1.0 through 2.7 are supported as migration sources to
   AAP 2.6 and 2.7 targets
 - **Survey Spec Migration**: Job template and workflow job template survey specs are now
@@ -54,6 +62,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Local Host Setup**: `make setup` auto-detects **uv** when installed and falls
+  back to stdlib `venv` + **pip** when it is not
 - **Export and Transform Order Aligned with Import**: Resource types are now exported
   and transformed in the same dependency order as the import phase (credential types and
   credentials before projects; users and teams deferred until after all content objects

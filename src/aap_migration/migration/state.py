@@ -971,6 +971,39 @@ class MigrationState:
                 )
                 raise StateError(f"Failed to get mapped ID: {e}") from e
 
+    def get_mapping_source_name(
+        self,
+        resource_type: str,
+        source_id: int,
+    ) -> str | None:
+        """Return the source-side name/username stored for a mapped resource."""
+        resource_type = self._normalize(resource_type)
+        with self._lock:
+            try:
+                with get_session(self.database_url) as session:
+                    mapping = (
+                        session.query(IDMapping)
+                        .filter_by(resource_type=resource_type, source_id=source_id)
+                        .first()
+                    )
+                    if mapping and mapping.source_name:
+                        return mapping.source_name
+
+                    progress = (
+                        session.query(MigrationProgress)
+                        .filter_by(resource_type=resource_type, source_id=source_id)
+                        .first()
+                    )
+                    return progress.source_name if progress and progress.source_name else None
+            except Exception as e:
+                logger.error(
+                    "failed_to_get_mapping_source_name",
+                    resource_type=resource_type,
+                    source_id=source_id,
+                    error=str(e),
+                )
+                raise StateError(f"Failed to get mapping source name: {e}") from e
+
     def get_progress_target_id(
         self,
         resource_type: str,

@@ -1,0 +1,347 @@
+/* ================================================================
+   MigrationProgressView — AAP job output layout
+   ================================================================ */
+
+.mpv-output {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 260px);
+  min-height: 400px;
+  border: 1px solid var(--pf-v5-global--BorderColor--100);
+  border-radius: var(--pf-v5-global--BorderRadius--sm);
+  background: var(--pf-v5-global--BackgroundColor--100);
+  overflow: hidden;
+}
+
+.mpv-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pf-v5-global--Color--200);
+  font-size: 14px;
+}
+
+.mpv-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--pf-v5-global--BorderColor--100);
+  background: var(--pf-v5-global--BackgroundColor--200);
+  flex-shrink: 0;
+}
+
+.mpv-status-bar__left,
+.mpv-status-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mpv-status-bar__title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-right: 4px;
+}
+
+.mpv-dist-bar {
+  display: flex;
+  height: 4px;
+  flex-shrink: 0;
+}
+
+.mpv-dist-bar__segment {
+  height: 100%;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+
+.mpv-dist-bar__segment--created {
+  background: var(--pf-v5-global--success-color--100);
+}
+
+.mpv-dist-bar__segment--skipped {
+  background: var(--pf-v5-global--warning-color--100);
+}
+
+.mpv-dist-bar__segment--failed {
+  background: var(--pf-v5-global--danger-color--100);
+}
+
+.mpv-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--pf-v5-global--BorderColor--100);
+  background: var(--pf-v5-global--BackgroundColor--100);
+  flex-shrink: 0;
+}
+
+.mpv-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mpv-toolbar__spacer {
+  flex: 1;
+}
+
+.mpv-scroll {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--pf-v5-global--BackgroundColor--200);
+}
+
+.mpv-phase-group {
+  border-bottom: 1px solid var(--pf-v5-global--BorderColor--100);
+}
+
+.mpv-phase-group:last-child {
+  border-bottom: none;
+}
+
+.mpv-phase-group__header {
+  display: grid;
+  grid-template-columns: 56px 24px 24px 1fr auto 64px;
+  align-items: center;
+  padding: 8px 12px 8px 0;
+  gap: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--pf-v5-global--BackgroundColor--100);
+  border-bottom: 1px solid var(--pf-v5-global--BorderColor--100);
+  min-height: 42px;
+}
+
+.mpv-phase-group__header--clickable {
+  cursor: pointer;
+}
+
+.mpv-phase-group__header--clickable:hover {
+  background: var(--pf-v5-global--BackgroundColor--150, #f0f0f0);
+}
+
+.mpv-phase-group__gutter {
+  text-align: center;
+  font-size: 12px;
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  color: var(--pf-v5-global--Color--200);
+  white-space: nowrap;
+}
+
+.mpv-phase-group__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pf-v5-global--Color--200);
+  font-size: 14px;
+}
+
+.mpv-phase-group__toggle-spacer {
+  width: 14px;
+}
+
+.mpv-phase-group__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mpv-phase-group__name {
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mpv-phase-group--pending .mpv-phase-group__name {
+  color: var(--pf-v5-global--Color--200);
+}
+
+.mpv-phase-group__counts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mpv-phase-group__duration {
+  text-align: right;
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  white-space: nowrap;
+}
+
+.mpv-phase-group__body {
+  padding: 6px 12px 12px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--pf-v5-global--BackgroundColor--200);
+}
+
+.mpv-phase-group__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 6px;
+}
+
+.mpv-phase-group__progress .pf-v5-c-progress {
+  flex: 1;
+  max-width: 280px;
+}
+
+.mpv-phase-group__progress .pf-v5-c-progress__bar {
+  height: 6px;
+}
+
+.mpv-phase-group__progress-text {
+  font-size: 12px;
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  color: var(--pf-v5-global--Color--200);
+  white-space: nowrap;
+}
+
+.mpv-resource-row {
+  display: grid;
+  grid-template-columns: 20px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  font-size: 13px;
+  border-radius: var(--pf-v5-global--BorderRadius--sm);
+}
+
+.mpv-resource-row:hover {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+.mpv-resource-row__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.mpv-resource-row__name {
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mpv-resource-row__type {
+  white-space: nowrap;
+}
+
+.mpv-resource-row__status {
+  white-space: nowrap;
+}
+
+.mpv-resource-row__detail {
+  grid-column: 2 / -1;
+  font-size: 12px;
+  color: var(--pf-v5-global--Color--200);
+  padding-left: 0;
+}
+
+.mpv-resource-row--failed .mpv-resource-row__name {
+  color: var(--pf-v5-global--danger-color--200);
+}
+
+.mpv-item-row {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  border-radius: var(--pf-v5-global--BorderRadius--sm);
+}
+
+.mpv-item-row--clickable {
+  cursor: pointer;
+  padding: 4px 6px;
+  margin: 0 -6px;
+}
+
+.mpv-item-row--clickable:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mpv-item-row__gutter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1px;
+}
+
+.mpv-item-row__content {
+  word-break: break-word;
+}
+
+.mpv-item-row--error .mpv-item-row__content {
+  color: var(--pf-v5-global--danger-color--200);
+}
+
+.mpv-summary {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--pf-v5-global--Color--200);
+  border-top: 1px solid var(--pf-v5-global--BorderColor--100);
+  background: var(--pf-v5-global--BackgroundColor--100);
+}
+
+.mpv-icon--success {
+  color: var(--pf-v5-global--success-color--100);
+}
+
+.mpv-icon--danger {
+  color: var(--pf-v5-global--danger-color--100);
+}
+
+.mpv-icon--warning {
+  color: var(--pf-v5-global--warning-color--100);
+}
+
+.mpv-icon--info {
+  color: var(--pf-v5-global--info-color--100);
+}
+
+.mpv-icon--muted {
+  color: var(--pf-v5-global--Color--200);
+}
+
+@keyframes mpv-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mpv-icon--spin {
+  animation: mpv-spin 1.5s linear infinite;
+}
+
+.mpv-modal-samples {
+  margin-top: 8px;
+}
+
+.mpv-modal-samples ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.mpv-modal-samples li {
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  font-size: 13px;
+  padding: 2px 0;
+}

@@ -1,0 +1,147 @@
+.log-viewer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--pf-v5-global--BorderColor--100);
+  border-radius: var(--pf-v5-global--BorderRadius--sm);
+  overflow: hidden;
+}
+
+.log-viewer__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--pf-v5-global--BackgroundColor--200);
+  border-bottom: 1px solid var(--pf-v5-global--BorderColor--100);
+  flex-wrap: wrap;
+  min-height: 40px;
+}
+
+.log-viewer__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-viewer__toolbar-spacer {
+  flex: 1;
+}
+
+.log-viewer__search {
+  width: 200px;
+}
+
+.log-viewer__status {
+  font-size: 0.85em;
+  color: var(--pf-v5-global--Color--200);
+  white-space: nowrap;
+}
+
+.log-viewer__content {
+  background: #1e1e1e;
+  overflow: auto;
+  max-height: 600px;
+  position: relative;
+}
+
+.log-viewer__content--fullpage {
+  max-height: none;
+  flex: 1;
+  min-height: 300px;
+}
+
+.log-viewer__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Red Hat Mono", "Liberation Mono", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.log-viewer__row {
+  display: flex;
+  align-items: stretch;
+}
+
+.log-viewer__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.log-viewer__row--header {
+  cursor: pointer;
+}
+
+.log-viewer__row--header:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.log-viewer__row--search-match {
+  background: rgba(255, 213, 79, 0.1);
+}
+
+.log-viewer__row--search-match:hover {
+  background: rgba(255, 213, 79, 0.15);
+}
+
+.log-viewer__gutter {
+  display: flex;
+  align-items: flex-start;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.log-viewer__collapse-toggle {
+  width: 20px;
+  text-align: center;
+  color: #808080;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding-top: 1px;
+  font-size: 11px;
+}
+
+.log-viewer__collapse-toggle:hover {
+  color: #d4d4d4;
+}
+
+.log-viewer__line-number {
+  width: 50px;
+  text-align: right;
+  padding-right: 12px;
+  color: #606060;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.log-viewer__line-content {
+  flex: 1;
+  color: #d4d4d4;
+  padding-right: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-width: 0;
+}
+
+.log-viewer__ellipsis {
+  display: flex;
+  align-items: center;
+  padding: 2px 0 2px 70px;
+  color: #606060;
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.log-viewer__ellipsis:hover {
+  color: #808080;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.log-viewer__empty {
+  padding: 24px;
+  text-align: center;
+  color: #606060;
+  font-family: "Red Hat Mono", "Liberation Mono", monospace;
+  font-size: 13px;
+}

@@ -62,6 +62,7 @@ async def discover_endpoints(
     client: AAPSourceClient | AAPTargetClient,
     api_version: str,
     ignored_endpoints: list[str] | None = None,
+    instance: str | None = None,
 ) -> dict[str, Any]:
     """Discover all available endpoints from AAP API root.
 
@@ -84,6 +85,7 @@ async def discover_endpoints(
 
     logger.info(
         "discovering_endpoints",
+        instance=instance,
         api_version=api_version,
         host_url=client.host_url,
         ignored_count=len(ignored_endpoints),
@@ -127,6 +129,7 @@ async def discover_endpoints(
 
         logger.info(
             "endpoints_discovered",
+            instance=instance,
             api_version=api_version,
             endpoint_count=endpoint_count,
             ignored_count=ignored_count,

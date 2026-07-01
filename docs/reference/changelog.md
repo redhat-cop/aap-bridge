@@ -13,6 +13,10 @@ in the repository.
 **New Features:**
 
 - AAP 2.7 supported as a migration source and target
+- Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and
+  bridge images (`make build`, `make up-dev`, `make shell`, etc.)
+- Web UI: React/PatternFly browser interface with connection management, migration
+  preview, TUI-matching phased migration controls, job history, and live log streaming
 - Source version support expanded to AAP 1.0 through 2.7 (sources) and AAP 2.6 and 2.7 (targets)
 - Survey spec migration for job templates and workflow job templates
 - Notification template association migration (started/success/error/approvals)
@@ -33,6 +37,7 @@ in the repository.
 
 **Improvements:**
 
+- `make setup` auto-detects uv or falls back to stdlib venv + pip
 - Export and transform phase order now matches the import dependency order (credential
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.

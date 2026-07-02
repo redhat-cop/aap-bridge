@@ -5,7 +5,7 @@
        ensure-bridge-dev-image ensure-api-ui-images \
        c-test c-test-all c-lint c-format c-typecheck c-check \
        web-install web-dev web-build serve \
-       build-builder build-aap-bases build-aap build-aap-all \
+       build-builder build-aap-bases build-aap build-aap-all ensure-podman-socket \
        push-aap pull-aap list-golden \
        run-pair stop-pair reset-pair destroy-pair destroy-all \
        test-bridge test-all status shell-src shell-tgt
@@ -333,7 +333,6 @@ DEBUG    ?= 0
 VERBOSITY := $(if $(filter 1,$(V)),-v,$(if $(filter 2,$(V)),-vv,$(if $(filter 3,$(V)),-vvv,$(if $(filter 4,$(V)),-vvvv,))))
 DEBUG_ARGS := $(if $(filter 1,$(DEBUG)),-e secure_logging=false,)
 
-PODMAN_SOCK := $(shell echo $${XDG_RUNTIME_DIR}/podman/podman.sock)
 VAULT_PASS_FILE := $(TESTING_DIR)/.vault_pass
 VAULT_VARS_FILE := $(TESTING_DIR)/inventory/group_vars/vault.yml
 
@@ -344,9 +343,24 @@ ifneq (,$(wildcard $(VAULT_PASS_FILE)))
   endif
 endif
 
+ensure-podman-socket: ## Verify podman API socket is available for integration builds
+	@sock="$${XDG_RUNTIME_DIR:-/run/user/$$(id -u)}/podman/podman.sock"; \
+	if [ ! -S "$$sock" ]; then \
+		echo "Error: Podman API socket not found at $$sock"; \
+		echo "Integration builds need podman-remote access to the host."; \
+		echo "Start it with: systemctl --user enable --now podman.socket"; \
+		exit 1; \
+	fi
+
 define run-builder
+	@sock="$${XDG_RUNTIME_DIR:-/run/user/$$(id -u)}/podman/podman.sock"; \
+	if [ ! -S "$$sock" ]; then \
+		echo "Error: Podman API socket not found at $$sock"; \
+		echo "Start it with: systemctl --user enable --now podman.socket"; \
+		exit 1; \
+	fi; \
 	podman run --rm \
-		-v $(PODMAN_SOCK):/run/podman/podman.sock \
+		-v "$$sock":/run/podman/podman.sock \
 		-v $(TESTING_DIR):$(TESTING_DIR) \
 		-w $(TESTING_DIR) \
 		--network host \

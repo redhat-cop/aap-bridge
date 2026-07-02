@@ -44,6 +44,21 @@ This is a permanent, system-wide setting that survives reboots. It is a common t
 container-heavy development machines. To undo it, delete `/etc/sysctl.d/99-aap-bridge.conf`
 and run `sudo sysctl --system`.
 
+### Podman API socket
+
+Integration builds run Ansible in a builder container that drives the host Podman
+service via `podman-remote`. That requires the user socket API — separate from
+`podman compose`, which uses the CLI directly.
+
+Enable it once per login session (or enable permanently):
+
+```bash
+systemctl --user enable --now podman.socket
+```
+
+After a reboot, the socket starts automatically if enabled. If `make build-aap-bases`
+fails with `no such file or directory` for `podman.sock`, run the command above.
+
 ### Subscription Manifest
 
 AAP instances require a subscription manifest to be fully licensed. To set this up:

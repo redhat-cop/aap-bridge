@@ -282,6 +282,37 @@ make stop-pair SOURCE=2.3 TARGET=2.6
 make destroy-pair SOURCE=2.3 TARGET=2.6
 ```
 
+### Using aap-bridge with a pair
+
+After `make run-pair`, open a bridge shell with the pair `.env` already loaded,
+then use the CLI or TUI as usual:
+
+```bash
+make up-dev    # if db + bridge are not already running
+make shell-pair SOURCE=2.4 TARGET=2.6
+aap-bridge              # interactive TUI
+```
+
+When only one pair exists under `generated/pairs/`, `SOURCE` and `TARGET`
+default from that directory name, so `make shell-pair` is often enough.
+
+Inside an existing `make shell` session, load the env manually:
+
+```bash
+set -a && source /app/tests/integration/generated/pairs/24-to-26/.env && set +a
+aap-bridge
+```
+
+For other pairs, substitute the directory name (`23-to-26` for SOURCE=2.3
+TARGET=2.6, and so on).
+
+Browse the AAP UIs from your host browser (accept the self-signed certificate):
+
+- Source UI: `https://localhost:<source-controller-port>/` (e.g. `10743` for 2.4)
+- Target UI: `https://localhost:<target-envoy-port>/` for 2.5+ (e.g. `20947` for 2.6)
+
+See [Port Allocation](#port-allocation) below for the port formula.
+
 ### Port Allocation
 
 Each version gets a deterministic port block so pairs don't conflict:

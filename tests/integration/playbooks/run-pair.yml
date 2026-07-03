@@ -139,6 +139,7 @@
 
           Run aap-bridge:
             make test-bridge SOURCE={{ source_version }} TARGET={{ target_version }}
+            make shell-pair SOURCE={{ source_version }} TARGET={{ target_version }}
 
           Reset (instant, from golden images):
             make reset-pair SOURCE={{ source_version }} TARGET={{ target_version }}

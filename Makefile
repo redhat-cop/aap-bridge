@@ -8,7 +8,7 @@
        build-builder build-aap-bases build-aap build-aap-all ensure-podman-socket \
        push-aap pull-aap list-golden \
        run-pair stop-pair reset-pair destroy-pair destroy-all \
-       test-bridge test-all status shell-src shell-tgt
+       test-bridge shell-pair test-all status shell-src shell-tgt
 
 .DEFAULT_GOAL := help
 
@@ -77,6 +77,7 @@ help: ## Show this help message
 	@echo "    make build-aap VERSION=2.4         # Build AAP golden image (~45 min)"
 	@echo "    make run-pair SOURCE=2.4 TARGET=2.6"
 	@echo "    make test-bridge SOURCE=2.4 TARGET=2.6"
+	@echo "    make shell-pair SOURCE=2.4 TARGET=2.6  # bridge shell with pair env"
 	@echo "    make test-all                      # Test all versions -> 2.6"
 	@echo "    make reset-pair SOURCE=2.4 TARGET=2.6   # Reset instantly"
 	@echo ""
@@ -325,6 +326,9 @@ else
   SOURCE ?= 2.4
   TARGET ?= 2.6
 endif
+PAIR_ID          := $(subst .,,$(SOURCE))-to-$(subst .,,$(TARGET))
+PAIR_ENV_HOST    := tests/integration/generated/pairs/$(PAIR_ID)/.env
+PAIR_ENV_CONTAINER := /app/tests/integration/generated/pairs/$(PAIR_ID)/.env
 VERSION  ?= 2.4
 REGISTRY ?= localhost
 V        ?= 0
@@ -428,16 +432,22 @@ destroy-all: ## Remove ALL test containers, images, and networks
 status: ## Show all test containers and golden images
 	$(run-builder) playbooks/status.yml
 
-test-bridge: up-dev ## Validate bridge connectivity to pair (SOURCE=2.4 TARGET=2.6)
-	@PAIR_ID="$(subst .,,$(SOURCE))-to-$(subst .,,$(TARGET))"; \
-	ENV_FILE_HOST="tests/integration/generated/pairs/$$PAIR_ID/.env"; \
-	ENV_FILE_CONTAINER="/app/tests/integration/generated/pairs/$$PAIR_ID/.env"; \
-	if [ ! -f "$$ENV_FILE_HOST" ]; then \
-		echo "Error: No config at $$ENV_FILE_HOST. Run 'make run-pair' first."; \
+define require-pair-env
+	@if [ ! -f "$(PAIR_ENV_HOST)" ]; then \
+		echo "Error: No pair config at $(PAIR_ENV_HOST). Run 'make run-pair' first."; \
 		exit 1; \
-	fi; \
-	echo "Using config: $$ENV_FILE_HOST"; \
-	$(run-bridge) bash -lc "set -a && source $$ENV_FILE_CONTAINER && set +a && aap-bridge config validate --check-connectivity"
+	fi
+endef
+
+shell-pair: up-dev ## Shell into bridge with pair env loaded (SOURCE=2.4 TARGET=2.6)
+	$(require-pair-env)
+	@echo "Using pair env: $(PAIR_ENV_HOST)"
+	$(run-bridge) bash -lc 'set -a && source $(PAIR_ENV_CONTAINER) && set +a && exec bash'
+
+test-bridge: up-dev ## Validate bridge connectivity to pair (SOURCE=2.4 TARGET=2.6)
+	$(require-pair-env)
+	@echo "Using pair env: $(PAIR_ENV_HOST)"
+	$(run-bridge) bash -lc 'set -a && source $(PAIR_ENV_CONTAINER) && set +a && aap-bridge config validate --check-connectivity'
 
 test-all: ## Run migration test for all source versions -> 2.6
 	@PASS=""; FAIL=""; SKIP=""; \

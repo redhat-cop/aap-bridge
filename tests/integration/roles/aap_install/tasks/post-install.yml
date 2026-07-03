@@ -186,32 +186,3 @@
             Controller: {{ 'OK' if api_check.stdout | default('') == '200' else 'FAILED' }}
             Hub: {{ hub_status.stdout | default('N/A') }}
             EDA: {{ eda_status.stdout | default('N/A') }}
-
-- name: Populate test data
-  when:
-    - populate_test_data | default(false) | bool
-    - api_check.stdout | default('') == '200'
-    - aap_api_token | default('') | length > 0
-  block:
-    - name: Set host-accessible controller URL
-      ansible.builtin.set_fact:
-        host_controller_url: "https://localhost:{{ port_base | int + port_offset_controller }}"
-
-    - name: Run populate_test_data.py
-      ansible.builtin.command:
-        cmd: >
-          python3 {{ playbook_dir }}/../scripts/populate_test_data.py
-          --host {{ host_controller_url }}
-          --token {{ aap_api_token }}
-          --size {{ populate_test_data_size | default('small') }}
-      register: populate_result
-      failed_when: false
-      changed_when: populate_result.rc == 0
-
-    - name: Report populate result
-      ansible.builtin.debug:
-        msg: >-
-          {{ 'SUCCESS' if populate_result.rc == 0 else 'FAILED (rc=' + populate_result.rc | string + ')' }}:
-          {{ (populate_result.stdout_lines | default([]))[-5:] | join(' | ') }}
-          {{ (populate_result.stderr_lines | default([]))[-3:] | join(' | ') if populate_result.rc != 0 else '' }}
-      when: populate_result is defined

@@ -263,16 +263,18 @@ make list-golden
 
 ## Running Test Pairs
 
-Once golden images are built, start any source/target pair instantly:
+Once golden images are built, start any source/target pair instantly. Golden images
+are clean installs only; the **source** instance is populated with test data when a
+pair starts or resets (target stays empty).
 
 ```bash
-# Start a pair
+# Start a pair (source populated with small test data by default)
 make run-pair SOURCE=2.3 TARGET=2.6
 
 # Validate bridge can reach source and target AAP APIs
 make test-bridge SOURCE=2.3 TARGET=2.6
 
-# Reset to clean state (~10 seconds)
+# Reset to clean state and re-populate source (~tens of seconds)
 make reset-pair SOURCE=2.3 TARGET=2.6
 
 # Stop without removing
@@ -281,6 +283,31 @@ make stop-pair SOURCE=2.3 TARGET=2.6
 # Remove completely
 make destroy-pair SOURCE=2.3 TARGET=2.6
 ```
+
+### Source test data
+
+When a pair starts or resets, the **source** container is populated via
+`populate_test_data.py` (organizations, users, inventories, job templates, etc.).
+The target is never populated — it stays empty for migration testing.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `POPULATE_TEST_DATA` | `true` | Populate source on `run-pair` / `reset-pair` |
+| `POPULATE_TEST_DATA_SIZE` | `small` | Data tier: `small`, `med`, `large`, `xl`, `xxl` |
+
+The `small` tier creates on the order of 5 organizations, ~50 users, and ~100
+hosts — enough to exercise all major migration resource types without long
+startup times.
+
+```bash
+# Skip population (empty source — rarely needed)
+make run-pair SOURCE=2.4 TARGET=2.6 POPULATE_TEST_DATA=false
+
+# Larger dataset for stress testing
+make reset-pair SOURCE=2.4 TARGET=2.6 POPULATE_TEST_DATA_SIZE=med
+```
+
+Golden images (`make build-aap`) are always clean installs with no test data.
 
 ### Using aap-bridge with a pair
 

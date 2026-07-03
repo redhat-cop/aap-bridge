@@ -83,6 +83,12 @@
         container_name: "aap-{{ source_version | replace('.', '') }}-src"
         token_label: src
 
+    - name: Populate source test data
+      ansible.builtin.include_role:
+        name: populate_test_data
+      vars:
+        aap_version: "{{ source_version }}"
+
     # --- Target ---
     - name: Start target container
       ansible.builtin.include_role:

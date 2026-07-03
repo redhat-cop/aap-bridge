@@ -5,9 +5,6 @@ pair_id: ""
 container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix }}"
 installer_bundles_dir: "{{ playbook_dir }}/../files/aap-installer-bundles"
 
-populate_test_data: false
-populate_test_data_size: "small"
-
 aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') | default('redhat123!', true) }}"
 aap_pg_password: "{{ lookup('env', 'AAP_PG_PASSWORD') | default('redhat123!', true) }}"
 rhsm_username: "{{ lookup('env', 'RHSM_USER') | default('', true) }}"

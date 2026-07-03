@@ -329,6 +329,8 @@ endif
 PAIR_ID          := $(subst .,,$(SOURCE))-to-$(subst .,,$(TARGET))
 PAIR_ENV_HOST    := tests/integration/generated/pairs/$(PAIR_ID)/.env
 PAIR_ENV_CONTAINER := /app/tests/integration/generated/pairs/$(PAIR_ID)/.env
+POPULATE_TEST_DATA      ?= true
+POPULATE_TEST_DATA_SIZE ?= small
 VERSION  ?= 2.4
 REGISTRY ?= localhost
 V        ?= 0
@@ -415,7 +417,9 @@ run-pair: ## Start AAP pair from golden images (SOURCE=2.4 TARGET=2.6)
 	@set -a && [ -f .env ] && . ./.env; set +a; \
 	$(run-builder) playbooks/run-pair.yml \
 		-e source_version=$(SOURCE) \
-		-e target_version=$(TARGET)
+		-e target_version=$(TARGET) \
+		-e populate_test_data=$(POPULATE_TEST_DATA) \
+		-e populate_test_data_size=$(POPULATE_TEST_DATA_SIZE)
 
 stop-pair: ## Stop AAP pair containers (SOURCE=2.4 TARGET=2.6)
 	-podman stop aap-$(subst .,,$(SOURCE))-src aap-$(subst .,,$(TARGET))-tgt
@@ -424,7 +428,9 @@ reset-pair: ## Reset pair to clean state (SOURCE=2.4 TARGET=2.6)
 	@set -a && [ -f .env ] && . ./.env; set +a; \
 	$(run-builder) playbooks/reset-pair.yml \
 		-e source_version=$(SOURCE) \
-		-e target_version=$(TARGET)
+		-e target_version=$(TARGET) \
+		-e populate_test_data=$(POPULATE_TEST_DATA) \
+		-e populate_test_data_size=$(POPULATE_TEST_DATA_SIZE)
 
 destroy-pair: ## Remove pair containers and network (SOURCE=2.4 TARGET=2.6)
 	@$(run-builder) playbooks/destroy-pair.yml \

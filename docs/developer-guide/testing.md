@@ -311,6 +311,12 @@ Browse the AAP UIs from your host browser (accept the self-signed certificate):
 - Source UI: `https://localhost:<source-controller-port>/` (e.g. `10743` for 2.4)
 - Target UI: `https://localhost:<target-envoy-port>/` for 2.5+ (e.g. `20947` for 2.6)
 
+AAP 2.5+ pair instances get **platform gateway** tokens (`aap-gateway-manage
+create_oauth2_token` in the `automation-gateway` container). Controller-only
+tokens from `awx-manage` authenticate to `/api/controller/v2` but not
+`/api/gateway/v1`. Run `make reset-pair` after upgrading testing infrastructure
+to refresh pair tokens in `generated/pairs/`.
+
 See [Port Allocation](#port-allocation) below for the port formula.
 
 ### Port Allocation

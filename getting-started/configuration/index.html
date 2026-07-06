@@ -308,7 +308,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/changelog/" class="md-tabs__link">
+        <a href="../../reference/compatibility-matrix/" class="md-tabs__link">
           
   
   
@@ -601,6 +601,17 @@
     <span class="md-ellipsis">
       
         API routing (SOURCE__VERSION / TARGET__VERSION)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#awx-as-migration-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWX as migration source
       
     </span>
   </a>
@@ -1206,6 +1217,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/compatibility-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/awx-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWX Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/changelog/" class="md-nav__link">
         
   
@@ -1308,6 +1375,17 @@ version in API responses.</p>
 </table>
 <p>Legacy paths such as <code>/api/v2</code> or <code>/api/controller/v2</code> in a configured URL are
 stripped with a log message. EDA and Galaxy APIs are not used by AAP Bridge.</p>
+<h3 id="awx-as-migration-source">AWX as migration source<a class="headerlink" href="#awx-as-migration-source" title="Permanent link">&para;</a></h3>
+<p>AAP Bridge can migrate from upstream AWX installations. AWX uses the same
+Controller API as AAP at equivalent release levels — set <code>SOURCE__URL</code> to your
+AWX host and <code>SOURCE__VERSION</code> to the <strong>equivalent AAP version</strong> (not the AWX
+version number). For example, AWX 24.6.1 maps to <code>SOURCE__VERSION=2.4</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Limited AWX testing</p>
+<p>Only <strong>AWX 24.6.1</strong> has been tested as a migration source. See
+<a href="../../reference/awx-migration/">AWX Migration</a> for the full AAP/AWX version
+mapping.</p>
+</div>
 <h3 id="api-token-permissions">API Token Permissions<a class="headerlink" href="#api-token-permissions" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

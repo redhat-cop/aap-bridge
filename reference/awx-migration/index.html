@@ -13,10 +13,10 @@
       
       
       
-        <link rel="prev" href="../../developer-guide/architecture/">
+        <link rel="prev" href="../compatibility-matrix/">
       
       
-        <link rel="next" href="../awx-migration/">
+        <link rel="next" href="../changelog/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Compatibility Matrix - AAP Bridge</title>
+        <title>AWX Migration - AAP Bridge</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#source-version-compatibility-matrix" class="md-skip">
+        <a href="#awx-migration" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Compatibility Matrix
+              AWX Migration
             
           </span>
         </div>
@@ -308,7 +308,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../compatibility-matrix/" class="md-tabs__link">
           
   
   
@@ -940,6 +940,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -959,7 +987,7 @@
   <span class="md-ellipsis">
     
   
-    Compatibility Matrix
+    AWX Migration
   
 
     
@@ -977,7 +1005,7 @@
   <span class="md-ellipsis">
     
   
-    Compatibility Matrix
+    AWX Migration
   
 
     
@@ -1003,10 +1031,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#support-status-key" class="md-nav__link">
+  <a href="#testing-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Support Status Key
+        Testing Status
       
     </span>
   </a>
@@ -1014,10 +1042,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compatibility-matrix" class="md-nav__link">
+  <a href="#aap-and-awx-version-equivalence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compatibility Matrix
+        AAP and AWX Version Equivalence
       
     </span>
   </a>
@@ -1025,10 +1053,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#awx-as-migration-source" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AWX as Migration Source
+        Configuration
       
     </span>
   </a>
@@ -1036,49 +1064,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-version-specific-exceptions" class="md-nav__link">
+  <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known Version-Specific Exceptions
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Known Version-Specific Exceptions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#all-source-versions-aap-26" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        All Source Versions → AAP 2.6
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#aap-25-aap-26" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AAP 2.5+ → AAP 2.6
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verifying-your-migration-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verifying Your Migration Path
+        Compatibility
       
     </span>
   </a>
@@ -1089,34 +1078,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../awx-migration/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    AWX Migration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1177,176 +1138,111 @@
   
 
 
-<h1 id="source-version-compatibility-matrix">Source-Version Compatibility Matrix<a class="headerlink" href="#source-version-compatibility-matrix" title="Permanent link">&para;</a></h1>
-<p>This document defines the supported source-to-target migration paths for the AAP Bridge tool
-and documents known version-specific exceptions.</p>
-<p>AAP Bridge also supports <strong>AWX</strong> as a migration source. AWX shares the Controller API with
-AAP at equivalent release levels; configure <code>SOURCE__VERSION</code> using the AAP version that
-matches your AWX release. See <a href="../awx-migration/">AWX Migration</a> for the full version mapping
-and configuration guidance.</p>
-<div class="admonition note">
-<p class="admonition-title">AWX testing</p>
-<p>Only <strong>AWX 24.6.1</strong> (equivalent to AAP 2.4) has been tested as a migration source.
-Other AWX releases may work when configured with the corresponding AAP source version,
-but they have not been verified.</p>
+<h1 id="awx-migration">AWX Migration<a class="headerlink" href="#awx-migration" title="Permanent link">&para;</a></h1>
+<p>AAP Bridge can migrate from upstream <a href="https://github.com/ansible/awx">AWX</a>
+installations to Ansible Automation Platform (AAP). AWX uses the same Controller
+API as AAP at equivalent release levels, so no separate AWX-specific code path
+is required — point the source configuration at your AWX instance and set
+<code>SOURCE__VERSION</code> to the matching AAP version from the table below.</p>
+<h2 id="testing-status">Testing Status<a class="headerlink" href="#testing-status" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Limited AWX testing</p>
+<p>Only <strong>AWX 24.6.1</strong> has been tested as a migration source. Other AWX
+releases in the version mapping below may work when configured with the
+corresponding AAP source version, but they have not been verified.</p>
 </div>
-<h2 id="support-status-key">Support Status Key<a class="headerlink" href="#support-status-key" title="Permanent link">&para;</a></h2>
+<h2 id="aap-and-awx-version-equivalence">AAP and AWX Version Equivalence<a class="headerlink" href="#aap-and-awx-version-equivalence" title="Permanent link">&para;</a></h2>
+<p>When migrating from AWX, set <code>SOURCE__VERSION</code> to the <strong>equivalent AAP
+version</strong>, not the AWX version number. For example, AWX 24.6.1 maps to AAP
+2.4, so use <code>SOURCE__VERSION=2.4</code>.</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Status</th>
-<th style="text-align: left;">Description</th>
+<th style="text-align: left;">AAP Version</th>
+<th style="text-align: left;">General Availability (GA) Date</th>
+<th style="text-align: left;">Equivalent AWX Releases</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">Fully tested migration path. Core resource families and dependency chains are verified.</td>
+<td style="text-align: left;"><strong>AAP 1.0</strong></td>
+<td style="text-align: left;">November 14, 2019</td>
+<td style="text-align: left;">AWX 7.0.0, 8.0.0, 9.0.1</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>Partial</strong></td>
-<td style="text-align: left;">Core resources tested, but some version-specific features or complex configurations may require manual steps.</td>
+<td style="text-align: left;"><strong>AAP 1.1</strong></td>
+<td style="text-align: left;">June 23, 2020</td>
+<td style="text-align: left;">AWX 10.0.0, 11.0.0, 12.0.0, 13.0.0</td>
 </tr>
 <tr>
-<td style="text-align: left;"><strong>Unsupported</strong></td>
-<td style="text-align: left;">Migration path not yet tested or verified. Use with caution.</td>
+<td style="text-align: left;"><strong>AAP 1.2</strong></td>
+<td style="text-align: left;">November 18, 2020</td>
+<td style="text-align: left;">AWX 14.0.0, 15.0.0, 16.0.0, 17.1.0</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.0</strong></td>
+<td style="text-align: left;">July 15, 2021</td>
+<td style="text-align: left;">AWX 18.0.0</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.1</strong></td>
+<td style="text-align: left;">December 2, 2021</td>
+<td style="text-align: left;">AWX 19.0.0, 19.5.1</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.2</strong></td>
+<td style="text-align: left;">May 26, 2022</td>
+<td style="text-align: left;">AWX 20.0.0, 21.0.0, 21.7.0</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.3</strong></td>
+<td style="text-align: left;">November 29, 2022</td>
+<td style="text-align: left;">AWX 21.8.0, 21.11.0, 22.0.0 – 22.4.0</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.4</strong></td>
+<td style="text-align: left;">June 27, 2023</td>
+<td style="text-align: left;">AWX 23.0.0, 24.0.0, <strong>24.6.1</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.5</strong></td>
+<td style="text-align: left;">September 30, 2024</td>
+<td style="text-align: left;"><em>N/A</em></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.6</strong></td>
+<td style="text-align: left;">October 1, 2025</td>
+<td style="text-align: left;"><em>N/A</em></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>AAP 2.7</strong></td>
+<td style="text-align: left;">June 2, 2026</td>
+<td style="text-align: left;"><em>N/A</em></td>
 </tr>
 </tbody>
 </table>
-<h2 id="compatibility-matrix">Compatibility Matrix<a class="headerlink" href="#compatibility-matrix" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Source Version</th>
-<th style="text-align: left;">Target Version</th>
-<th style="text-align: left;">Status</th>
-<th style="text-align: left;">Evidence Date</th>
-<th style="text-align: left;">Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">AAP 1.0</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 1.1</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 1.2</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.0</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.1</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.2</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.3</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.4</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.5</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Primary migration path. Fully tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">2026-04-25</td>
-<td style="text-align: left;">Same-version migration path. Schema fully compatible.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="awx-as-migration-source">AWX as Migration Source<a class="headerlink" href="#awx-as-migration-source" title="Permanent link">&para;</a></h2>
-<p>The rows above apply to AWX sources when <code>SOURCE__VERSION</code> is set to the equivalent AAP
-version. For example, AWX 24.6.1 is configured as <code>SOURCE__VERSION=2.4</code>.</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">AWX Version</th>
-<th style="text-align: left;">Equivalent AAP Source</th>
-<th style="text-align: left;">Target Version</th>
-<th style="text-align: left;">Status</th>
-<th style="text-align: left;">Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">AWX 24.6.1</td>
-<td style="text-align: left;">AAP 2.4</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">Only AWX release directly tested.</td>
-</tr>
-<tr>
-<td style="text-align: left;">Other AWX (see <a href="../awx-migration/">mapping</a>)</td>
-<td style="text-align: left;">Per equivalence table</td>
-<td style="text-align: left;">AAP 2.6</td>
-<td style="text-align: left;"><strong>Untested</strong></td>
-<td style="text-align: left;">May work; configure <code>SOURCE__VERSION</code> to the matching AAP version.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="known-version-specific-exceptions">Known Version-Specific Exceptions<a class="headerlink" href="#known-version-specific-exceptions" title="Permanent link">&para;</a></h2>
-<h3 id="all-source-versions-aap-26">All Source Versions → AAP 2.6<a class="headerlink" href="#all-source-versions-aap-26" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Encrypted Credentials</strong>: Encrypted field values (passwords, SSH keys) cannot be extracted
-  via the source AAP API. These must be migrated using HashiCorp Vault or re-entered manually
-  on the target.</li>
-</ul>
-<h3 id="aap-25-aap-26">AAP 2.5+ → AAP 2.6<a class="headerlink" href="#aap-25-aap-26" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Instance Groups</strong>: Instance groups referenced by RBAC assignments must exist on the target
-  with the same name before migration.</li>
-</ul>
-<h2 id="verifying-your-migration-path">Verifying Your Migration Path<a class="headerlink" href="#verifying-your-migration-path" title="Permanent link">&para;</a></h2>
-<p>The <code>aap-bridge prep</code> command automatically discovers the versions of your source and target
-instances and validates them against this matrix.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>aap-bridge<span class="w"> </span>prep<span class="w"> </span>--config<span class="w"> </span>config.yaml
+<p>AWX releases beyond the AAP 2.4 equivalence line have no published AAP
+counterpart and are not supported as migration sources.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Configure the source block in <code>.env</code> (or <code>config/config.yaml</code>) as you would for
+an AAP instance, using your AWX URL and the equivalent AAP version:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># AWX instance acting as migration source (read-only token)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">SOURCE__URL</span><span class="o">=</span>https://awx.example.com
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">SOURCE__VERSION</span><span class="o">=</span><span class="m">2</span>.4
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">SOURCE__TOKEN</span><span class="o">=</span>your_awx_read_token
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Target AAP instance (read/write token)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nv">TARGET__VERSION</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nv">TARGET__TOKEN</span><span class="o">=</span>your_target_write_token
 </code></pre></div>
-<p>If your version pair is not fully supported, the tool will issue a warning and list known
-exceptions for that path. You can override an "Unsupported" status using the <code>--force</code> flag,
-but this is recommended for experimental use only.</p>
+<p>Use <code>/api/v2/tokens/</code> to create a read-only token on AWX (same as AAP 2.4 and
+earlier). See <a href="../../getting-started/configuration/">Configuration</a> for full
+details on API routing and token permissions.</p>
+<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<p>Supported source-to-target paths follow the same rules as AAP-to-AAP
+migrations. See the <a href="../compatibility-matrix/">Source-Version Compatibility Matrix</a>
+for path status and known exceptions.</p>
 
 
 

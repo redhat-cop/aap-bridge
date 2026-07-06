@@ -308,7 +308,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/changelog/" class="md-tabs__link">
+        <a href="../../reference/compatibility-matrix/" class="md-tabs__link">
           
   
   
@@ -1100,6 +1100,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/compatibility-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/awx-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWX Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/changelog/" class="md-nav__link">
         
   
@@ -1172,7 +1228,10 @@
 <p class="admonition-title">Version-driven API routing</p>
 <p>Set <code>SOURCE__VERSION</code> and <code>TARGET__VERSION</code> (e.g. <code>2.4</code>, <code>2.6</code>). The tool
 uses these to select <code>/api/v2</code> (2.4 and earlier) or <code>/api/gateway/v1</code> plus
-<code>/api/controller/v2</code> (2.5+). Host URLs should be <code>https://fqdn</code> only.</p>
+<code>/api/controller/v2</code> (2.5+). Host URLs should be <code>https://fqdn</code> only. The
+source may be upstream AWX — set <code>SOURCE__VERSION</code> to the equivalent AAP
+version (e.g. AWX 24.6.1 → <code>2.4</code>). Only AWX 24.6.1 has been tested; see
+<a href="../../reference/awx-migration/">AWX Migration</a>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">API token scope</p>

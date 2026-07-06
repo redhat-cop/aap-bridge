@@ -33,6 +33,8 @@ in the repository.
 - `skip_credential_names` configuration option (defaults exclude installer-created credentials)
 - `skip_execution_environment_names` configuration option (defaults exclude platform-managed EEs)
 - MkDocs GitHub Actions deployment workflow
+- AWX migration documentation: version mapping, configuration guidance, and compatibility
+  matrix entries (only AWX 24.6.1 tested)
 
 **Improvements:**
 

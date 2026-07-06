@@ -47,6 +47,18 @@ version in API responses.
 Legacy paths such as `/api/v2` or `/api/controller/v2` in a configured URL are
 stripped with a log message. EDA and Galaxy APIs are not used by AAP Bridge.
 
+### AWX as migration source
+
+AAP Bridge can migrate from upstream AWX installations. AWX uses the same
+Controller API as AAP at equivalent release levels — set `SOURCE__URL` to your
+AWX host and `SOURCE__VERSION` to the **equivalent AAP version** (not the AWX
+version number). For example, AWX 24.6.1 maps to `SOURCE__VERSION=2.4`.
+
+!!! warning "Limited AWX testing"
+    Only **AWX 24.6.1** has been tested as a migration source. See
+    [AWX Migration](../reference/awx-migration.md) for the full AAP/AWX version
+    mapping.
+
 ### API Token Permissions
 
 | Instance | Token scope | Why |

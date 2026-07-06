@@ -46,6 +46,8 @@ nav:
       - Adding Resource Types: developer-guide/adding-resource-types.md
       - Architecture: developer-guide/architecture.md
   - Reference:
+      - Compatibility Matrix: reference/compatibility-matrix.md
+      - AWX Migration: reference/awx-migration.md
       - Changelog: reference/changelog.md
 
 markdown_extensions:

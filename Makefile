@@ -7,7 +7,7 @@
        web-install web-dev web-build serve \
        build-builder build-aap-bases build-aap build-aap-all ensure-podman-socket \
        push-aap pull-aap list-golden \
-       run-pair stop-pair reset-pair destroy-pair destroy-all \
+       run-pair down-pair stop-pair reset-pair destroy-pair destroy-all \
        test-bridge shell-pair test-all status shell-src shell-tgt
 
 .DEFAULT_GOAL := help
@@ -76,6 +76,7 @@ help: ## Show this help message
 	@echo "    make build-aap-bases               # Build UBI base images (once)"
 	@echo "    make build-aap VERSION=2.4         # Build AAP golden image (~45 min)"
 	@echo "    make run-pair SOURCE=2.4 TARGET=2.6"
+	@echo "    make down-pair SOURCE=2.4 TARGET=2.6   # Stop pair (containers kept)"
 	@echo "    make test-bridge SOURCE=2.4 TARGET=2.6"
 	@echo "    make shell-pair SOURCE=2.4 TARGET=2.6  # bridge shell with pair env"
 	@echo "    make test-all                      # Test all versions -> 2.6"
@@ -422,8 +423,10 @@ run-pair: ## Start AAP pair from golden images (SOURCE=2.4 TARGET=2.6)
 		-e populate_test_data=$(POPULATE_TEST_DATA) \
 		-e populate_test_data_size=$(POPULATE_TEST_DATA_SIZE)
 
-stop-pair: ## Stop AAP pair containers (SOURCE=2.4 TARGET=2.6)
+down-pair: ## Stop AAP pair containers without removing (SOURCE=2.4 TARGET=2.6)
 	-podman stop aap-$(subst .,,$(SOURCE))-src aap-$(subst .,,$(TARGET))-tgt
+
+stop-pair: down-pair ## Alias for down-pair
 
 reset-pair: ## Reset pair to clean state (SOURCE=2.4 TARGET=2.6)
 	@set -a && [ -f .env ] && . ./.env; set +a; \

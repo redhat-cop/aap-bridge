@@ -333,12 +333,15 @@ make test-bridge SOURCE=2.3 TARGET=2.6
 # Reset to clean state and re-populate source (~tens of seconds)
 make reset-pair SOURCE=2.3 TARGET=2.6
 
-# Stop without removing
-make stop-pair SOURCE=2.3 TARGET=2.6
+# Stop without removing (containers can be restarted with run-pair)
+make down-pair SOURCE=2.3 TARGET=2.6
 
 # Remove completely
 make destroy-pair SOURCE=2.3 TARGET=2.6
 ```
+
+Pair lifecycle mirrors the compose stack: `run-pair` / `down-pair` / `destroy-pair` for the
+AAP instances, and `make up-dev` / `make down` for the bridge + database.
 
 ### Source test data
 

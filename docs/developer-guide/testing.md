@@ -88,16 +88,26 @@ Everything runs in containers. No Python, Ansible, or other tools needed on the 
 | **bridge** | aap-bridge app + dev tools (Python 3.12, pytest, ruff, mypy) |
 | **db** | PostgreSQL 15 for migration state |
 | **builder** | Ansible + podman-remote for managing AAP test containers |
-| **AAP containers** | UBI-based systemd containers with AAP installed via `setup.sh` |
+| **AAP containers** | Privileged UBI systemd containers; install method depends on version (see below) |
+
+Each AAP golden image is built once per version (`make build-aap VERSION=…`) and committed
+from a transient install container. The outer container is always a UBI **systemd** image
+(`ubi-init`); what differs is how AAP is installed inside it:
+
+| AAP versions | Install method | What runs inside |
+|--------------|----------------|------------------|
+| 1.0–2.4 | **RPM** (`setup.sh`) | Controller (and Hub/EDA where enabled) as systemd services on the host RHEL in the container |
+| 2.5–2.6 | **Containerized** (`ansible.containerized_installer`) | Nested podman stacks for gateway, controller, etc. (podman-in-podman) |
+
+Version-specific settings live in `tests/integration/versions/matrix.yml` (`installer.method`).
 
 ```text
 Host (podman + make)
 ├── compose: bridge + db
 ├── builder container (ansible, runs via podman socket)
 └── AAP containers (systemd, privileged, one per version)
-    ├── aap-24-build / aap-golden-2.4
-    ├── aap-25-build / aap-golden-2.5
-    └── ...
+    ├── aap-24-src / aap-26-tgt   (from golden images at run-pair time)
+    └── golden images: aap-golden-2.4, aap-golden-2.6, …
 ```
 
 ## Quick Start

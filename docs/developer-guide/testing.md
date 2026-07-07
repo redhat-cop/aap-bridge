@@ -125,29 +125,32 @@ podman login registry.redhat.io
 
 # 3. Place the subscription manifest zip in tests/integration/files/manifest/
 
-# 4. Build the app and start the CLI dev container with postgres
+# 4. Configure build secrets (required before make build-aap)
+#    RHSM login, Red Hat API offline token, AAP admin/PG passwords.
+#    Ansible Vault is recommended; env vars work too — see Secrets Management below.
+
+# 5. Build the app and start the CLI dev container with postgres
 make build
 make up-dev
 
-# 5. Quick smoke check inside the bridge container
+# 6. Quick smoke check inside the bridge container
 make c-test
 
-# 6. Build the ansible builder image (once)
+# 7. Build the ansible builder image (once)
 make build-builder
 
-# 7. Build AAP base images (once)
+# 8. Build AAP base images (once)
 make build-aap-bases
 
-# 8. Build an AAP golden image (once per version, ~45 min)
+# 9. Build an AAP golden image (once per version, ~45 min)
 #    Requires kernel.keys.maxkeys >= 5000 (see Prerequisites)
-#    Set up secrets first (see Secrets Management below)
-make build-aap VERSION=2.4 RHSM_USER=myuser RHSM_PASS=mypass
+make build-aap VERSION=2.4
 
-# 9. Run a migration test pair
+# 10. Run a migration test pair
 make run-pair SOURCE=2.4 TARGET=2.6
 make test-bridge SOURCE=2.4 TARGET=2.6
 
-# 10. Reset the pair (instant, from golden images)
+# 11. Reset the pair (instant, from golden images)
 make reset-pair SOURCE=2.4 TARGET=2.6
 ```
 

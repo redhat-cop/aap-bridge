@@ -36,8 +36,12 @@
   ansible.builtin.set_fact:
     golden_available: "{{ golden_local.rc == 0 or (golden_pull.rc | default(1)) == 0 }}"
 
-- name: Build base image if no golden image and we need to build from scratch
-  when: not golden_available
+- name: Determine whether to start from golden image
+  ansible.builtin.set_fact:
+    use_golden_image: "{{ golden_available and role_suffix != 'build' }}"
+
+- name: Build base image when starting from scratch (not from golden)
+  when: not use_golden_image
   block:
     - name: Check if base image exists
       ansible.builtin.command:
@@ -57,7 +61,7 @@
 
 - name: Set image to use
   ansible.builtin.set_fact:
-    container_image: "{{ golden_image_tag if golden_available else base_image_tag }}"
+    container_image: "{{ golden_image_tag if use_golden_image else base_image_tag }}"
 
 - name: Check if container already exists
   ansible.builtin.command:
@@ -139,6 +143,35 @@
         {{ container_image }}
   register: container_run
 
+- name: Wait for container to reach running state
+  ansible.builtin.command:
+    cmd: "podman inspect {{ container_name }} --format '{{ '{{' }}.State.Status{{ '}}' }}'"
+  register: container_state
+  retries: 30
+  delay: 2
+  until: container_state.stdout == 'running'
+  changed_when: false
+  failed_when: container_state.stdout in ['exited', 'dead', 'stopped', 'removing']
+
+- name: Show container logs when startup fails
+  ansible.builtin.command:
+    cmd: "podman logs --tail 80 {{ container_name }}"
+  register: container_logs
+  changed_when: false
+  failed_when: false
+  when: container_state.stdout | default('') != 'running'
+
+- name: Fail with container startup diagnostics
+  ansible.builtin.fail:
+    msg: |
+      Container {{ container_name }} did not reach running state
+      (status={{ container_state.stdout | default('unknown') }}).
+      Systemd init containers require a working podman+cgroup setup on the host.
+      Inspect: podman inspect {{ container_name }}
+      Logs (last 80 lines):
+      {{ container_logs.stdout | default('(no logs)') }}
+  when: container_state.stdout | default('') != 'running'
+
 - name: Seed storage volume from golden image (containerized installs)
   ansible.builtin.command:
     cmd: >
@@ -156,13 +189,15 @@
         "
   register: seed_result
   changed_when: "'SEEDED' in seed_result.stdout"
-  when: ver_config.installer.method | default('rpm') == 'containerized'
+  when:
+    - ver_config.installer.method | default('rpm') == 'containerized'
+    - use_golden_image
 
 - name: Fix container storage volume ownership
   ansible.builtin.command:
     cmd: >
       podman exec {{ container_name }}
-        chown -R aap:aap /home/aap/.local/share/containers/storage
+        bash -c "mkdir -p /home/aap/.local/share/containers/storage && chown -R aap:aap /home/aap/.local/share/containers/storage"
   failed_when: false
   changed_when: false
   when:
@@ -198,12 +233,12 @@
   changed_when: false
   when:
     - ver_config.installer.method | default('rpm') == 'containerized'
-    - golden_available
+    - use_golden_image
 
 - name: Report container created
   ansible.builtin.debug:
     msg: >
       Container '{{ container_name }}' running AAP {{ aap_version }}
-      ({{ 'from golden image' if golden_available else 'from base image - AAP not yet installed' }}).
+      ({{ 'from golden image' if use_golden_image else 'from base image - AAP not yet installed' }}).
       {{ 'Envoy port: ' + ((port_base | int + port_offset_envoy) | string) + ' (UI + API)' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}
       Controller port: {{ port_base | int + port_offset_controller }}

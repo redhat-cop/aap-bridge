@@ -170,8 +170,9 @@ make reset-pair SOURCE=2.4 TARGET=2.6
 | 10 | `make run-pair`, `make test-bridge` | [Running Test Pairs](#running-test-pairs) |
 | 11 | `make reset-pair` | [Running Test Pairs](#running-test-pairs) |
 
-Teardown (not in the numbered flow above): `make down-pair`, `make destroy-pair`, and
-`make down` — see [Notes](#notes) and [Running Test Pairs](#running-test-pairs).
+Teardown (not in the numbered flow above): `make down-all` (everything stopped),
+`make down-pair`, `make destroy-pair`, or `make destroy-all` (remove images too) —
+see [Notes](#notes) and [Running Test Pairs](#running-test-pairs).
 
 ### Notes
 
@@ -182,12 +183,15 @@ Teardown (not in the numbered flow above): `make down-pair`, `make destroy-pair`
 - The bridge container bind-mounts `./exports`, `./xformed`, `./reports`, `./logs`, and
   `./schemas` from the repo root (same paths as the engine service) so migration artifacts
   are visible on the host.
-- **Bridge + database:** `make down` stops the compose stack (db + bridge).
+- **Bridge + database:** `make down` stops only the compose stack (db + bridge).
+  `make down-all` also stops every running AAP test/build container (`aap-*-build`,
+  `aap-*-src`, `aap-*-tgt`). Containers are stopped, not removed — use
+  `make destroy-pair` or `podman rm -f` to delete them.
 - **AAP test pair:** `make down-pair SOURCE=2.4 TARGET=2.6` stops the source and target
   containers without removing them; `make destroy-pair SOURCE=2.4 TARGET=2.6` removes the
   containers and pair network. Golden images are kept either way.
-- When you are done for the day, run both — for example
-  `make down-pair SOURCE=2.4 TARGET=2.6` then `make down`.
+- When you are done for the day: `make down-all` (or `make down-pair …` then `make down`
+  if you only have a pair and no leftover build containers).
 
 ### Verify
 
@@ -410,7 +414,8 @@ make destroy-pair SOURCE=2.3 TARGET=2.6
 ```
 
 Pair lifecycle mirrors the compose stack: `run-pair` / `down-pair` / `destroy-pair` for the
-AAP instances, and `make up-dev` / `make down` for the bridge + database.
+AAP instances; `make up-dev` / `make down` for bridge + database only; `make down-all` for
+both.
 
 ### Source test data
 
@@ -518,7 +523,8 @@ make c-typecheck # Run mypy
 make c-check     # All of the above
 make shell       # Shell into bridge container
 make logs        # Tail logs
-make down        # Stop everything
+make down        # Stop db + bridge only
+make down-all    # Stop db + bridge + all AAP test/build containers
 ```
 
 ### Debugging

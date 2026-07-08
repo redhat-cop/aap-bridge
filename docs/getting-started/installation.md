@@ -231,7 +231,8 @@ aap-bridge --help
 | `make shell-engine` | Open a shell in the engine container |
 | `make web-dev` | Start the Vite frontend dev server |
 | `make logs` | Tail compose service logs |
-| `make down` | Stop the containerized workflow |
+| `make down` | Stop the db + bridge compose stack |
+| `make down-all` | Stop compose stack and all running AAP test/build containers |
 
 ## Next Steps
 

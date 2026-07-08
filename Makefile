@@ -1,7 +1,7 @@
 .PHONY: help install install-dev clean format lint typecheck test test-unit test-integration \
        test-performance test-cov check docs docs-serve \
        init-env setup version venv install-editable all \
-       build build-api build-ui build-all up up-dev down shell shell-engine logs \
+       build build-api build-ui build-all up up-dev down down-all shell shell-engine logs \
        ensure-bridge-dev-image ensure-api-ui-images \
        c-test c-test-all c-lint c-format c-typecheck c-check \
        web-install web-dev web-build serve \
@@ -63,7 +63,8 @@ help: ## Show this help message
 	@echo "    make up-dev                        # Start db + bridge container"
 	@echo "    make shell                         # Open a shell in the bridge container"
 	@echo "    make c-check                       # Run checks inside the bridge container"
-	@echo "    make down                          # Stop the running containers"
+	@echo "    make down                          # Stop db + bridge compose stack"
+	@echo "    make down-all                      # Stop compose + all AAP test/build containers"
 	@echo ""
 	@echo "  Web UI workflow (optional):"
 	@echo "    make build-all                     # Build API + UI images"
@@ -266,7 +267,17 @@ up-dev: ensure-bridge-dev-image ## Start db + bridge using prebuilt images
 	mkdir -p exports xformed reports logs schemas
 	$(COMPOSE) up -d --no-build db bridge
 
-down: ## Stop all containers
+down: ## Stop db + bridge compose stack
+	$(COMPOSE) down
+
+down-all: ## Stop compose stack and all running AAP test/build containers
+	@ids=$$(podman ps -q --filter label=io.aap-bridge.role=aap-instance); \
+	if [ -n "$$ids" ]; then \
+		echo "Stopping AAP containers: $$ids"; \
+		podman stop $$ids; \
+	else \
+		echo "No running AAP test/build containers"; \
+	fi
 	$(COMPOSE) down
 
 shell: ## Shell into bridge container

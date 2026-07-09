@@ -377,6 +377,14 @@ This creates a container, runs the AAP installer inside it, commits the result a
 make build-aap-all
 ```
 
+Rebuilds every version in the matrix (1.0 through 2.6), continuing on failure with a
+`WARN` line. **AAP 1.0–1.2 are best-effort** — expect some to fail depending on bundle
+availability and installer quirks.
+
+`make build-aap` always starts the install container from the **UBI base image**, even when
+a golden image for that version already exists locally. Golden images are only used for
+`run-pair` / `reset-pair` fast startup, not for rebuilds.
+
 ### Push to a registry
 
 ```bash
@@ -562,6 +570,8 @@ automatically. Common issues:
 | `sysctl: Read-only file system` | Fixed: containers run privileged |
 | `add_key: quota exceeded` | Raise `kernel.keys.maxkeys` (see Prerequisites) |
 | `can't start new thread` / `crun: resource temporarily unavailable` | Rebuild golden images and `make reset-pair` (limits are pre-configured; likely an old image) |
+| `container state improper` / build hangs at "Wait for container" | Stuck `podman wait` on a crashed container — Ctrl+C, `podman rm -f aap-*-build`, retry; if the container exits in under a second, check host systemd-in-podman (see below) |
+| AAP container exits immediately (exit 255) | Host cannot run `--systemd always` containers; verify `podman run -d --systemd always --privileged registry.redhat.io/ubi9/ubi-init:latest` stays running, then reboot or fix cgroup/podman if not |
 | `storage/overlay/tempdirs: permission denied` | Run `chown -R aap:aap /home/aap/.local/share/containers/storage` inside the target container, or `make reset-pair` (ownership fix runs at start) |
 
 ## File Layout

@@ -25,5 +25,4 @@
     token_scope: read
     token_description: "aap-bridge src ({{ pair_id }})"
     port_base: "{{ _port_base }}"
-    container_name: "{{ container_name }}"
     token_save_path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/src_token"

@@ -114,7 +114,6 @@
     token_scope: write
     token_description: "aap-bridge golden image ({{ aap_version }})"
     port_base: "{{ _build_port_base }}"
-    container_name: "{{ container_name }}"
     token_save_path: "{{ playbook_dir }}/../generated/images/{{ aap_version | replace('.', '') }}_rw_token"
 
 - name: Ensure generated pair directory exists

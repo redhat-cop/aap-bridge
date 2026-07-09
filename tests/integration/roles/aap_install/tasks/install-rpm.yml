@@ -1,11 +1,43 @@
 ---
 - name: Run AAP RPM installer
   block:
+    - name: Pin ansible for legacy installer playbooks
+      when: ver_config.installer.ansible_pip_package | default('') | length > 0
+      block:
+        - name: Remove distro ansible packages that conflict with pip pin
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "dnf remove -y ansible ansible-core 2>/dev/null; true"
+          failed_when: false
+          changed_when: false
+
+        - name: Install pinned ansible via pip
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "pip3.9 install --force-reinstall '{{ ver_config.installer.ansible_pip_package }}'"
+          register: ansible_pin
+          changed_when: ansible_pin.rc == 0
+
+        - name: Verify pinned ansible-playbook version
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "PATH=/usr/local/bin:${PATH} ansible-playbook --version | head -1"
+          register: ansible_pin_check
+          changed_when: false
+          failed_when: false
+
+        - name: Show pinned ansible version
+          ansible.builtin.debug:
+            msg: "Installer ansible: {{ ansible_pin_check.stdout | default('unknown') }}"
+
     - name: Run setup.sh
       ansible.builtin.command:
         cmd: >
           podman exec {{ container_name }}
-            bash -c "cd {{ installer_dir }} && ./setup.sh"
+            bash -c "cd {{ installer_dir }} && PATH=/usr/local/bin:${PATH} ./setup.sh"
       register: install_result
       timeout: 3600
       failed_when: false

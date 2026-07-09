@@ -11,6 +11,7 @@ aap_versions:
       method: rpm
       setup_script: "setup.sh"
       download_rhel_version: 7
+      ansible_pip_package: "ansible==2.9.27"
     components:
       controller:
         enabled: true
@@ -46,6 +47,7 @@ aap_versions:
       method: rpm
       setup_script: "setup.sh"
       download_rhel_version: 7
+      ansible_pip_package: "ansible==2.9.27"
     components:
       controller:
         enabled: true
@@ -81,6 +83,7 @@ aap_versions:
       method: rpm
       setup_script: "setup.sh"
       download_rhel_version: 7
+      ansible_pip_package: "ansible==2.9.27"
     components:
       controller:
         enabled: true
@@ -116,6 +119,7 @@ aap_versions:
       method: rpm
       bundle_name: "ansible-automation-platform-setup-bundle-2.0.1-1.tar.gz"
       setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.11.12"
     components:
       controller:
         enabled: true
@@ -152,6 +156,7 @@ aap_versions:
       method: rpm
       bundle_name: "ansible-automation-platform-setup-bundle-2.1.3-1.tar.gz"
       setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.11.12"
     components:
       controller:
         enabled: true
@@ -188,6 +193,7 @@ aap_versions:
       method: rpm
       bundle_name: "ansible-automation-platform-setup-bundle-2.2.2-1.tar.gz"
       setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.11.12"
     components:
       controller:
         enabled: true

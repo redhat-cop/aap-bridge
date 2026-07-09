@@ -8,7 +8,7 @@
 #   port_base          - host port block (e.g. 30047 = build envoy for 2.6)
 #
 # Optional:
-#   container_name     - required for RPM preauth (AAP 2.3 and earlier)
+#   container_name     - required for RPM awx-manage fallback (AAP 2.2 and earlier)
 #   token_save_path    - write token secret to this host path (mode 0600)
 
 - name: Load version matrix
@@ -48,8 +48,8 @@
   delay: "{{ token_delay }}"
   until: _api_ping.status == 200
 
-- name: Create scoped token via tokens API (AAP 2.4+ or platform gateway)
-  when: _installer_method == 'containerized' or (version_index[aap_version] | int) >= 7
+- name: Create scoped token via tokens API (AAP 2.3+ or platform gateway)
+  when: _installer_method == 'containerized' or (version_index[aap_version] | int) >= 6
   block:
     - name: POST scoped token to AAP tokens API
       ansible.builtin.uri:
@@ -74,10 +74,10 @@
       ansible.builtin.set_fact:
         scoped_api_token: "{{ _token_api.json.token | default('') | trim }}"
 
-- name: Create scoped preauth token (RPM, AAP 2.3 and earlier)
+- name: Create scoped preauth token (RPM, AAP 2.2 and earlier)
   when:
     - _installer_method != 'containerized'
-    - (version_index[aap_version] | int) < 7
+    - (version_index[aap_version] | int) < 6
   block:
     - name: Run create_preauth_token with scope
       ansible.builtin.command:

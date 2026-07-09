@@ -5,19 +5,41 @@
     state: directory
     mode: "0750"
 
-- name: Set bundle type prefix
+- name: Set bundle search parameters
   ansible.builtin.set_fact:
-    __bundle_prefix: "{{ 'ansible-automation-platform-containerized-setup-bundle' if ver_config.installer.method == 'containerized' else 'ansible-automation-platform-setup-bundle' }}"
+    __bundle_prefix: >-
+      {{
+        ver_config.installer.bundle_prefix
+        | default(
+            'ansible-automation-platform-containerized-setup-bundle'
+            if ver_config.installer.method == 'containerized'
+            else 'ansible-automation-platform-setup-bundle'
+          )
+      }}
+    __bundle_download_api: "{{ ver_config.installer.bundle_download_api | default(true) | bool }}"
+
+- name: Set bundle filename pattern
+  ansible.builtin.set_fact:
+    __bundle_pattern: >-
+      {{
+        ver_config.installer.bundle_search_pattern
+        | default(
+            ver_config.installer.bundle_name
+            if not __bundle_download_api
+            else __bundle_prefix + '-' + aap_version + '*.tar.gz'
+          )
+      }}
 
 - name: Check if bundle already exists for this version
   ansible.builtin.find:
     paths: "{{ installer_bundles_dir }}"
-    patterns: "{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz"
+    patterns: "{{ __bundle_pattern }}"
   register: initial_bundle_check
 
 - name: Download bundle from Red Hat API
   when:
     - initial_bundle_check.files | length == 0
+    - __bundle_download_api
     - rh_api_offline_token is defined
     - rh_api_offline_token | length > 0
   block:
@@ -92,16 +114,26 @@
 - name: Scan for bundle
   ansible.builtin.find:
     paths: "{{ installer_bundles_dir }}"
-    patterns: "{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz"
+    patterns: "{{ __bundle_pattern }}"
   register: found_bundles
 
 - name: Fail if no bundle found
   ansible.builtin.fail:
-    msg: >
-      No {{ __bundle_prefix }} found for AAP {{ aap_version }} in {{ installer_bundles_dir }}.
-      Either provide rh_api_offline_token for automatic download,
-      or manually place a bundle matching
-      '{{ __bundle_prefix }}-{{ aap_version }}*.tar.gz' in that directory.
+    msg: >-
+      No installer bundle found for AAP {{ aap_version }} in {{ installer_bundles_dir }}.
+      {% if not __bundle_download_api and ver_config.installer.bundle_name | default('') | length > 0 %}
+      Place the expected bundle manually: {{ ver_config.installer.bundle_name }}
+      {% else %}
+      Place a bundle matching '{{ __bundle_pattern }}' in that directory,
+      {% if ver_config.installer.bundle_name | default('') | length > 0 %}
+      or provide rh_api_offline_token to download (matrix documents {{ ver_config.installer.bundle_name }} as a reference name).
+      {% else %}
+      or provide rh_api_offline_token for automatic download.
+      {% endif %}
+      {% endif %}
+      {% if not __bundle_download_api %}
+      Automatic API download is disabled for this version (bundle no longer in the Red Hat catalog).
+      {% endif %}
   when: found_bundles.files | length == 0
 
 - name: Set bundle filename from discovered file

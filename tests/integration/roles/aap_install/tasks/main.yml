@@ -59,17 +59,22 @@
       podman exec {{ container_name }}
         tar xzf /tmp/{{ bundle_filename }} -C /opt/
 
-- name: Find installer directory
+- name: Set installer directory from extracted bundle name
+  ansible.builtin.set_fact:
+    installer_dir: "/opt/{{ bundle_filename | regex_replace('\\.tar\\.gz$', '') }}"
+
+- name: Verify installer directory exists in container
   ansible.builtin.command:
-    cmd: >
-      podman exec {{ container_name }}
-        find /opt -maxdepth 1 -name 'ansible-automation-platform-*setup*' -type d
-  register: installer_dir_result
+    cmd: "podman exec {{ container_name }} test -d {{ installer_dir }}"
+  register: installer_dir_check
   changed_when: false
 
-- name: Set installer directory
-  ansible.builtin.set_fact:
-    installer_dir: "{{ installer_dir_result.stdout_lines[0] }}"
+- name: Fail if installer directory is missing
+  ansible.builtin.fail:
+    msg: >
+      Expected installer directory {{ installer_dir }} after extracting {{ bundle_filename }}.
+      Check that the bundle archive extracts a top-level directory under /opt.
+  when: installer_dir_check.rc != 0
 
 - name: Get container hostname for installer inventory
   ansible.builtin.command:

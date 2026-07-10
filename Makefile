@@ -409,7 +409,7 @@ build-aap: ## Build AAP golden image (VERSION=2.4)
 build-aap-all: ## Build golden images for ALL versions
 	@for v in 1.0 1.1 1.2 2.0 2.1 2.2 2.3 2.4 2.5 2.6; do \
 		echo "=== Building AAP $$v ==="; \
-		$(MAKE) build-aap VERSION=$$v || echo "WARN: AAP $$v build failed (may be best-effort)"; \
+		$(MAKE) build-aap VERSION=$$v || echo "WARN: AAP $$v build failed"; \
 	done
 
 push-aap: ## Push golden image to registry (VERSION=2.4 REGISTRY=quay.io/myorg)

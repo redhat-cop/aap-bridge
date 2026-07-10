@@ -400,8 +400,7 @@ make build-aap-all
 ```
 
 Rebuilds every version in the matrix (1.0 through 2.6), continuing on failure with a
-`WARN` line. **AAP 1.0–1.2 are best-effort** — expect some to fail depending on bundle
-availability and installer quirks. Versions 1.0–2.0 require [manual installer bundles](#installer-bundles).
+`WARN` line. Versions 1.0–2.0 require [manual installer bundles](#installer-bundles).
 
 `make build-aap` always starts the install container from the **UBI base image**, even when
 a golden image for that version already exists locally. Golden images are only used for

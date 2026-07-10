@@ -18,16 +18,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: false
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -39,7 +35,6 @@ aap_versions:
     container:
       hostname_prefix: "aap10"
       privileged: true
-    best_effort: true
     inventory_template: "inventory-tower.j2"
 
   "1.1":
@@ -57,16 +52,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: false
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -78,7 +69,6 @@ aap_versions:
     container:
       hostname_prefix: "aap11"
       privileged: true
-    best_effort: true
     inventory_template: "inventory-tower.j2"
 
   "1.2":
@@ -95,16 +85,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: false
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -116,7 +102,6 @@ aap_versions:
     container:
       hostname_prefix: "aap12"
       privileged: true
-    best_effort: true
     inventory_template: "inventory-tower.j2"
 
   "2.0":
@@ -132,16 +117,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: true
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -154,7 +135,6 @@ aap_versions:
     container:
       hostname_prefix: "aap20"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-controller.j2"
 
   "2.1":
@@ -168,16 +148,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: true
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -190,7 +166,6 @@ aap_versions:
     container:
       hostname_prefix: "aap21"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-controller.j2"
 
   "2.2":
@@ -204,16 +179,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: true
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -226,7 +197,6 @@ aap_versions:
     container:
       hostname_prefix: "aap22"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-controller.j2"
 
   "2.3":
@@ -239,16 +209,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: true
-        best_effort: true
       eda:
         enabled: true
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -261,7 +227,6 @@ aap_versions:
     container:
       hostname_prefix: "aap23"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-controller.j2"
 
   "2.4":
@@ -274,16 +239,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: true
-        best_effort: true
       eda:
         enabled: true
-        best_effort: true
       gateway:
         enabled: false
-        best_effort: true
     api:
       controller_path: "/api/v2"
     repos:
@@ -296,7 +257,6 @@ aap_versions:
     container:
       hostname_prefix: "aap24"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-controller.j2"
 
   "2.5":
@@ -309,16 +269,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: false
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: true
-        best_effort: true
     api:
       controller_path: "/api/controller/v2"
       gateway_path: "/api/gateway/v1"
@@ -332,7 +288,6 @@ aap_versions:
     container:
       hostname_prefix: "aap25"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-gateway.j2"
 
   "2.6":
@@ -345,16 +300,12 @@ aap_versions:
     components:
       controller:
         enabled: true
-        best_effort: false
       hub:
         enabled: false
-        best_effort: true
       eda:
         enabled: false
-        best_effort: true
       gateway:
         enabled: true
-        best_effort: true
     api:
       controller_path: "/api/controller/v2"
       gateway_path: "/api/gateway/v1"
@@ -368,5 +319,4 @@ aap_versions:
     container:
       hostname_prefix: "aap26"
       privileged: true
-    best_effort: false
     inventory_template: "inventory-gateway.j2"

@@ -116,12 +116,6 @@
       ansible.builtin.debug:
         msg: "{{ nested_ps.stdout_lines | default(['No nested containers']) }}"
 
-    - name: Re-raise failure
+    - name: Fail install after dumping logs
       ansible.builtin.fail:
         msg: "AAP {{ aap_version }} containerized installer failed. See log output above."
-      when: not (ver_config.best_effort | default(false))
-
-    - name: Warn (best-effort version)
-      ansible.builtin.debug:
-        msg: "WARNING: AAP {{ aap_version }} containerized install failed but best_effort=true, continuing."
-      when: ver_config.best_effort | default(false)

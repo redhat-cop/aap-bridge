@@ -14,7 +14,7 @@
   delay: 10
   until: api_check.stdout | default('') == '200'
   changed_when: false
-  failed_when: false
+  # Retry loop: individual attempts may fail while services start; fail task below enforces the outcome.
 
 - name: Report API status
   ansible.builtin.debug:
@@ -28,9 +28,7 @@
       Controller API for {{ container_name }} never became available at
       https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/ping/
       after the allotted retries.
-  when:
-    - api_check.stdout | default('') != '200'
-    - not (ver_config.best_effort | default(false))
+  when: api_check.stdout | default('') != '200'
 
 - name: Load version matrix for token and port calculation
   ansible.builtin.include_vars:
@@ -132,10 +130,10 @@
     - pair_id | default('') | length > 0
   no_log: true
 
-- name: Check best-effort components
+- name: Check optional component status
   when: api_check.stdout | default('') == '200'
   block:
-    - name: Check Hub status (best-effort)
+    - name: Check Hub status
       ansible.builtin.command:
         cmd: "podman exec {{ container_name }} systemctl is-active pulpcore-api.service"
       register: hub_status
@@ -143,7 +141,7 @@
       changed_when: false
       when: ver_config.components.hub.enabled | default(false)
 
-    - name: Check EDA status (best-effort)
+    - name: Check EDA status
       ansible.builtin.command:
         cmd: "podman exec {{ container_name }} systemctl is-active automation-eda-api.service"
       register: eda_status

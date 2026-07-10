@@ -32,12 +32,27 @@
           --username={{ rhsm_username }}
           --password={{ rhsm_password }}
           --auto-attach
+  register: rhsm_result
+  retries: 10
+  delay: 15
+  until: >-
+    rhsm_result.rc == 0 or
+    'already registered' in (rhsm_result.stderr | default(''))
+  changed_when: rhsm_result.rc == 0
   no_log: true
   when:
     - (rhsm_username | default('', true) | length) > 0
     - (rhsm_password | default('', true) | length) > 0
-  register: rhsm_result
-  failed_when:
+
+- name: Fail if RHEL subscription registration failed
+  ansible.builtin.fail:
+    msg: >-
+      subscription-manager register failed in {{ container_name }} after 10 retries.
+      Check RHSM credentials, subscription availability, and network connectivity to
+      Red Hat (transient API errors are retried automatically).
+  when:
+    - (rhsm_username | default('', true) | length) > 0
+    - (rhsm_password | default('', true) | length) > 0
     - rhsm_result.rc != 0
     - "'already registered' not in (rhsm_result.stderr | default(''))"
 

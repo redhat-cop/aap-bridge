@@ -1,7 +1,7 @@
 FROM registry.redhat.io/ubi9/ubi-init:latest
 
 LABEL maintainer="aap-bridge testing" \
-      description="UBI 9 base for AAP 2.5-2.6 installation" \
+      description="UBI 9 base for AAP 2.5-2.7 installation" \
       io.aap-bridge.role="aap-base" \
       io.aap-bridge.rhel="9"
 

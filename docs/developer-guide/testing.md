@@ -97,7 +97,7 @@ from a transient install container. The outer container is always a UBI **system
 | AAP versions | Install method | What runs inside |
 |--------------|----------------|------------------|
 | 1.0–2.4 | **RPM** (`setup.sh`) | Controller (and Hub/EDA where enabled) as systemd services on the host RHEL in the container |
-| 2.5–2.6 | **Containerized** (`ansible.containerized_installer`) | Nested podman stacks for gateway, controller, etc. (podman-in-podman) |
+| 2.5–2.7 | **Containerized** (`ansible.containerized_installer`) | Nested podman stacks for gateway, controller, etc. (podman-in-podman) |
 
 Version-specific settings live in `tests/integration/versions/matrix.yml` (`installer.method`).
 
@@ -348,7 +348,7 @@ make build-aap-bases
 ```
 
 Builds `localhost/aap-base-ubi8:latest` and `localhost/aap-base-ubi9:latest` from
-`tests/integration/containerfiles/`. AAP 1.x–2.4 use UBI 8; 2.5–2.6 use UBI 9.
+`tests/integration/containerfiles/`. AAP 1.x–2.4 use UBI 8; 2.5–2.7 use UBI 9.
 
 ### Installer bundles
 
@@ -378,7 +378,7 @@ and whether API download is enabled (`bundle_download_api`).
 |---------|------|---------------|--------|
 | 1.0-1.2 | UBI 8 | RPM (RHEL 7 bundle) | Best-effort; [manual bundle required](#installer-bundles) |
 | 2.0-2.4 | UBI 8 | RPM | Supported; 2.0 needs [manual bundle](#installer-bundles) |
-| 2.5-2.6 | UBI 9 | Containerized (podman-in-podman) | Supported |
+| 2.5-2.7 | UBI 9 | Containerized (podman-in-podman) | Supported |
 
 ### Build a single version
 
@@ -605,7 +605,7 @@ tests/integration/
 ├── Containerfile.builder            # Ansible builder (podman-remote + collections)
 ├── containerfiles/
 │   ├── Containerfile.ubi8-init      # Base for AAP 1.x-2.4
-│   └── Containerfile.ubi9-init      # Base for AAP 2.5-2.6
+│   └── Containerfile.ubi9-init      # Base for AAP 2.5-2.7
 ├── versions/
 │   └── matrix.yml                   # Version matrix (all per-version config)
 ├── inventory/

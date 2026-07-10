@@ -7,6 +7,11 @@
 [automationgateway]
 {{ container_hostname }} ansible_connection=local
 
+{% if aap_version is version('2.7', '>=') %}
+[automationmetrics]
+{{ container_hostname }} ansible_connection=local
+
+{% endif %}
 [database]
 {{ container_hostname }} ansible_connection=local
 
@@ -35,3 +40,10 @@ gateway_pg_port='5432'
 gateway_pg_database='automationgateway'
 gateway_pg_username='automationgateway'
 gateway_pg_password='{{ aap_pg_password }}'
+
+{% if aap_version is version('2.7', '>=') %}
+automationmetrics_pg_host='localhost'
+automationmetrics_pg_password='{{ aap_pg_password }}'
+automationmetrics_controller_read_pg_host='localhost'
+automationmetrics_controller_read_pg_password='{{ aap_pg_password }}'
+{% endif %}

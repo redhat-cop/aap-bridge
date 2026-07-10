@@ -320,3 +320,36 @@ aap_versions:
       hostname_prefix: "aap26"
       privileged: true
     inventory_template: "inventory-gateway.j2"
+
+  "2.7":
+    display_name: "AAP 2.7"
+    rhel_version: 9
+    base_image: "registry.redhat.io/ubi9/ubi-init:latest"
+    installer:
+      method: containerized
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: true
+      metrics:
+        enabled: true
+    api:
+      controller_path: "/api/controller/v2"
+      gateway_path: "/api/gateway/v1"
+    repos:
+      - ansible-automation-platform-2.7-for-rhel-9-x86_64-rpms
+      - rhel-9-for-x86_64-baseos-rpms
+      - rhel-9-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 16
+      cpus: 4
+    container:
+      hostname_prefix: "aap27"
+      privileged: true
+    inventory_template: "inventory-gateway.j2"

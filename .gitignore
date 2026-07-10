@@ -221,6 +221,7 @@ config/mappings.yaml
 # AI tool configs and instructions (local-only, not for public)
 .claude/
 .codex/
+.cursor/
 .gemini/
 AGENTS.md
 CLAUDE.md

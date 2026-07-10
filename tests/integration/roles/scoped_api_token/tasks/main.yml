@@ -38,8 +38,7 @@
         else (_ver_config.api.controller_path | default('/api/v2')) + '/ping/'
       }}
     _use_tokens_api: "{{ _installer_method == 'containerized' or (version_index[aap_version] | int) >= 2 }}"
-    _use_oauth2_cli: "{{ _installer_method != 'containerized' and (version_index[aap_version] | int) == 1 }}"
-    _use_preauth_cli: "{{ _installer_method != 'containerized' and (version_index[aap_version] | int) == 0 }}"
+    _use_oauth2_cli: "{{ _installer_method != 'containerized' and (version_index[aap_version] | int) < 2 }}"
 
 - name: Wait for host-published API (tokens API versions)
   when: _use_tokens_api | bool
@@ -54,7 +53,7 @@
   until: _api_ping.status == 200
 
 - name: Wait for controller API inside container (Tower CLI token versions)
-  when: (_use_oauth2_cli | bool) or (_use_preauth_cli | bool)
+  when: _use_oauth2_cli | bool
   ansible.builtin.command:
     cmd: >
       podman exec {{ container_name }}
@@ -92,7 +91,7 @@
       ansible.builtin.set_fact:
         scoped_api_token: "{{ _token_api.json.token | default('') | trim }}"
 
-- name: Create scoped oauth2 token via awx-manage (RPM, AAP 1.1 only)
+- name: Create oauth2 token via awx-manage (RPM, AAP 1.0/1.1)
   when: _use_oauth2_cli | bool
   block:
     - name: Run create_oauth2_token
@@ -110,25 +109,6 @@
     - name: Resolve oauth2 token result
       ansible.builtin.set_fact:
         scoped_api_token: "{{ (_token_oauth2.stdout | default('') | trim | split('\n') | last | trim) if (_token_oauth2.stdout | default('') | trim | length > 0) else '' }}"
-
-- name: Create scoped preauth token via awx-manage (RPM, AAP 1.0 only)
-  when: _use_preauth_cli | bool
-  block:
-    - name: Run create_preauth_token with scope
-      ansible.builtin.command:
-        cmd: >
-          podman exec {{ container_name }}
-            awx-manage create_preauth_token --scope {{ token_scope }} --user admin
-      register: _token_preauth
-      retries: "{{ token_retries }}"
-      delay: "{{ token_delay }}"
-      until: _token_preauth.rc == 0 and (_token_preauth.stdout | default('') | trim | length > 0)
-      changed_when: false
-      no_log: true
-
-    - name: Resolve preauth token result
-      ansible.builtin.set_fact:
-        scoped_api_token: "{{ (_token_preauth.stdout | default('') | trim | split('\n') | last | trim) if (_token_preauth.stdout | default('') | trim | length > 0) else '' }}"
 
 - name: Require scoped API token
   ansible.builtin.fail:

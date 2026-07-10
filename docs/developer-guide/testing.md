@@ -399,12 +399,14 @@ This creates a container, runs the AAP installer inside it, commits the result a
 make build-aap-all
 ```
 
-Rebuilds every version in the matrix (1.0 through 2.6) in order, stopping on the
-first failure. Versions 1.0–2.0 require [manual installer bundles](#installer-bundles).
+Rebuilds every version in the matrix (1.0 through 2.7) in order, stopping on the
+first failure. Versions that already have a local golden image (`localhost/aap-golden-<version>:latest`)
+are skipped so you can resume after a partial run. Use `FORCE=1 make build-aap-all` to rebuild all.
+Versions 1.0–2.0 require [manual installer bundles](#installer-bundles).
 
 `make build-aap` always starts the install container from the **UBI base image**, even when
 a golden image for that version already exists locally. Golden images are only used for
-`run-pair` / `reset-pair` fast startup, not for rebuilds.
+`run-pair` / `reset-pair` fast startup, not for single-version rebuilds.
 
 ### Push to a registry
 
@@ -521,7 +523,7 @@ Each version gets a deterministic port block so pairs don't conflict:
 Source ports: 10000 + (version_index * 100) + offset
 Target ports: 20000 + (version_index * 100) + offset
 
-Version indices: 1.0=0, 1.1=1, 1.2=2, 2.0=3, ..., 2.6=9
+Version indices: 1.0=0, 1.1=1, 1.2=2, 2.0=3, ..., 2.7=10
 Offsets: controller=43, hub=44, eda=45, gateway=46, envoy=47
 ```
 

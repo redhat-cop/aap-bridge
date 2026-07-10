@@ -406,8 +406,12 @@ build-aap: ## Build AAP golden image (VERSION=2.4)
 	@$(run-builder) playbooks/build-instance.yml \
 		-e aap_version=$(VERSION)
 
-build-aap-all: ## Build golden images for ALL versions (stops on first failure)
-	@set -e; for v in 1.0 1.1 1.2 2.0 2.1 2.2 2.3 2.4 2.5 2.6; do \
+build-aap-all: ## Build golden images for ALL versions (skips existing; FORCE=1 to rebuild)
+	@set -e; for v in 1.0 1.1 1.2 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7; do \
+		if [ "$(FORCE)" != "1" ] && podman image exists localhost/aap-golden-$$v:latest 2>/dev/null; then \
+			echo "=== SKIP AAP $$v (golden image exists; FORCE=1 to rebuild) ==="; \
+			continue; \
+		fi; \
 		echo "=== Building AAP $$v ==="; \
 		$(MAKE) build-aap VERSION=$$v; \
 	done

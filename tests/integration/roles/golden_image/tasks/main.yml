@@ -6,28 +6,40 @@
         -e XDG_RUNTIME_DIR=/run/user/1000
         -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
         {{ container_name }}
-        systemctl --user stop
-          postgresql.service
-          redis-tcp.service
-          redis-unix.service
-          receptor.service
-          automation-controller-web.service
-          automation-controller-task.service
-          automation-controller-rsyslog.service
-          automation-gateway.service
-          automation-gateway-proxy.service
+        bash -c "
+          systemctl --user stop
+            postgresql.service
+            redis-tcp.service
+            redis-unix.service
+            receptor.service
+            automation-controller-web.service
+            automation-controller-task.service
+            automation-controller-rsyslog.service
+            automation-gateway.service
+            automation-gateway-proxy.service
+            automation-metrics-web.service
+            automation-metrics-tasks.service
+            automation-metrics-scheduler.service
+            2>/dev/null || true;
+          podman stop -a 2>/dev/null || true
+        "
   failed_when: false
   changed_when: true
   when: ver_config.installer.method | default('rpm') == 'containerized'
 
 - name: Bake inner container storage into image (containerized installs)
-  ansible.builtin.command:
-    cmd: >
-      podman exec {{ container_name }}
-        bash -c "
-          rm -rf /home/aap/.local/share/containers/storage-baked;
-          rsync -a /home/aap/.local/share/containers/storage/ /home/aap/.local/share/containers/storage-baked/;
-        "
+  ansible.builtin.shell:
+    cmd: |
+      podman exec {{ container_name }} bash -c '
+        set -e
+        find /home/aap/.local/share/containers/storage/overlay \
+          -path "*/diff/tmp/pymp-*" -delete 2>/dev/null || true
+        rm -rf /home/aap/.local/share/containers/storage-baked
+        rsync -a --no-specials \
+          --exclude="*/diff/tmp/pymp-*" \
+          /home/aap/.local/share/containers/storage/ \
+          /home/aap/.local/share/containers/storage-baked/
+      '
   changed_when: true
   when: ver_config.installer.method | default('rpm') == 'containerized'
 

@@ -179,7 +179,9 @@
         bash -c "
           if [ -d /home/aap/.local/share/containers/storage-baked ] && \
              [ ! -f /home/aap/.local/share/containers/storage/.seeded ]; then
-            rsync -a /home/aap/.local/share/containers/storage-baked/ /home/aap/.local/share/containers/storage/;
+            rsync -a --no-specials \
+              --exclude="*/diff/tmp/pymp-*" \
+              /home/aap/.local/share/containers/storage-baked/ /home/aap/.local/share/containers/storage/;
             touch /home/aap/.local/share/containers/storage/.seeded;
             chown -R aap:aap /home/aap/.local/share/containers/storage;
             echo SEEDED;
@@ -218,7 +220,7 @@
   ansible.builtin.shell:
     cmd: |
       podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} bash -c '
-        for ctr in postgresql redis-unix redis-tcp automation-gateway automation-gateway-proxy receptor automation-controller-web automation-controller-task automation-controller-rsyslog; do
+        for ctr in postgresql redis-unix redis-tcp automation-gateway automation-gateway-proxy receptor automation-controller-web automation-controller-task automation-controller-rsyslog automation-metrics-web automation-metrics-tasks automation-metrics-scheduler; do
           STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null) || continue
           if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ] || [ "$STATUS" = "configured" ]; then
             CREATE_CMD=$(podman inspect "$ctr" --format "{{ '{{' }}json .Config.CreateCommand{{ '}}' }}")

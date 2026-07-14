@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import shutil
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -32,6 +31,7 @@ from aap_migration.cli.commands.cleanup import (
 from aap_migration.cli.context import MigrationContext
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.cli.commands.migrate import DEFAULT_MIGRATION_EXCLUDED_TYPES
+from aap_migration.utils.directories import clear_export_transform_directories
 from aap_migration.resources import (
     ORGANIZATION_SCOPED_RESOURCES,
     PARENT_SCOPED_RESOURCES,
@@ -488,26 +488,20 @@ def _clean_export_transform_directories(
     log: LogFn | None = None,
 ) -> list[str]:
     """Clear local export and transform directory contents."""
-    directories = {
-        "exports": Path(export_dir),
-        "xformed": Path(transform_dir),
-    }
-    cleared: list[str] = []
-    for label, path in directories.items():
-        if not path.exists() or not path.is_dir():
-            continue
-        try:
-            for child in path.iterdir():
-                if child.is_dir():
-                    shutil.rmtree(child)
-                else:
-                    child.unlink()
-            cleared.append(label)
-            if log:
-                log(f"Cleared {label} directory: {path}")
-        except OSError as exc:
-            if log:
-                log(f"Failed to clear {label} directory {path}: {exc}")
+
+    def on_error(label: str, path: Path, exc: OSError) -> None:
+        if log:
+            log(f"Failed to clear {label} directory {path}: {exc}")
+
+    cleared = clear_export_transform_directories(
+        export_dir,
+        transform_dir,
+        on_error=on_error,
+    )
+    if log:
+        for label in cleared:
+            path = Path(export_dir if label == "exports" else transform_dir)
+            log(f"Cleared {label} directory: {path}")
     return cleared
 
 

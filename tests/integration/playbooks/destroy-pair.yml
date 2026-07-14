@@ -1,0 +1,56 @@
+---
+# Destroy a source + target pair (containers, network, generated config).
+#
+# Usage:
+#   ansible-playbook playbooks/destroy-pair.yml \
+#     -e source_version=2.3 \
+#     -e target_version=2.6
+#
+#   # Also remove golden images:
+#   ansible-playbook playbooks/destroy-pair.yml \
+#     -e source_version=2.3 \
+#     -e target_version=2.6 \
+#     -e destroy_golden_images=true
+#
+- name: Destroy AAP migration test pair
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    pair_id: "{{ source_version | replace('.', '') }}-to-{{ target_version | replace('.', '') }}"
+
+  tasks:
+    - name: Destroy source instance
+      ansible.builtin.include_role:
+        name: lifecycle
+      vars:
+        lifecycle_action: destroy
+        aap_version: "{{ source_version }}"
+        role_suffix: "src"
+        container_name: "aap-{{ source_version | replace('.', '') }}-src"
+
+    - name: Destroy target instance
+      ansible.builtin.include_role:
+        name: lifecycle
+      vars:
+        lifecycle_action: destroy
+        aap_version: "{{ target_version }}"
+        role_suffix: "tgt"
+        container_name: "aap-{{ target_version | replace('.', '') }}-tgt"
+
+    - name: Remove pair network
+      ansible.builtin.command:
+        cmd: "podman network rm aap-pair-{{ pair_id }}"
+      register: net_rm
+      failed_when: false
+      changed_when: net_rm.rc == 0
+
+    - name: Remove generated pair config
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}"
+        state: absent
+
+    - name: Report pair destroyed
+      ansible.builtin.debug:
+        msg: "Pair {{ pair_id }} fully destroyed."

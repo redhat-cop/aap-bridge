@@ -24,7 +24,6 @@ tests/integration/generated/
 tests/integration/.vault_pass
 *.tar.gz
 *.bak
-tests/
 web/node_modules
 web/dist
 .claude/

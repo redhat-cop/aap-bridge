@@ -3,6 +3,16 @@
 This document defines the supported source-to-target migration paths for the AAP Bridge tool
 and documents known version-specific exceptions.
 
+AAP Bridge also supports **AWX** as a migration source. AWX shares the Controller API with
+AAP at equivalent release levels; configure `SOURCE__VERSION` using the AAP version that
+matches your AWX release. See [AWX Migration](awx-migration.md) for the full version mapping
+and configuration guidance.
+
+!!! note "AWX testing"
+    Only **AWX 24.6.1** (equivalent to AAP 2.4) has been tested as a migration source.
+    Other AWX releases may work when configured with the corresponding AAP source version,
+    but they have not been verified.
+
 ## Support Status Key
 
 | Status | Description |
@@ -36,6 +46,16 @@ and documents known version-specific exceptions.
 | AAP 2.5 | AAP 2.7 | **Supported** | 2026-06-24 | Primary migration path. Fully tested. |
 | AAP 2.6 | AAP 2.7 | **Supported** | 2026-06-24 | Primary migration path. Fully tested. |
 | AAP 2.7 | AAP 2.7 | **Supported** | 2026-06-24 | Same-version migration path. Schema fully compatible. |
+
+## AWX as Migration Source
+
+The rows above apply to AWX sources when `SOURCE__VERSION` is set to the equivalent AAP
+version. For example, AWX 24.6.1 is configured as `SOURCE__VERSION=2.4`.
+
+| AWX Version | Equivalent AAP Source | Target Version | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| AWX 24.6.1 | AAP 2.4 | AAP 2.6 | **Supported** | Only AWX release directly tested. |
+| Other AWX (see [mapping](awx-migration.md)) | Per equivalence table | AAP 2.6 | **Untested** | May work; configure `SOURCE__VERSION` to the matching AAP version. |
 
 ## Known Version-Specific Exceptions
 

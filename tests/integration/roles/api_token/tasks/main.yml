@@ -1,0 +1,28 @@
+---
+# Create an API token for an AAP pair instance.
+#
+# Required vars:
+#   aap_version     - AAP version (e.g. "2.4")
+#   container_name  - podman container name (e.g. "aap-24-src")
+#   pair_id         - pair identifier (e.g. "24-to-26")
+#   token_label     - "src" (read) or "tgt" (write)
+#
+# Target RW tokens come from the golden image (pair_target_token role).
+# This role creates read tokens for the source only.
+
+- name: Load version matrix
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Calculate host port base for pair instance
+  ansible.builtin.set_fact:
+    _port_base: "{{ ((port_base_source if token_label == 'src' else port_base_target) | int) + (version_index[aap_version] | int * 100) }}"
+
+- name: Create scoped source API token
+  ansible.builtin.include_role:
+    name: scoped_api_token
+  vars:
+    token_scope: read
+    token_description: "aap-bridge src ({{ pair_id }})"
+    port_base: "{{ _port_base }}"
+    token_save_path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/src_token"

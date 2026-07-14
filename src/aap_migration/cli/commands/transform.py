@@ -17,6 +17,7 @@ import click
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.decorators import handle_errors, pass_context
 from aap_migration.cli.utils import (
+    confirm_overwrite_directory,
     echo_error,
     echo_info,
     echo_warning,
@@ -437,9 +438,13 @@ def transform(
         raise click.ClickException("Export directory appears empty")
 
     # Check/create output directory
-    if output_dir.exists() and not force:
-        if not yes and not click.confirm(f"⚠️  Directory {output_dir} exists. Overwrite?"):
-            raise click.exceptions.Exit(0)
+    if not confirm_overwrite_directory(
+        output_dir,
+        force=force,
+        yes=yes,
+        message=f"⚠️  Directory {output_dir} exists. Overwrite?",
+    ):
+        raise click.exceptions.Exit(0)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

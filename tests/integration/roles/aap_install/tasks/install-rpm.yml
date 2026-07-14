@@ -1,0 +1,130 @@
+---
+- name: Run AAP RPM installer
+  block:
+    - name: Pin ansible for legacy installer playbooks
+      when: ver_config.installer.ansible_pip_package | default('') | length > 0
+      block:
+        - name: Remove distro ansible packages that conflict with pip pin
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "dnf remove -y ansible ansible-core 2>/dev/null; true"
+          failed_when: false
+          changed_when: false
+
+        - name: Install pinned ansible via pip
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "pip3.9 install --force-reinstall '{{ ver_config.installer.ansible_pip_package }}'"
+          register: ansible_pin
+          changed_when: ansible_pin.rc == 0
+
+        - name: Verify pinned ansible-playbook version
+          ansible.builtin.command:
+            cmd: >
+              podman exec {{ container_name }}
+                bash -c "PATH=/usr/local/bin:${PATH} ansible-playbook --version | head -1"
+          register: ansible_pin_check
+          changed_when: false
+
+        - name: Show pinned ansible version
+          ansible.builtin.debug:
+            msg: "Installer ansible: {{ ansible_pin_check.stdout | default('unknown') }}"
+
+    - name: Run setup.sh
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "cd {{ installer_dir }} && PATH=/usr/local/bin:${PATH} ./setup.sh"
+      register: install_result
+      timeout: 3600
+
+    - name: Detect installed controller systemd unit
+      ansible.builtin.shell:
+        cmd: >
+          podman exec {{ container_name }} bash -c "
+            for svc in automation-controller ansible-tower supervisord; do
+              if systemctl list-unit-files \"\${svc}.service\" 2>/dev/null | grep -q \"\${svc}.service\"; then
+                echo \"\${svc}\"
+                systemctl is-active \"\${svc}.service\"
+                exit 0
+              fi
+            done
+            echo none
+            echo not-installed
+          "
+      register: controller_detect
+      changed_when: false
+
+    - name: Parse controller service status
+      ansible.builtin.set_fact:
+        controller_unit: "{{ controller_detect.stdout_lines[0] | default('none') | trim }}"
+        controller_state: "{{ controller_detect.stdout_lines[1] | default('unknown') | trim }}"
+
+    - name: Report controller install status
+      ansible.builtin.debug:
+        msg: >-
+          AAP {{ aap_version }} controller:
+          unit={{ controller_unit }},
+          state={{ controller_state }},
+          setup.sh rc={{ install_result.rc }}
+
+    - name: Start controller if installed but not active
+      ansible.builtin.command:
+        cmd: "podman exec {{ container_name }} systemctl start {{ controller_unit }}.service"
+      when:
+        - controller_unit != 'none'
+        - controller_state != 'active'
+
+    - name: Re-detect controller state after start attempt
+      ansible.builtin.shell:
+        cmd: >
+          podman exec {{ container_name }} bash -c "
+            systemctl is-active {{ controller_unit }}.service
+          "
+      register: controller_redetect
+      changed_when: false
+      when:
+        - controller_unit != 'none'
+        - controller_state != 'active'
+
+    - name: Update controller state after start attempt
+      ansible.builtin.set_fact:
+        controller_state: "{{ controller_redetect.stdout | default(controller_state) | trim }}"
+      when: controller_redetect is defined
+
+    - name: Fail when setup.sh or controller install failed
+      ansible.builtin.fail:
+        msg: >-
+          AAP {{ aap_version }} controller installation failed.
+          setup.sh rc={{ install_result.rc }},
+          controller unit={{ controller_unit }},
+          state={{ controller_state }}.
+          Inspect {{ installer_dir }}/setup.log and /var/log/tower/setup-*.log
+          inside {{ container_name }}.
+      when: install_result.rc != 0 or controller_unit == 'none' or controller_state != 'active'
+
+  rescue:
+    - name: Dump installer setup log
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "cat /var/log/tower/setup-*.log 2>/dev/null ||
+                     cat {{ installer_dir }}/setup.log 2>/dev/null ||
+                     echo 'No setup log found'"
+      register: setup_log
+      changed_when: false
+
+    - name: Show installer log (last 150 lines)
+      ansible.builtin.debug:
+        msg: "{{ setup_log.stdout_lines[-150:] | default(['No log output']) }}"
+
+    - name: Dump installer stdout
+      ansible.builtin.debug:
+        msg: "{{ install_result.stdout_lines[-50:] | default(['No stdout']) }}"
+      when: install_result is defined
+
+    - name: Fail install after dumping logs
+      ansible.builtin.fail:
+        msg: "AAP {{ aap_version }} controller installation failed. See log output above."

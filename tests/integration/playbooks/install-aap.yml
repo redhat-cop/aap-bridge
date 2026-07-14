@@ -1,0 +1,26 @@
+---
+# Install AAP inside a running container.
+#
+# Usage:
+#   ansible-playbook playbooks/install-aap.yml \
+#     -e aap_version=2.3 \
+#     -e role_suffix=src \
+#     -e rhsm_username=XXX \
+#     -e rhsm_password=XXX
+#
+- name: Install AAP in container
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix | default('src') }}"
+
+  tasks:
+    - name: Install AAP
+      ansible.builtin.include_role:
+        name: aap_install
+      vars:
+        aap_version: "{{ aap_version }}"
+        role_suffix: "{{ role_suffix | default('src') }}"
+        pair_id: "{{ pair_id | default('') }}"

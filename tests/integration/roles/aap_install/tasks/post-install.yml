@@ -1,0 +1,158 @@
+---
+- name: Set controller API port
+  ansible.builtin.set_fact:
+    controller_port: "{{ ':8443' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}"
+
+- name: Wait for Controller API to become available
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        curl -sk -o /dev/null -w '%{http_code}'
+        https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/ping/
+  register: api_check
+  retries: 60
+  delay: 10
+  until: api_check.stdout | default('') == '200'
+  changed_when: false
+  # Retry loop: individual attempts may fail while services start; fail task below enforces the outcome.
+
+- name: Report API status
+  ansible.builtin.debug:
+    msg: >
+      Controller API -
+      {{ 'AVAILABLE' if api_check.stdout | default('') == '200' else 'NOT AVAILABLE (may still be starting)' }}
+
+- name: Fail when controller API never becomes available
+  ansible.builtin.fail:
+    msg: >-
+      Controller API for {{ container_name }} never became available at
+      https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/ping/
+      after the allotted retries.
+  when: api_check.stdout | default('') != '200'
+
+- name: Load version matrix for token and port calculation
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Set build-time port base and gateway flag
+  ansible.builtin.set_fact:
+    _build_port_base: "{{ 30000 + (version_index[aap_version] | int * 100) }}"
+    _gateway_enabled: "{{ ver_config.components.gateway.enabled | default(false) }}"
+
+- name: Ensure generated images directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated/images"
+    state: directory
+    mode: "0750"
+
+- name: Fix AWX_ISOLATION_SHOW_PATHS (remove overlay mounts for container compat)
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        curl -sk -X PATCH
+        -u admin:{{ aap_admin_password }}
+        -H "Content-Type: application/json"
+        https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/settings/jobs/
+        -d '{"AWX_ISOLATION_SHOW_PATHS": ["/etc/pki/ca-trust:/etc/pki/ca-trust", "/usr/share/pki:/usr/share/pki"]}'
+  failed_when: false
+  changed_when: false
+  no_log: true
+  when: api_check.stdout | default('') == '200'
+
+- name: Find subscription manifest
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/../files/manifest"
+    patterns: "*.zip"
+  register: manifest_files
+
+- name: Upload subscription manifest
+  when:
+    - api_check.stdout | default('') == '200'
+    - manifest_files.files | length > 0
+  block:
+    - name: Copy manifest to container
+      ansible.builtin.command:
+        cmd: >
+          podman cp {{ manifest_files.files[0].path }} {{ container_name }}:/tmp/manifest.zip
+
+    - name: Apply subscription manifest via API
+      ansible.builtin.shell:
+        cmd: |
+          podman exec {{ container_name }} bash -c '
+            MANIFEST=$(base64 -w0 /tmp/manifest.zip)
+            echo "{\"eula_accepted\": true, \"manifest\": \"$MANIFEST\"}" > /tmp/manifest_payload.json
+            curl -sk -X POST \
+              -u admin:{{ aap_admin_password | quote }} \
+              -H "Content-Type: application/json" \
+              -d @/tmp/manifest_payload.json \
+              https://localhost{{ controller_port }}{{ ver_config.api.controller_path }}/config/
+          '
+      register: manifest_result
+      failed_when: false
+      no_log: true
+
+    - name: Report manifest upload result
+      ansible.builtin.debug:
+        msg: >-
+          Subscription manifest: {{ 'APPLIED' if manifest_result.rc == 0 and 'license_type' in (manifest_result.stdout | default(''))
+          else 'FAILED - ' + (manifest_result.stderr | default(manifest_result.stdout | default('unknown error')))[:200] }}
+
+- name: Warn if no subscription manifest found
+  ansible.builtin.debug:
+    msg: >
+      WARNING: No subscription manifest found in tests/integration/files/manifest/*.zip.
+      The AAP instance will be unlicensed. Place a manifest zip file in that directory
+      to auto-apply subscriptions during builds.
+  when: manifest_files.files | length == 0
+
+- name: Create golden-image RW token (controller or platform gateway)
+  ansible.builtin.include_role:
+    name: scoped_api_token
+  vars:
+    token_scope: write
+    token_description: "aap-bridge golden image ({{ aap_version }})"
+    port_base: "{{ _build_port_base }}"
+    token_save_path: "{{ playbook_dir }}/../generated/images/{{ aap_version | replace('.', '') }}_rw_token"
+
+- name: Ensure generated pair directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}"
+    state: directory
+    mode: "0750"
+  when: pair_id | default('') | length > 0
+
+- name: Write token to generated pair config (legacy pair builds)
+  ansible.builtin.copy:
+    content: "{{ scoped_api_token }}"
+    dest: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/{{ role_suffix }}_token"
+    mode: "0600"
+  when:
+    - pair_id | default('') | length > 0
+  no_log: true
+
+- name: Check optional component status
+  when: api_check.stdout | default('') == '200'
+  block:
+    - name: Check Hub status
+      ansible.builtin.command:
+        cmd: "podman exec {{ container_name }} systemctl is-active pulpcore-api.service"
+      register: hub_status
+      failed_when: false
+      changed_when: false
+      when: ver_config.components.hub.enabled | default(false)
+
+    - name: Check EDA status
+      ansible.builtin.command:
+        cmd: "podman exec {{ container_name }} systemctl is-active automation-eda-api.service"
+      register: eda_status
+      failed_when: false
+      changed_when: false
+      when: ver_config.components.eda.enabled | default(false)
+
+    - name: Report component status
+      ansible.builtin.debug:
+        msg: |
+          AAP {{ aap_version }} ({{ container_name }}) component status:
+            Controller: {{ 'OK' if api_check.stdout | default('') == '200' else 'FAILED' }}
+            Hub: {{ hub_status.stdout | default('N/A') }}
+            EDA: {{ eda_status.stdout | default('N/A') }}

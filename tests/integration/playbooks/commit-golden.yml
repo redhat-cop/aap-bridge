@@ -1,0 +1,32 @@
+---
+# Commit a running AAP container as a golden image for fast resets.
+#
+# Usage:
+#   ansible-playbook playbooks/commit-golden.yml \
+#     -e aap_version=2.3 \
+#     -e role_suffix=src
+#
+- name: Commit container as golden image
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Load version matrix
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+    - name: Set version config
+      ansible.builtin.set_fact:
+        ver_config: "{{ aap_versions[aap_version] }}"
+
+  vars:
+    container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix | default('src') }}"
+
+  tasks:
+    - name: Commit golden image
+      ansible.builtin.include_role:
+        name: golden_image
+      vars:
+        aap_version: "{{ aap_version }}"
+        role_suffix: "{{ role_suffix | default('src') }}"

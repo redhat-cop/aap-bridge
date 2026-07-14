@@ -250,6 +250,29 @@ def confirm_overwrite(path: Path, force: bool = False) -> bool:
     return click.confirm(f"File {path} already exists. Overwrite?")
 
 
+def confirm_overwrite_directory(
+    path: Path,
+    *,
+    force: bool = False,
+    yes: bool = False,
+    message: str | None = None,
+) -> bool:
+    """Confirm overwriting a directory that already contains migration data.
+
+    Empty directories (e.g. volume mount points after cleanup) do not prompt.
+    """
+    from aap_migration.utils.directories import directory_has_contents
+
+    if not directory_has_contents(path):
+        return True
+
+    if force or yes:
+        return True
+
+    prompt = message or f"Directory {path} exists. Overwrite?"
+    return click.confirm(prompt)
+
+
 def load_json_or_yaml(path: Path) -> dict[str, Any]:
     """
     Load JSON or YAML file based on extension.

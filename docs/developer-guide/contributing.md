@@ -88,6 +88,13 @@ make test-cov
 
 ```
 
+### Ephemeral AAP integration testing
+
+For end-to-end migration testing against real AAP instances (golden images, source/target
+pairs, `make test-bridge`), see [Testing with Ephemeral AAP Instances](testing.md).
+That workflow uses podman on the host and does not require a local Python install for the
+AAP side of the stack.
+
 ### Code Quality
 
 Before submitting:

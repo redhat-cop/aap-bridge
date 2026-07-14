@@ -1,0 +1,2365 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Production-grade migration tool for Ansible Automation Platform">
+      
+      
+        <meta name="author" content="Antony Sallas">
+      
+      
+      
+        <link rel="prev" href="../contributing/">
+      
+      
+        <link rel="next" href="../adding-resource-types/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Testing - AAP Bridge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#testing-with-ephemeral-aap-instances" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AAP Bridge" class="md-header__button md-logo" aria-label="AAP Bridge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AAP Bridge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Testing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="red"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="red" data-md-color-accent="red"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/redhat-cop/aap-bridge" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    redhat-cop/aap-bridge
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/cli-reference/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/compatibility-matrix/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AAP Bridge" class="md-nav__button md-logo" aria-label="AAP Bridge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AAP Bridge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/redhat-cop/aap-bridge" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    redhat-cop/aap-bridge
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/migration-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/filtering-and-skipping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering and Skipping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#host-kernel-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host kernel setting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nested-podman-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nested podman limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#podman-api-socket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Podman API socket
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subscription-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subscription Manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bridge-and-compose-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bridge and compose setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bridge and compose setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialize-environment-make-init-env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialize environment (make init-env)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-and-start-make-build-make-up-dev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build and start (make build, make up-dev)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smoke-test-make-c-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Smoke test (make c-test)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secrets-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Secrets Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-ansible-vault-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 1: Ansible Vault (recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 2: Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-plain-vars-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 3: Plain vars file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-aap-golden-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building AAP Golden Images
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building AAP Golden Images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#integration-toolchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration toolchain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installer-bundles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installer bundles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-a-single-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build a single version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build-all-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build all versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#golden-image-api-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Golden image API tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-to-a-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push to a registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-golden-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List golden images
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-test-pairs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Test Pairs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running Test Pairs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source-test-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source test data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-aap-bridge-with-a-pair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using aap-bridge with a pair
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-connectivity-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch connectivity checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port Allocation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#app-development-runs-inside-bridge-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        App development (runs inside bridge container)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debugging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installer-troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installer troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-resource-types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding Resource Types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/compatibility-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/awx-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWX Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="testing-with-ephemeral-aap-instances">Testing with Ephemeral AAP Instances<a class="headerlink" href="#testing-with-ephemeral-aap-instances" title="Permanent link">&para;</a></h1>
+<p>This guide covers building, running, and testing aap-bridge against containerized AAP instances
+across multiple versions.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>The only tools needed on the host:</p>
+<ul>
+<li><strong>podman</strong> (with <code>podman compose</code> support)</li>
+<li><strong>make</strong></li>
+<li>Access to <strong>registry.redhat.io</strong> (PostgreSQL, UBI base images, and the builder image)</li>
+<li>Red Hat subscription credentials (for RHSM registration inside containers)</li>
+<li>Red Hat API offline token (for downloading AAP installer bundles)</li>
+<li>AAP subscription manifest zip file (for licensing AAP instances after install)</li>
+</ul>
+<p>Get your offline token at <a href="https://access.redhat.com/management/api">https://access.redhat.com/management/api</a>.</p>
+<p>This workflow builds on the <a href="../../getting-started/installation/#container-cli">container CLI setup</a>
+from the installation guide. You do not need Python, Ansible, or PostgreSQL installed on the
+host — the bridge and database run in containers.</p>
+<h3 id="host-kernel-setting">Host kernel setting<a class="headerlink" href="#host-kernel-setting" title="Permanent link">&para;</a></h3>
+<p>Golden image builds run privileged systemd containers (and podman-in-podman for AAP 2.5+).
+These workloads consume kernel keyring entries. The default limit on many systems
+(<code>kernel.keys.maxkeys=200</code>) is too low and can cause <code>add_key: quota exceeded</code> errors
+mid-build.</p>
+<p>Raise it once on your development host:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;kernel.keys.maxkeys = 5000&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/99-aap-bridge.conf
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sudo<span class="w"> </span>sysctl<span class="w"> </span>--system
+</code></pre></div>
+<p>Verify:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sysctl<span class="w"> </span>kernel.keys.maxkeys
+</code></pre></div>
+<p>This is a permanent, system-wide setting that survives reboots. It is a common tweak for
+container-heavy development machines. To undo it, delete <code>/etc/sysctl.d/99-aap-bridge.conf</code>
+and run <code>sudo sysctl --system</code>.</p>
+<h3 id="nested-podman-limits">Nested podman limits<a class="headerlink" href="#nested-podman-limits" title="Permanent link">&para;</a></h3>
+<p>AAP 2.5+ runs podman inside the test containers (for example during project SCM sync).
+The integration playbooks and golden image base raise them when you <code>run-pair</code> or <code>reset-pair</code>.</p>
+<p>Advanced overrides live in <code>tests/integration/inventory/group_vars/all.yml</code> and
+<code>tests/integration/containerfiles/Containerfile.ubi9-init</code>.</p>
+<h3 id="podman-api-socket">Podman API socket<a class="headerlink" href="#podman-api-socket" title="Permanent link">&para;</a></h3>
+<p>Integration builds run Ansible in a builder container that drives the host Podman
+service via <code>podman-remote</code>. That requires the user socket API — separate from
+<code>podman compose</code>, which uses the CLI directly.</p>
+<p>Enable it once per login session (or enable permanently):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>podman.socket
+</code></pre></div>
+<p>After a reboot, the socket starts automatically if enabled. If <code>make build-aap-bases</code>
+fails with <code>no such file or directory</code> for <code>podman.sock</code>, run the command above.</p>
+<h3 id="subscription-manifest">Subscription Manifest<a class="headerlink" href="#subscription-manifest" title="Permanent link">&para;</a></h3>
+<p>AAP instances require a subscription manifest to be fully licensed. To set this up:</p>
+<ol>
+<li>Go to <a href="https://console.redhat.com/subscriptions/manifests">https://console.redhat.com/subscriptions/manifests</a></li>
+<li>Create or download a manifest for Ansible Automation Platform</li>
+<li>Place the <code>.zip</code> file in <code>tests/integration/files/manifest/</code></li>
+</ol>
+<p>The build process will automatically detect and apply the manifest after
+installation. If no manifest is found, the instance will be unlicensed (a
+warning is printed during build). A manifest upload failure in the build log
+is non-blocking — the golden image is still created; place a valid <code>.zip</code> in
+<code>tests/integration/files/manifest/</code> before the next build to license the instance.</p>
+<blockquote>
+<p><strong>Note:</strong> AAP <strong>2.7</strong> golden images can be built for integration testing, but
+aap-bridge migration compatibility still tops out at <strong>2.6</strong> until separate
+2.7 migration support lands in the tool.</p>
+</blockquote>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<p>Everything runs in containers. No Python, Ansible, or other tools needed on the host.</p>
+<table>
+<thead>
+<tr>
+<th>Container</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>bridge</strong></td>
+<td>aap-bridge app + dev tools (Python 3.12, pytest, ruff, mypy)</td>
+</tr>
+<tr>
+<td><strong>db</strong></td>
+<td>PostgreSQL 15 for migration state</td>
+</tr>
+<tr>
+<td><strong>builder</strong></td>
+<td>Ansible + podman-remote for managing AAP test containers</td>
+</tr>
+<tr>
+<td><strong>AAP containers</strong></td>
+<td>Privileged UBI systemd containers; install method depends on version (see below)</td>
+</tr>
+</tbody>
+</table>
+<p>Each AAP golden image is built once per version (<code>make build-aap VERSION=…</code>) and committed
+from a transient install container. The outer container is always a UBI <strong>systemd</strong> image
+(<code>ubi-init</code>); what differs is how AAP is installed inside it:</p>
+<table>
+<thead>
+<tr>
+<th>AAP versions</th>
+<th>Install method</th>
+<th>What runs inside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0–2.4</td>
+<td><strong>RPM</strong> (<code>setup.sh</code>)</td>
+<td>Controller (and Hub/EDA where enabled) as systemd services on the host RHEL in the container</td>
+</tr>
+<tr>
+<td>2.5–2.7</td>
+<td><strong>Containerized</strong> (<code>ansible.containerized_installer</code>)</td>
+<td>Nested podman stacks for gateway, controller, etc. (podman-in-podman)</td>
+</tr>
+</tbody>
+</table>
+<p>Version-specific settings live in <code>tests/integration/versions/matrix.yml</code> (<code>installer.method</code>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Host (podman + make)
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── compose: bridge + db
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├── builder container (ansible, runs via podman socket)
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>└── AAP containers (systemd, privileged, one per version)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    ├── aap-24-src / aap-26-tgt   (from golden images at run-pair time)
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    └── golden images: aap-golden-2.4, aap-golden-2.6, …
+</code></pre></div>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/redhat-cop/aap-bridge.git
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>aap-bridge
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># 1. Create .env (generates PostgreSQL credentials and encryption key)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1">#    Skip if you already have one from make setup</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>make<span class="w"> </span>init-env
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># 2. Authenticate once so compose can pull Red Hat images</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>podman<span class="w"> </span>login<span class="w"> </span>registry.redhat.io
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># 3. Place the subscription manifest zip in tests/integration/files/manifest/</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># 4. Configure build secrets (required before make build-aap)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="c1">#    RHSM login, Red Hat API offline token, AAP admin/PG passwords.</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="c1">#    Ansible Vault is recommended; env vars work too — see Secrets Management below.</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="c1"># 5. Build the app and start the CLI dev container with postgres</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>make<span class="w"> </span>build
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>make<span class="w"> </span>up-dev
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="c1"># 6. Quick smoke check inside the bridge container</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>make<span class="w"> </span>c-test
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="c1"># 7. Build the ansible builder image (once)</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>make<span class="w"> </span>build-builder
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="c1"># 8. Build AAP base images (once)</span>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>make<span class="w"> </span>build-aap-bases
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="c1"># 9. Build an AAP golden image (once per version, ~45 min)</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="c1">#    Requires kernel.keys.maxkeys &gt;= 5000 (see Prerequisites)</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1"># 10. Run a migration test pair</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>make<span class="w"> </span>run-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>make<span class="w"> </span>test-bridge<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="c1"># 11. Reset the pair (instant, from golden images)</span>
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>make<span class="w"> </span>reset-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+</code></pre></div>
+<h3 id="step-reference">Step reference<a class="headerlink" href="#step-reference" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Command(s)</th>
+<th>Detailed below</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>make init-env</code></td>
+<td><a href="#bridge-and-compose-setup">Bridge and compose setup</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>podman login registry.redhat.io</code></td>
+<td><a href="#bridge-and-compose-setup">Bridge and compose setup</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Manifest zip in <code>tests/integration/files/manifest/</code></td>
+<td><a href="#subscription-manifest">Prerequisites → Subscription Manifest</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>RHSM, API token, AAP passwords</td>
+<td><a href="#secrets-management">Secrets Management</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>make build</code>, <code>make up-dev</code></td>
+<td><a href="#bridge-and-compose-setup">Bridge and compose setup</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>make c-test</code></td>
+<td><a href="#bridge-and-compose-setup">Bridge and compose setup</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>make build-builder</code></td>
+<td><a href="#integration-toolchain">Building golden images → Integration toolchain</a></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>make build-aap-bases</code></td>
+<td><a href="#integration-toolchain">Building golden images → Integration toolchain</a></td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>make build-aap VERSION=…</code></td>
+<td><a href="#building-aap-golden-images">Building AAP Golden Images</a></td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>make run-pair</code>, <code>make test-bridge</code></td>
+<td><a href="#running-test-pairs">Running Test Pairs</a></td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>make reset-pair</code></td>
+<td><a href="#running-test-pairs">Running Test Pairs</a></td>
+</tr>
+</tbody>
+</table>
+<p>Teardown (not in the numbered flow above): <code>make down-all</code> (everything stopped),
+<code>make down-pair</code>, <code>make destroy-pair</code>, or <code>make destroy-all</code> (remove images too) —
+see <a href="#notes">Notes</a> and <a href="#running-test-pairs">Running Test Pairs</a>.</p>
+<h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>compose.yml</code> pulls <code>registry.redhat.io/rhel9/postgresql-15</code> for the bundled database service.</li>
+<li><code>make up-dev</code> is a shortcut for <code>podman compose up -d db bridge</code>.</li>
+<li>The bridge container mounts <code>./src</code> and <code>./tests/unit</code> from the host so <code>make c-test</code>
+  and other <code>c-*</code> targets run against your working tree without rebuilding the image.</li>
+<li>The bridge container bind-mounts <code>./exports</code>, <code>./xformed</code>, <code>./reports</code>, <code>./logs</code>, and
+  <code>./schemas</code> from the repo root (same paths as the engine service) so migration artifacts
+  are visible on the host.</li>
+<li><strong>Bridge + database:</strong> <code>make down</code> stops only the compose stack (db + bridge).
+  <code>make down-all</code> also stops every running AAP test/build container (<code>aap-*-build</code>,
+  <code>aap-*-src</code>, <code>aap-*-tgt</code>). Containers are stopped, not removed — use
+  <code>make destroy-pair</code> or <code>podman rm -f</code> to delete them.</li>
+<li><strong>AAP test pair:</strong> <code>make down-pair SOURCE=2.4 TARGET=2.6</code> stops the source and target
+  containers without removing them; <code>make destroy-pair SOURCE=2.4 TARGET=2.6</code> removes the
+  containers and pair network. Golden images are kept either way.</li>
+<li>When you are done for the day: <code>make down-all</code> (or <code>make down-pair …</code> then <code>make down</code>
+  if you only have a pair and no leftover build containers).</li>
+</ul>
+<h3 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h3>
+<p>Inside the bridge container opened with <code>make shell</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>--version
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aap-bridge<span class="w"> </span>--help
+</code></pre></div>
+<h2 id="bridge-and-compose-setup">Bridge and compose setup<a class="headerlink" href="#bridge-and-compose-setup" title="Permanent link">&para;</a></h2>
+<p>Steps 1, 2, 5, and 6 in <a href="#quick-start">Quick Start</a> prepare the aap-bridge dev stack
+(PostgreSQL + bridge container). This is separate from the AAP golden-image toolchain
+(steps 7–9).</p>
+<h3 id="initialize-environment-make-init-env">Initialize environment (<code>make init-env</code>)<a class="headerlink" href="#initialize-environment-make-init-env" title="Permanent link">&para;</a></h3>
+<p>Creates <code>.env</code> from <code>.env.example</code> with generated PostgreSQL credentials, encryption key,
+and database URL. Required for <code>make up-dev</code> and the compose stack. Skip if you already
+ran <code>make setup</code> on the host (which also calls <code>init-env</code>).</p>
+<p>See also the <a href="../../getting-started/installation/#container-cli">installation guide</a>.</p>
+<h3 id="registry-login">Registry login<a class="headerlink" href="#registry-login" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>podman<span class="w"> </span>login<span class="w"> </span>registry.redhat.io
+</code></pre></div>
+<p>One-time (per credential rotation) authentication so compose can pull Red Hat base images
+(PostgreSQL, UBI) and so you can pull/push golden images from a registry if needed.</p>
+<h3 id="build-and-start-make-build-make-up-dev">Build and start (<code>make build</code>, <code>make up-dev</code>)<a class="headerlink" href="#build-and-start-make-build-make-up-dev" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make<span class="w"> </span>build<span class="w">    </span><span class="c1"># Build localhost/aap-bridge-dev:latest (Containerfile.dev)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make<span class="w"> </span>up-dev<span class="w">   </span><span class="c1"># mkdir artifact dirs; podman compose up -d db bridge</span>
+</code></pre></div>
+<p><code>make up-dev</code> is a shortcut for <code>podman compose up -d db bridge</code>. The bridge container
+bind-mounts <code>./src</code>, <code>./tests/unit</code>, and migration artifact directories from the repo root
+so code and data changes on the host are visible without rebuilding the image.</p>
+<h3 id="smoke-test-make-c-test">Smoke test (<code>make c-test</code>)<a class="headerlink" href="#smoke-test-make-c-test" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>c-test<span class="w">   </span><span class="c1"># pytest unit tests inside the bridge container (quick, no coverage)</span>
+</code></pre></div>
+<p>Confirms the bridge image and compose stack work before investing time in AAP golden
+image builds. For ongoing app development, see <a href="#development-workflow">Development Workflow</a>.</p>
+<h2 id="secrets-management">Secrets Management<a class="headerlink" href="#secrets-management" title="Permanent link">&para;</a></h2>
+<h3 id="option-1-ansible-vault-recommended">Option 1: Ansible Vault (recommended)<a class="headerlink" href="#option-1-ansible-vault-recommended" title="Permanent link">&para;</a></h3>
+<p>Create a vault password file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;your-vault-password&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>tests/integration/.vault_pass
+</code></pre></div>
+<p>Create a vaulted secrets file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ansible-vault<span class="w"> </span>create<span class="w"> </span>tests/integration/inventory/group_vars/vault.yml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span>--vault-password-file<span class="w"> </span>tests/integration/.vault_pass
+</code></pre></div>
+<p>Add your secrets to <code>vault.yml</code> (use these exact variable names):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">rh_api_offline_token</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;eyJhbG...&quot;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">rhsm_username</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-user&quot;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">rhsm_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-pass&quot;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nt">aap_admin_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-password&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nt">aap_pg_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-password&quot;</span>
+</code></pre></div>
+<p>The Makefile auto-detects <code>tests/integration/.vault_pass</code> and passes
+<code>--vault-password-file</code> to all <code>ansible-playbook</code> calls. The vault file
+lives in <code>inventory/group_vars/</code> so Ansible loads it automatically as
+group variables — no extra includes needed.</p>
+<p><strong>Variable precedence</strong> (highest wins):</p>
+<ol>
+<li>Vault file (<code>group_vars/vault.yml</code>) — overrides everything</li>
+<li>Environment variables (<code>RHSM_USER</code>, <code>RHSM_PASS</code>, <code>RH_TOKEN</code>, <code>AAP_ADMIN_PASSWORD</code>, <code>AAP_PG_PASSWORD</code>)</li>
+<li>Role defaults — fallback to <code>redhat123!</code> for AAP passwords, omit for credentials</li>
+</ol>
+<p>Both <code>.vault_pass</code>, <code>inventory/group_vars/vault.yml</code>, and the bundles directory are gitignored.</p>
+<h3 id="option-2-environment-variables">Option 2: Environment variables<a class="headerlink" href="#option-2-environment-variables" title="Permanent link">&para;</a></h3>
+<p>Export credentials before running make:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RHSM_USER</span><span class="o">=</span>myuser
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RHSM_PASS</span><span class="o">=</span>mypass
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">RH_TOKEN</span><span class="o">=</span>eyJhbG...
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4
+</code></pre></div>
+<p>Or pass them inline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nv">RHSM_USER</span><span class="o">=</span>myuser<span class="w"> </span><span class="nv">RHSM_PASS</span><span class="o">=</span>mypass<span class="w"> </span>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4
+</code></pre></div>
+<h3 id="option-3-plain-vars-file">Option 3: Plain vars file<a class="headerlink" href="#option-3-plain-vars-file" title="Permanent link">&para;</a></h3>
+<p>Uncomment and fill in values in <code>tests/integration/inventory/group_vars/all.yml</code>.
+Keep it out of version control.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nv">RHSM_USER</span><span class="o">=</span>myuser<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nv">RHSM_PASS</span><span class="o">=</span>mypass<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nv">RH_TOKEN</span><span class="o">=</span>eyJhbG...
+</code></pre></div>
+<h2 id="building-aap-golden-images">Building AAP Golden Images<a class="headerlink" href="#building-aap-golden-images" title="Permanent link">&para;</a></h2>
+<p>Golden images are pre-installed AAP containers committed with <code>podman commit</code>.
+Build once, reuse many times.</p>
+<h3 id="integration-toolchain">Integration toolchain<a class="headerlink" href="#integration-toolchain" title="Permanent link">&para;</a></h3>
+<p>Steps 7 and 8 in <a href="#quick-start">Quick Start</a> build the images used to <strong>install</strong> AAP on
+the host via Ansible and podman-remote. Run these once before <code>make build-aap</code>.</p>
+<p><strong>Podman API socket</strong> — required for all integration make targets (<code>build-builder</code>,
+<code>build-aap-bases</code>, <code>build-aap</code>, <code>run-pair</code>, etc.). Enable once per host:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>podman.socket
+</code></pre></div>
+<p>See <a href="#podman-api-socket">Prerequisites → Podman API socket</a> if the socket is missing.</p>
+<p><strong>Builder image</strong> — Ansible runner with collections, talks to the host Podman socket:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>build-builder
+</code></pre></div>
+<p>Produces <code>localhost/aap-bridge-builder:latest</code> from <code>tests/integration/Containerfile.builder</code>.</p>
+<p><strong>AAP base images</strong> — UBI systemd init images with fixes for installer quirks:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make<span class="w"> </span>build-aap-bases
+</code></pre></div>
+<p>Builds <code>localhost/aap-base-ubi8:latest</code> and <code>localhost/aap-base-ubi9:latest</code> from
+<code>tests/integration/containerfiles/</code>. AAP 1.x–2.4 use UBI 8; 2.5–2.7 use UBI 9.</p>
+<h3 id="installer-bundles">Installer bundles<a class="headerlink" href="#installer-bundles" title="Permanent link">&para;</a></h3>
+<p>Place setup bundles in <code>tests/integration/files/aap-installer-bundles/</code> (gitignored).
+Newer versions (2.1+) can be downloaded automatically when <code>RH_TOKEN</code> / <code>rh_api_offline_token</code>
+is set. Older releases are no longer in the Red Hat download API and must be obtained from
+the <a href="https://access.redhat.com">Red Hat Customer Portal</a> and placed manually.</p>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Expected bundle filename</th>
+<th>API download</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0</td>
+<td><code>ansible-tower-setup-bundle-3.6.2-1.tar.gz</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>1.1</td>
+<td><code>ansible-tower-setup-bundle-3.7.3-1.tar.gz</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>1.2</td>
+<td><code>ansible-automation-platform-setup-bundle-1.2.7-2.tar.gz</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>2.0</td>
+<td><code>ansible-automation-platform-setup-bundle-2.0.2-1-early-access.tar.gz</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>2.1+</td>
+<td><code>ansible-automation-platform-setup-bundle-&lt;version&gt;*.tar.gz</code> (or containerized prefix for 2.5+)</td>
+<td>Yes (if token set)</td>
+</tr>
+</tbody>
+</table>
+<p><code>bundle_name</code> in the version matrix is only set for 1.0–2.0 (manual bundles). Newer versions
+are discovered by version glob or downloaded from the Red Hat API.</p>
+<p>Tower-era bundles (1.0–1.1) use the <code>ansible-tower-setup-bundle</code> prefix instead of
+<code>ansible-automation-platform-setup-bundle</code>. The version matrix records the exact filename
+and whether API download is enabled (<code>bundle_download_api</code>).</p>
+<h3 id="supported-versions">Supported Versions<a class="headerlink" href="#supported-versions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Base</th>
+<th>Install Method</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0-1.2</td>
+<td>UBI 8</td>
+<td>RPM (RHEL 7 bundle)</td>
+<td>Supported; <a href="#installer-bundles">manual bundle required</a></td>
+</tr>
+<tr>
+<td>2.0-2.4</td>
+<td>UBI 8</td>
+<td>RPM</td>
+<td>Supported; 2.0 needs <a href="#installer-bundles">manual bundle</a></td>
+</tr>
+<tr>
+<td>2.5-2.7</td>
+<td>UBI 9</td>
+<td>Containerized (podman-in-podman)</td>
+<td>Supported</td>
+</tr>
+</tbody>
+</table>
+<h3 id="build-a-single-version">Build a single version<a class="headerlink" href="#build-a-single-version" title="Permanent link">&para;</a></h3>
+<p>Step 9 in <a href="#quick-start">Quick Start</a>. Requires <a href="#secrets-management">secrets</a>, the
+<a href="#integration-toolchain">integration toolchain</a>, and <code>kernel.keys.maxkeys</code> (see
+<a href="#host-kernel-setting">Prerequisites</a>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4
+</code></pre></div>
+<p>This creates a container, runs the AAP installer inside it, commits the result as
+<code>localhost/aap-golden-2.4:latest</code>, and removes the build container.</p>
+<h3 id="build-all-versions">Build all versions<a class="headerlink" href="#build-all-versions" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>make<span class="w"> </span>build-aap-all
+</code></pre></div>
+<p>Rebuilds every version in the matrix (1.0 through 2.7) in order, stopping on the
+first failure. Versions that already have a local golden image (<code>localhost/aap-golden-&lt;version&gt;:latest</code>)
+are skipped so you can resume after a partial run. Use <code>FORCE=1 make build-aap-all</code> to rebuild all.
+Versions 1.0–2.0 require <a href="#installer-bundles">manual installer bundles</a>.</p>
+<p><code>make build-aap</code> always starts the install container from the <strong>UBI base image</strong>, even when
+a golden image for that version already exists locally. Golden images are only used for
+<code>run-pair</code> / <code>reset-pair</code> fast startup, not for single-version rebuilds.</p>
+<h3 id="golden-image-api-tokens">Golden image API tokens<a class="headerlink" href="#golden-image-api-tokens" title="Permanent link">&para;</a></h3>
+<p>Each golden image build creates a <strong>write</strong> token saved to
+<code>tests/integration/generated/images/&lt;version&gt;_rw_token</code>. Pair targets reuse this file;
+the source gets a separate read-only token per pair in <code>generated/pairs/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>AAP version</th>
+<th>Token method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0, 1.1 (Tower RPM)</td>
+<td><code>awx-manage create_oauth2_token</code> inside the container (no scope API)</td>
+</tr>
+<tr>
+<td>1.2–2.4 (RPM / controller API)</td>
+<td><code>POST /api/v2/tokens/</code></td>
+</tr>
+<tr>
+<td>2.5+ (containerized / gateway)</td>
+<td><code>POST /api/gateway/v1/tokens/</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="push-to-a-registry">Push to a registry<a class="headerlink" href="#push-to-a-registry" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make<span class="w"> </span>push-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">REGISTRY</span><span class="o">=</span>quay.io/myorg
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>make<span class="w"> </span>pull-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">REGISTRY</span><span class="o">=</span>quay.io/myorg
+</code></pre></div>
+<h3 id="list-golden-images">List golden images<a class="headerlink" href="#list-golden-images" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>make<span class="w"> </span>list-golden
+</code></pre></div>
+<h2 id="running-test-pairs">Running Test Pairs<a class="headerlink" href="#running-test-pairs" title="Permanent link">&para;</a></h2>
+<p>Steps 10 and 11 in <a href="#quick-start">Quick Start</a>. Once golden images are built, start any
+source/target pair instantly. Golden images are clean installs only; the <strong>source</strong>
+instance is populated with test data when a pair starts or resets (target stays empty).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Start a pair (source populated with small test data by default)</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>make<span class="w"> </span>run-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Validate bridge can reach source and target AAP APIs</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>make<span class="w"> </span>test-bridge<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="c1"># Reset to clean state and re-populate source (~tens of seconds)</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>make<span class="w"> </span>reset-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="c1"># Stop without removing (containers can be restarted with run-pair)</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>make<span class="w"> </span>down-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="c1"># Remove completely</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>make<span class="w"> </span>destroy-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+</code></pre></div>
+<p>Pair lifecycle mirrors the compose stack: <code>run-pair</code> / <code>down-pair</code> / <code>destroy-pair</code> for the
+AAP instances; <code>make up-dev</code> / <code>make down</code> for bridge + database only; <code>make down-all</code> for
+both.</p>
+<h3 id="source-test-data">Source test data<a class="headerlink" href="#source-test-data" title="Permanent link">&para;</a></h3>
+<p>When a pair starts or resets, the <strong>source</strong> container is populated via
+<code>populate_test_data.py</code> using admin basic auth. A <strong>read-only</strong> source API token
+is created afterward for <code>aap-bridge</code>. The <strong>target</strong> reuses the <strong>write</strong> token
+created during <code>make build-aap</code> (platform gateway token for AAP 2.5+, controller
+token for 2.4 and earlier), saved to <code>generated/images/&lt;version&gt;_rw_token</code>.
+The target is never populated — it stays empty for migration testing.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POPULATE_TEST_DATA</code></td>
+<td><code>true</code></td>
+<td>Populate source on <code>run-pair</code> / <code>reset-pair</code></td>
+</tr>
+<tr>
+<td><code>POPULATE_TEST_DATA_SIZE</code></td>
+<td><code>small</code></td>
+<td>Data tier: <code>small</code>, <code>med</code>, <code>large</code>, <code>xl</code>, <code>xxl</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>small</code> tier creates on the order of 5 organizations, ~50 users, and ~100
+hosts — enough to exercise all major migration resource types without long
+startup times.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Skip population (empty source — rarely needed)</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>make<span class="w"> </span>run-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6<span class="w"> </span><span class="nv">POPULATE_TEST_DATA</span><span class="o">=</span><span class="nb">false</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Larger dataset for stress testing</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>make<span class="w"> </span>reset-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6<span class="w"> </span><span class="nv">POPULATE_TEST_DATA_SIZE</span><span class="o">=</span>med
+</code></pre></div>
+<p>Golden images (<code>make build-aap</code>) are always clean installs with no test data.</p>
+<h3 id="using-aap-bridge-with-a-pair">Using aap-bridge with a pair<a class="headerlink" href="#using-aap-bridge-with-a-pair" title="Permanent link">&para;</a></h3>
+<p>After <code>make run-pair</code>, open a bridge shell with the pair <code>.env</code> already loaded.
+The pair <code>.env</code> supplies <code>SOURCE__*</code> / <code>TARGET__*</code> connection settings; tuning and
+export behavior use the same shared <code>config/config.yaml</code> as a laptop workflow.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>make<span class="w"> </span>up-dev<span class="w">    </span><span class="c1"># if db + bridge are not already running</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>make<span class="w"> </span>shell-pair<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>aap-bridge<span class="w">              </span><span class="c1"># interactive TUI</span>
+</code></pre></div>
+<p>When only one pair exists under <code>generated/pairs/</code>, <code>SOURCE</code> and <code>TARGET</code>
+default from that directory name, so <code>make shell-pair</code> is often enough.</p>
+<p>Inside an existing <code>make shell</code> session, load the env manually:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nb">set</span><span class="w"> </span>-a<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>/app/tests/integration/generated/pairs/24-to-26/.env<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">set</span><span class="w"> </span>+a
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>aap-bridge
+</code></pre></div>
+<p>For other pairs, substitute the directory name (<code>23-to-26</code> for SOURCE=2.3
+TARGET=2.6, and so on).</p>
+<p>Browse the AAP UIs from your host browser (accept the self-signed certificate):</p>
+<ul>
+<li>Source UI: <code>https://localhost:&lt;source-controller-port&gt;/</code> (e.g. <code>10743</code> for 2.4)</li>
+<li>Target UI: <code>https://localhost:&lt;target-envoy-port&gt;/</code> for 2.5+ (e.g. <code>20947</code> for 2.6)</li>
+</ul>
+<p>Run <code>make build-aap VERSION=2.6</code> after upgrading testing infrastructure if pair
+start fails with a missing golden-image token.</p>
+<p>See <a href="#golden-image-api-tokens">Golden image API tokens</a> and <a href="#port-allocation">Port Allocation</a>.</p>
+<h3 id="batch-connectivity-checks">Batch connectivity checks<a class="headerlink" href="#batch-connectivity-checks" title="Permanent link">&para;</a></h3>
+<p><code>make test-all</code> runs <code>test-bridge</code> for each source version <strong>1.0 through 2.5</strong> against a
+<strong>2.6</strong> target (requires golden images for both sides). It does not yet include 2.6 as a
+source or 2.7 as a target — use explicit <code>run-pair</code> / <code>test-bridge</code> for those combinations.</p>
+<h3 id="port-allocation">Port Allocation<a class="headerlink" href="#port-allocation" title="Permanent link">&para;</a></h3>
+<p>Each version gets a deterministic port block so pairs don't conflict:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>Source ports: 10000 + (version_index * 100) + offset
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>Target ports: 20000 + (version_index * 100) + offset
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>Version indices: 1.0=0, 1.1=1, 1.2=2, 2.0=3, ..., 2.7=10
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>Offsets: controller=43, hub=44, eda=45, gateway=46, envoy=47
+</code></pre></div>
+<p>Example for 2.3 (source) -&gt; 2.6 (target):</p>
+<ul>
+<li>Source controller: <code>https://localhost:10643</code></li>
+<li>Target (via envoy): <code>https://localhost:20947</code> (UI + all APIs)</li>
+<li>Target controller (direct): <code>https://localhost:20943</code></li>
+</ul>
+<p>For AAP 2.5+, the envoy proxy (offset 47) is the primary entry point — it
+serves the UI and routes API requests to the correct backend. The controller
+port (offset 43) provides direct API access but does not serve the UI.</p>
+<h2 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h2>
+<p>Day-to-day bridge app work after the stack from <a href="#bridge-and-compose-setup">Bridge and compose setup</a>
+is running. Pair-specific migration testing uses <a href="#using-aap-bridge-with-a-pair">Using aap-bridge with a pair</a>
+instead of plain <code>make shell</code>.</p>
+<h3 id="app-development-runs-inside-bridge-container">App development (runs inside bridge container)<a class="headerlink" href="#app-development-runs-inside-bridge-container" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>make<span class="w"> </span>up-dev<span class="w">      </span><span class="c1"># Start bridge + postgres</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>make<span class="w"> </span>c-test<span class="w">      </span><span class="c1"># Run pytest</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>make<span class="w"> </span>c-lint<span class="w">      </span><span class="c1"># Run ruff</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>make<span class="w"> </span>c-format<span class="w">    </span><span class="c1"># Run black + isort</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>make<span class="w"> </span>c-typecheck<span class="w"> </span><span class="c1"># Run mypy</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>make<span class="w"> </span>c-check<span class="w">     </span><span class="c1"># All of the above</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>make<span class="w"> </span>shell<span class="w">       </span><span class="c1"># Shell into bridge container</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>make<span class="w"> </span>logs<span class="w">        </span><span class="c1"># Tail logs</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>make<span class="w"> </span>down<span class="w">        </span><span class="c1"># Stop db + bridge only</span>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a>make<span class="w"> </span>down-all<span class="w">    </span><span class="c1"># Stop db + bridge + all AAP test/build containers</span>
+</code></pre></div>
+<h3 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="c1"># Ansible verbosity (V=1 through V=4)</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">V</span><span class="o">=</span><span class="m">2</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="c1"># Disable no_log to see secrets in output</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">DEBUG</span><span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="c1"># Both</span>
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>make<span class="w"> </span>build-aap<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.4<span class="w"> </span><span class="nv">V</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">DEBUG</span><span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>
+<a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a><span class="c1"># Shell into a running AAP container</span>
+<a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>make<span class="w"> </span>shell-src<span class="w"> </span><span class="nv">SOURCE</span><span class="o">=</span><span class="m">2</span>.3
+<a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>make<span class="w"> </span>shell-tgt<span class="w"> </span><span class="nv">TARGET</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a>
+<a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a><span class="c1"># View AAP container status</span>
+<a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a>make<span class="w"> </span>status
+</code></pre></div>
+<h3 id="installer-troubleshooting">Installer troubleshooting<a class="headerlink" href="#installer-troubleshooting" title="Permanent link">&para;</a></h3>
+<p>If the AAP installer fails, the build output shows the last 150 lines of the installer log
+automatically. Common issues:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dnf module reset postgresql</code> fails</td>
+<td>Fixed: dnf wrapper in UBI 8 base image</td>
+</tr>
+<tr>
+<td><code>localhost</code> rejected in inventory</td>
+<td>Fixed: uses container hostname</td>
+</tr>
+<tr>
+<td><code>restorecon: command not found</code></td>
+<td>Fixed: <code>policycoreutils</code> in base image</td>
+</tr>
+<tr>
+<td><code>en_US.UTF-8</code> locale missing</td>
+<td>Fixed: <code>glibc-langpack-en</code> in base image</td>
+</tr>
+<tr>
+<td><code>loginctl enable-linger</code> fails</td>
+<td>Fixed: <code>systemd-logind</code> unmasked</td>
+</tr>
+<tr>
+<td><code>sysctl: Read-only file system</code></td>
+<td>Fixed: containers run privileged</td>
+</tr>
+<tr>
+<td><code>add_key: quota exceeded</code></td>
+<td>Raise <code>kernel.keys.maxkeys</code> (see Prerequisites)</td>
+</tr>
+<tr>
+<td><code>can't start new thread</code> / <code>crun: resource temporarily unavailable</code></td>
+<td>Rebuild golden images and <code>make reset-pair</code> (limits are pre-configured; likely an old image)</td>
+</tr>
+<tr>
+<td><code>container state improper</code> / build hangs at "Wait for container"</td>
+<td>Stuck <code>podman wait</code> on a crashed container — Ctrl+C, <code>podman rm -f aap-*-build</code>, retry; if the container exits in under a second, check host systemd-in-podman (see below)</td>
+</tr>
+<tr>
+<td>AAP container exits immediately (exit 255)</td>
+<td>Host cannot run <code>--systemd always</code> containers; verify <code>podman run -d --systemd always --privileged registry.redhat.io/ubi9/ubi-init:latest</code> stays running, then reboot or fix cgroup/podman if not</td>
+</tr>
+<tr>
+<td><code>storage/overlay/tempdirs: permission denied</code></td>
+<td>Run <code>chown -R aap:aap /home/aap/.local/share/containers/storage</code> inside the target container, or <code>make reset-pair</code> (ownership fix runs at start)</td>
+</tr>
+<tr>
+<td><code>mapping 1:65536 in /etc/subuid includes the user UID</code> (AAP 2.0)</td>
+<td>Rebuild UBI8 base (<code>make build-aap-bases</code>) or retry build — install playbooks seed <code>root:0:65536</code> before <code>setup.sh</code></td>
+</tr>
+<tr>
+<td><code>[automationmetrics] section</code> missing (AAP 2.7 preflight)</td>
+<td>Fixed: gateway inventory template adds metrics group and DB vars for 2.7+</td>
+</tr>
+<tr>
+<td><code>rsync</code> / <code>mknod</code> / <code>pymp-*</code> during golden image bake (2.5+)</td>
+<td>Fixed: bake step skips ephemeral FIFOs and stops metrics containers before rsync</td>
+</tr>
+</tbody>
+</table>
+<h2 id="file-layout">File Layout<a class="headerlink" href="#file-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Containerfile                        # aap-bridge app (UBI 9 + Python 3.12)
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>compose.yml                          # db + bridge + engine + ui services
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>Makefile                             # All targets (host needs only podman + make)
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>tests/integration/
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>├── Containerfile.builder            # Ansible builder (podman-remote + collections)
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>├── containerfiles/
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>│   ├── Containerfile.ubi8-init      # Base for AAP 1.x-2.4
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>│   └── Containerfile.ubi9-init      # Base for AAP 2.5-2.7
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>├── versions/
+<a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>│   └── matrix.yml                   # Version matrix (all per-version config)
+<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>├── inventory/
+<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>│   └── group_vars/
+<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>│       ├── all.yml                  # Shared variables
+<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a>│       └── vault.yml                # Vaulted secrets (gitignored)
+<a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a>├── roles/
+<a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a>│   ├── aap_install/                 # Install AAP inside container
+<a id="__codelineno-29-17" name="__codelineno-29-17" href="#__codelineno-29-17"></a>│   ├── base_container/              # Create + start systemd container
+<a id="__codelineno-29-18" name="__codelineno-29-18" href="#__codelineno-29-18"></a>│   ├── golden_image/                # podman commit workflow
+<a id="__codelineno-29-19" name="__codelineno-29-19" href="#__codelineno-29-19"></a>│   ├── lifecycle/                   # Reset + destroy operations
+<a id="__codelineno-29-20" name="__codelineno-29-20" href="#__codelineno-29-20"></a>│   └── pair_networking/             # Port allocation + bridge config
+<a id="__codelineno-29-21" name="__codelineno-29-21" href="#__codelineno-29-21"></a>├── playbooks/
+<a id="__codelineno-29-22" name="__codelineno-29-22" href="#__codelineno-29-22"></a>│   ├── build-instance.yml           # Build one AAP golden image
+<a id="__codelineno-29-23" name="__codelineno-29-23" href="#__codelineno-29-23"></a>│   ├── run-pair.yml                 # Start a source+target pair
+<a id="__codelineno-29-24" name="__codelineno-29-24" href="#__codelineno-29-24"></a>│   ├── reset-pair.yml               # Reset pair from golden images
+<a id="__codelineno-29-25" name="__codelineno-29-25" href="#__codelineno-29-25"></a>│   └── ...
+<a id="__codelineno-29-26" name="__codelineno-29-26" href="#__codelineno-29-26"></a>├── files/
+<a id="__codelineno-29-27" name="__codelineno-29-27" href="#__codelineno-29-27"></a>│   ├── manifest/                    # Subscription manifest zip (gitignored)
+<a id="__codelineno-29-28" name="__codelineno-29-28" href="#__codelineno-29-28"></a>│   └── aap-installer-bundles/       # Downloaded bundles (gitignored)
+<a id="__codelineno-29-29" name="__codelineno-29-29" href="#__codelineno-29-29"></a>└── generated/
+<a id="__codelineno-29-30" name="__codelineno-29-30" href="#__codelineno-29-30"></a>    └── pairs/                       # Per-pair .env files (gitignored)
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mermaid.js" type="module"></script>
+      
+    
+  </body>
+</html>

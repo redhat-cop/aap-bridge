@@ -821,6 +821,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../developer-guide/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../developer-guide/adding-resource-types/" class="md-nav__link">
         
   
@@ -1166,6 +1194,9 @@ in the repository.</p>
   bridge images (<code>make build</code>, <code>make up-dev</code>, <code>make shell</code>, etc.)</li>
 <li>Web UI: React/PatternFly browser interface with connection management, migration
   preview, TUI-matching phased migration controls, job history, and live log streaming</li>
+<li>Integration testing infrastructure: Ansible playbooks and roles under
+  <code>tests/integration/</code> for golden-image builds (AAP 1.0–2.7), pair orchestration,
+  and bridge connectivity checks (<code>make build-aap</code>, <code>run-pair</code>, <code>reset-pair</code>, etc.)</li>
 <li>Source version support expanded to AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6</li>
 <li>Survey spec migration for job templates and workflow job templates</li>
 <li>Notification template association migration (started/success/error/approvals)</li>
@@ -1193,8 +1224,20 @@ in the repository.</p>
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.</li>
 </ul>
+<p><strong>Added:</strong></p>
+<ul>
+<li>Bridge dev container bind-mounts <code>exports</code>, <code>xformed</code>, <code>reports</code>, <code>logs</code>, and <code>schemas</code>
+  from the repo root (matching engine) so artifacts are visible on the host</li>
+</ul>
 <p><strong>Bug Fixes:</strong></p>
 <ul>
+<li>Cleanup clears export/transform contents without removing mount points; export/transform
+  overwrite prompts only when directories contain data</li>
+<li>Phase 2 project sync wait uses <code>project_sync_timeout</code> (not batch interval); ignores
+  stale failed status until the current sync job is active</li>
+<li>Controller organization FK resolution on gateway targets (lookup org by name on the
+  controller API for credentials and other controller-scoped imports)</li>
+<li>Credential import reruns retry previously failed resources instead of skipping them</li>
 <li>Credential deduplication: same-name/different-type and non-unique name+org+type cases
   handled correctly</li>
 <li>Batch precheck scoping fixed for org-scoped, parent-scoped, notification template, and

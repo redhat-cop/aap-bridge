@@ -16,7 +16,7 @@
         <link rel="prev" href="../../user-guide/troubleshooting/">
       
       
-        <link rel="next" href="../adding-resource-types/">
+        <link rel="next" href="../testing/">
       
       
         
@@ -966,6 +966,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ephemeral-aap-integration-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ephemeral AAP integration testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#code-quality" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1196,6 +1207,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1500,6 +1539,11 @@ It prefers <strong>uv</strong> when installed; pass <code>USE_UV=0</code> to use
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Specific test file</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>.venv/bin/pytest<span class="w"> </span>tests/unit/test_exporter.py<span class="w"> </span>-v
 </code></pre></div>
+<h3 id="ephemeral-aap-integration-testing">Ephemeral AAP integration testing<a class="headerlink" href="#ephemeral-aap-integration-testing" title="Permanent link">&para;</a></h3>
+<p>For end-to-end migration testing against real AAP instances (golden images, source/target
+pairs, <code>make test-bridge</code>), see <a href="../testing/">Testing with Ephemeral AAP Instances</a>.
+That workflow uses podman on the host and does not require a local Python install for the
+AAP side of the stack.</p>
 <h3 id="code-quality">Code Quality<a class="headerlink" href="#code-quality" title="Permanent link">&para;</a></h3>
 <p>Before submitting:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Format code</span>

@@ -1147,6 +1147,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../developer-guide/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../developer-guide/adding-resource-types/" class="md-nav__link">
         
   
@@ -1536,15 +1564,19 @@ This mode keeps the same host-side <code>.env</code> and config files, but you d
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Start the db + bridge services</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>podman<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>db<span class="w"> </span>bridge
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Open a shell in the running bridge container</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>make<span class="w"> </span>shell
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># Run unit tests inside the bridge container (optional)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>make<span class="w"> </span>c-test
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Open a shell in the running bridge container</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>make<span class="w"> </span>shell
 </code></pre></div>
 <h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>compose.yml</code> uses <code>registry.redhat.io/rhel9/postgresql-15</code> for the bundled database service.</li>
-<li>The compose stack now prepares its own writable volumes, so <code>podman compose up -d db bridge</code> works without any Makefile ownership helpers.</li>
-<li><code>make up-dev</code> is a thin wrapper around the same compose workflow if you prefer the shortcut.</li>
-<li>The bridge container stores logs, exports, and reports in compose-managed volumes mounted under <code>/app</code>.</li>
+<li><code>make up-dev</code> creates <code>./exports</code>, <code>./xformed</code>, <code>./reports</code>, <code>./logs</code>, and <code>./schemas</code> on the
+  host and starts the db + bridge services.</li>
+<li>The bridge container bind-mounts those directories (and <code>./src</code>, <code>./tests/unit</code>) so migration
+  artifacts and your working tree are visible on the host without rebuilding the image.</li>
 <li>The container workflow is intended for the CLI/TUI path; the browser workflow uses the same <code>.env</code> from <code>make init-env</code> with the dedicated engine and UI services described below.</li>
 </ul>
 <h2 id="web-ui">Web UI<a class="headerlink" href="#web-ui" title="Permanent link">&para;</a></h2>
@@ -1587,9 +1619,13 @@ adds API and UI services on top of the bundled PostgreSQL database.</p>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>aap-bridge<span class="w"> </span>--help
 </code></pre></div>
 <h3 id="container-cli_1">Container CLI<a class="headerlink" href="#container-cli_1" title="Permanent link">&para;</a></h3>
+<p><code>make c-test</code> runs a quick smoke check (no coverage report, no optional fixture-data
+tests). From the host:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span>c-test
+</code></pre></div>
 <p>Inside the container opened with <code>make shell</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>aap-bridge<span class="w"> </span>--version
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>aap-bridge<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aap-bridge<span class="w"> </span>--version
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>aap-bridge<span class="w"> </span>--help
 </code></pre></div>
 <h2 id="useful-commands">Useful Commands<a class="headerlink" href="#useful-commands" title="Permanent link">&para;</a></h2>
 <table>
@@ -1629,6 +1665,18 @@ adds API and UI services on top of the bundled PostgreSQL database.</p>
 <td>Open a shell in the running bridge container</td>
 </tr>
 <tr>
+<td><code>make c-test</code></td>
+<td>Quick unit-test smoke check inside the bridge container</td>
+</tr>
+<tr>
+<td><code>make c-test-all</code></td>
+<td>Full unit test suite inside the bridge container</td>
+</tr>
+<tr>
+<td><code>make c-check</code></td>
+<td>Run lint, typecheck, and tests inside the bridge container</td>
+</tr>
+<tr>
 <td><code>make shell-engine</code></td>
 <td>Open a shell in the engine container</td>
 </tr>
@@ -1642,7 +1690,11 @@ adds API and UI services on top of the bundled PostgreSQL database.</p>
 </tr>
 <tr>
 <td><code>make down</code></td>
-<td>Stop the containerized workflow</td>
+<td>Stop the db + bridge compose stack</td>
+</tr>
+<tr>
+<td><code>make down-all</code></td>
+<td>Stop compose stack and all running AAP test/build containers</td>
 </tr>
 </tbody>
 </table>
@@ -1650,6 +1702,8 @@ adds API and UI services on top of the bundled PostgreSQL database.</p>
 <ul>
 <li><a href="../quickstart/">Quick Start</a> - Get up and running in 5 minutes</li>
 <li><a href="../configuration/">Configuration</a> - Configure your environment</li>
+<li><a href="../../developer-guide/testing/">Testing with Ephemeral AAP Instances</a> - Build golden
+  images and run migration test pairs (podman + make; no local Python/AAP required)</li>
 </ul>
 
 

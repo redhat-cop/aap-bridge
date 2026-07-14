@@ -1,0 +1,49 @@
+# {{ ansible_managed }}
+# AAP {{ aap_version }} (with Platform Gateway) installer inventory
+
+[automationcontroller]
+{{ container_hostname }} ansible_connection=local
+
+[automationgateway]
+{{ container_hostname }} ansible_connection=local
+
+{% if aap_version is version('2.7', '>=') %}
+[automationmetrics]
+{{ container_hostname }} ansible_connection=local
+
+{% endif %}
+[database]
+{{ container_hostname }} ansible_connection=local
+
+[all:vars]
+admin_password='{{ aap_admin_password }}'
+controller_admin_password='{{ aap_admin_password }}'
+postgresql_admin_password='{{ aap_pg_password }}'
+
+controller_hostname='{{ container_hostname }}'
+automationgateway_hostname='{{ container_hostname }}'
+
+redis_mode=standalone
+routable_hostname='127.0.0.1'
+envoy_https_port=9443
+envoy_http_port=9080
+
+controller_pg_host='localhost'
+controller_pg_port='5432'
+controller_pg_database='awx'
+controller_pg_username='awx'
+controller_pg_password='{{ aap_pg_password }}'
+
+gateway_admin_password='{{ aap_admin_password }}'
+gateway_pg_host='localhost'
+gateway_pg_port='5432'
+gateway_pg_database='automationgateway'
+gateway_pg_username='automationgateway'
+gateway_pg_password='{{ aap_pg_password }}'
+
+{% if aap_version is version('2.7', '>=') %}
+automationmetrics_pg_host='localhost'
+automationmetrics_pg_password='{{ aap_pg_password }}'
+automationmetrics_controller_read_pg_host='localhost'
+automationmetrics_controller_read_pg_password='{{ aap_pg_password }}'
+{% endif %}

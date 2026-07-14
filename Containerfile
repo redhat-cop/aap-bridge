@@ -30,8 +30,8 @@ COPY config/ config/
 
 RUN pip3.12 install --no-cache-dir .
 
-RUN mkdir -p exports reports logs && \
-    chown -R bridge:bridge exports reports logs
+RUN mkdir -p exports xformed reports logs schemas && \
+    chown -R bridge:bridge exports xformed reports logs schemas
 
 USER bridge
 

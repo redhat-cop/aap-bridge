@@ -1,0 +1,37 @@
+---
+# Populate the migration source with API test data (run-pair / reset-pair only).
+#
+# Runs before api_token so the source can use admin credentials (write access).
+# The bridge later gets a dedicated read-only token from api_token.
+#
+# Required vars:
+#   aap_version  - source AAP version (e.g. "2.4")
+#   pair_id      - pair identifier (e.g. "24-to-26")
+
+- name: Populate source test data
+  when: populate_test_data | default(true) | bool
+  block:
+    - name: Calculate host-accessible controller port
+      ansible.builtin.set_fact:
+        _controller_port: "{{ port_base_source | int + (version_index[aap_version] | int * 100) + port_offset_controller | int }}"
+
+    - name: Run populate_test_data.py
+      ansible.builtin.command:
+        cmd: >
+          python3 {{ playbook_dir }}/../scripts/populate_test_data.py
+          --host https://localhost:{{ _controller_port }}
+          --username admin
+          --password {{ aap_admin_password }}
+          --size {{ populate_test_data_size | default('small') }}
+      register: populate_result
+      failed_when: false
+      changed_when: populate_result.rc == 0
+      no_log: true
+
+    - name: Report populate result
+      ansible.builtin.debug:
+        msg: >-
+          Source test data ({{ populate_test_data_size | default('small') }}):
+          {{ 'SUCCESS' if populate_result.rc == 0 else 'FAILED (rc=' + populate_result.rc | string + ')' }} —
+          {{ (populate_result.stdout_lines | default([]))[-5:] | join(' | ') }}
+          {{ (populate_result.stderr_lines | default([]))[-3:] | join(' | ') if populate_result.rc != 0 else '' }}

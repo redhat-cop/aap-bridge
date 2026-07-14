@@ -23,6 +23,10 @@ from aap_migration.cli.utils import (
     echo_warning,
     format_count,
 )
+from aap_migration.utils.directories import (
+    clear_export_transform_directories,
+    directory_has_contents,
+)
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.bulk_operations import BulkOperations
 from aap_migration.client.exceptions import APIError, NotFoundError, PendingDeletionError, ResourceInUseError
@@ -31,7 +35,7 @@ from aap_migration.config import (
     normalized_credential_skip_names,
     normalized_execution_environment_skip_names,
 )
-from aap_migration.migration.database import get_session
+from aap_migration.migration.database import get_session, normalize_database_url
 from aap_migration.migration.models import IDMapping, MigrationProgress
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.resources import CLEANUP_ORDER, get_endpoint
@@ -1486,6 +1490,7 @@ def cleanup(
     # Use defaults from config if not provided
     if exports_dir is None:
         exports_dir = str(ctx.config.paths.export_dir)
+    transform_dir = str(ctx.config.paths.transform_dir)
 
     if rate_limit is None:
         rate_limit = ctx.config.performance.rate_limit
@@ -1493,11 +1498,11 @@ def cleanup(
     # Determine which directories will be cleaned
     dirs_to_clean = []
     if "exports" not in skip_dir:
-        if Path(exports_dir).exists():
+        if directory_has_contents(Path(exports_dir)):
             dirs_to_clean.append(f"exports ({exports_dir})")
     if "xformed" not in skip_dir:
-        if Path("xformed").exists():
-            dirs_to_clean.append("xformed")
+        if directory_has_contents(Path(transform_dir)):
+            dirs_to_clean.append(f"xformed ({transform_dir})")
 
     # Log cleanup operation details to file only (use debug to avoid console output)
     logger.debug(
@@ -1544,7 +1549,7 @@ def cleanup(
             total_errors = 0
 
             # Clear database first (log to file only)
-            database_url = str(ctx.config.state.db_path)
+            database_url = normalize_database_url(str(ctx.config.state.db_path))
             cleared_progress, deleted_mappings = clear_database(database_url)
             logger.info(
                 "database_cleared",
@@ -1773,31 +1778,21 @@ def cleanup(
                             ],
                         )
 
-            # Clean up directories (exports/ and xformed/)
-            import shutil
-
-            directories_to_clean = {
-                "exports": Path(exports_dir),
-                "xformed": Path("xformed"),
-            }
-
-            # Remove skipped directories
-            for skip in skip_dir:
-                directories_to_clean.pop(skip, None)
-
-            # Clean remaining directories (log to file only)
-            for dir_name, dir_path in directories_to_clean.items():
-                if dir_path.exists() and dir_path.is_dir():
-                    try:
-                        shutil.rmtree(dir_path)
-                        logger.info("directory_removed", directory=dir_name, path=str(dir_path))
-                    except Exception as e:
-                        logger.error(
-                            "directory_removal_failed",
-                            directory=dir_name,
-                            path=str(dir_path),
-                            error=str(e),
-                        )
+            # Clean up directory contents (exports/ and xformed/); preserve mount points.
+            cleared_dirs = clear_export_transform_directories(
+                exports_dir,
+                transform_dir,
+                skip=frozenset(skip_dir),
+                on_error=lambda label, path, exc: logger.error(
+                    "directory_removal_failed",
+                    directory=label,
+                    path=str(path),
+                    error=str(exc),
+                ),
+            )
+            for dir_name in cleared_dirs:
+                dir_path = Path(exports_dir if dir_name == "exports" else transform_dir)
+                logger.info("directory_cleared", directory=dir_name, path=str(dir_path))
 
         finally:
             # Restore original logging handlers

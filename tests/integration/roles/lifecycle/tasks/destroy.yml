@@ -1,0 +1,21 @@
+---
+- name: Remove container
+  ansible.builtin.command:
+    cmd: "podman rm -f {{ container_name }}"
+  register: rm_result
+  failed_when: false
+  changed_when: rm_result.rc == 0
+
+- name: Remove golden image (if requested)
+  ansible.builtin.command:
+    cmd: "podman rmi -f {{ golden_image_prefix }}-{{ aap_version }}"
+  register: rmi_result
+  failed_when: false
+  changed_when: rmi_result.rc == 0
+  when: destroy_golden_images | default(false) | bool
+
+- name: Report destruction
+  ansible.builtin.debug:
+    msg: >
+      Destroyed: container={{ container_name }}
+      {{ ', golden image removed' if destroy_golden_images | default(false) | bool else '' }}

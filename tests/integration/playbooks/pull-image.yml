@@ -1,0 +1,24 @@
+---
+# Pull a golden image from a container registry.
+#
+# Usage:
+#   ansible-playbook playbooks/pull-image.yml \
+#     -e aap_version=2.3 \
+#     -e image_registry=quay.io/myorg
+#
+- name: Pull AAP golden image from registry
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    remote_image: "{{ image_registry }}/{{ image_prefix }}-{{ aap_version }}:latest"
+
+  tasks:
+    - name: Pull image from registry
+      ansible.builtin.command:
+        cmd: "podman pull {{ remote_image }}"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "Pulled: {{ remote_image }}"

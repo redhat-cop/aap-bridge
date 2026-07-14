@@ -1,0 +1,4 @@
+---
+token_retries: 10
+token_delay: 10
+aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') | default('redhat123!', true) }}"

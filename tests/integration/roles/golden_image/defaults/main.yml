@@ -1,0 +1,4 @@
+---
+aap_version: "2.6"
+role_suffix: "src"
+container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix }}"

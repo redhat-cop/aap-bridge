@@ -1,0 +1,5 @@
+---
+populate_test_data: true
+populate_test_data_size: "small"
+token_label: "src"
+aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') | default('redhat123!', true) }}"

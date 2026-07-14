@@ -1,0 +1,30 @@
+---
+# Install the target RW token from the golden-image build artifact.
+#
+# Required vars:
+#   aap_version  - target AAP version (e.g. "2.6")
+#   pair_id      - pair identifier (e.g. "24-to-26")
+
+- name: Set golden-image RW token path
+  ansible.builtin.set_fact:
+    _golden_rw_token: "{{ playbook_dir }}/../generated/images/{{ aap_version | replace('.', '') }}_rw_token"
+
+- name: Check golden-image RW token exists
+  ansible.builtin.stat:
+    path: "{{ _golden_rw_token }}"
+  register: _golden_rw_stat
+
+- name: Require golden-image RW token
+  ansible.builtin.fail:
+    msg: >
+      No golden-image RW token at {{ _golden_rw_token }}.
+      Rebuild the golden image to create a gateway write token:
+        make build-aap VERSION={{ aap_version }}
+  when: not _golden_rw_stat.stat.exists
+
+- name: Install target RW token for pair
+  ansible.builtin.copy:
+    src: "{{ _golden_rw_token }}"
+    dest: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/tgt_token"
+    mode: "0600"
+    remote_src: true

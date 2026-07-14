@@ -132,6 +132,9 @@ make build
 # Start the db + bridge services
 podman compose up -d db bridge
 
+# Run unit tests inside the bridge container (optional)
+make c-test
+
 # Open a shell in the running bridge container
 make shell
 ```
@@ -139,9 +142,10 @@ make shell
 ### Notes
 
 - `compose.yml` uses `registry.redhat.io/rhel9/postgresql-15` for the bundled database service.
-- The compose stack now prepares its own writable volumes, so `podman compose up -d db bridge` works without any Makefile ownership helpers.
-- `make up-dev` is a thin wrapper around the same compose workflow if you prefer the shortcut.
-- The bridge container stores logs, exports, and reports in compose-managed volumes mounted under `/app`.
+- `make up-dev` creates `./exports`, `./xformed`, `./reports`, `./logs`, and `./schemas` on the
+  host and starts the db + bridge services.
+- The bridge container bind-mounts those directories (and `./src`, `./tests/unit`) so migration
+  artifacts and your working tree are visible on the host without rebuilding the image.
 - The container workflow is intended for the CLI/TUI path; the browser workflow uses the same `.env` from `make init-env` with the dedicated engine and UI services described below.
 
 ## Web UI
@@ -196,6 +200,13 @@ aap-bridge --help
 
 ### Container CLI
 
+`make c-test` runs a quick smoke check (no coverage report, no optional fixture-data
+tests). From the host:
+
+```bash
+make c-test
+```
+
 Inside the container opened with `make shell`:
 
 ```bash
@@ -214,12 +225,18 @@ aap-bridge --help
 | `make up` | Start the PostgreSQL + engine + UI services |
 | `make up-dev` | Start the PostgreSQL + bridge containers |
 | `make shell` | Open a shell in the running bridge container |
+| `make c-test` | Quick unit-test smoke check inside the bridge container |
+| `make c-test-all` | Full unit test suite inside the bridge container |
+| `make c-check` | Run lint, typecheck, and tests inside the bridge container |
 | `make shell-engine` | Open a shell in the engine container |
 | `make web-dev` | Start the Vite frontend dev server |
 | `make logs` | Tail compose service logs |
-| `make down` | Stop the containerized workflow |
+| `make down` | Stop the db + bridge compose stack |
+| `make down-all` | Stop compose stack and all running AAP test/build containers |
 
 ## Next Steps
 
 - [Quick Start](quickstart.md) - Get up and running in 5 minutes
 - [Configuration](configuration.md) - Configure your environment
+- [Testing with Ephemeral AAP Instances](../developer-guide/testing.md) - Build golden
+  images and run migration test pairs (podman + make; no local Python/AAP required)

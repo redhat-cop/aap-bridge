@@ -1,0 +1,65 @@
+---
+# aap_admin_password: ""  # override via vault or -e
+# aap_pg_password: ""  # override via vault or -e
+
+# RHEL subscription credentials (override via -e or vault)
+# rhsm_username: ""
+# rhsm_password: ""
+
+# Red Hat API offline token for automated bundle downloads (optional)
+# rh_api_offline_token: ""
+
+# Container image registry (where golden images get pushed/pulled)
+# Override with -e image_registry=quay.io/myorg
+image_registry: "localhost"
+image_prefix: "aap-golden"
+
+# Base image tags (built locally)
+base_image_ubi8: "localhost/aap-bridge-base-ubi8:latest"
+base_image_ubi9: "localhost/aap-bridge-base-ubi9:latest"
+
+# Fully qualified golden image prefix (derived)
+golden_image_prefix: "{{ image_registry }}/{{ image_prefix }}"
+
+# Container resource defaults (can be overridden per-version in matrix.yml)
+default_ram_gb: 12
+default_cpus: 4
+
+# Outer podman container limits (beyond --memory / --cpus).
+# Project SCM syncs spawn nested podman/crun isolation containers; default podman
+# pids_limit (2048) and nproc ulimit are too low and cause "can't start new thread".
+# These apply at `podman run` and cannot be baked into the golden image.
+container_pids_limit: -1
+container_ulimit_nproc: 65535
+container_ulimit_nofile: 65536
+container_shm_size: 1g
+
+# Inner limits (limits.d, systemd TasksMax, ~aap/.config/containers/containers.conf)
+# are baked into the UBI9 base image (Containerfile.ubi9-init) and committed into
+# golden images — no runtime Ansible task needed after rebuild.
+
+# Port allocation scheme
+# Source gets ports in the 10000 range, target in 20000 range.
+# Each version has a unique 100-port block within its range.
+port_base_source: 10000
+port_base_target: 20000
+port_offset_controller: 43
+port_offset_hub: 44
+port_offset_eda: 45
+port_offset_gateway: 46
+port_offset_envoy: 47
+port_offset_postgres: 32
+
+# Version index mapping for port allocation
+version_index:
+  "1.0": 0
+  "1.1": 1
+  "1.2": 2
+  "2.0": 3
+  "2.1": 4
+  "2.2": 5
+  "2.3": 6
+  "2.4": 7
+  "2.5": 8
+  "2.6": 9
+  "2.7": 10

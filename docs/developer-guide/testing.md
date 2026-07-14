@@ -1,0 +1,656 @@
+# Testing with Ephemeral AAP Instances
+
+This guide covers building, running, and testing aap-bridge against containerized AAP instances
+across multiple versions.
+
+## Prerequisites
+
+The only tools needed on the host:
+
+- **podman** (with `podman compose` support)
+- **make**
+- Access to **registry.redhat.io** (PostgreSQL, UBI base images, and the builder image)
+- Red Hat subscription credentials (for RHSM registration inside containers)
+- Red Hat API offline token (for downloading AAP installer bundles)
+- AAP subscription manifest zip file (for licensing AAP instances after install)
+
+Get your offline token at [https://access.redhat.com/management/api](https://access.redhat.com/management/api).
+
+This workflow builds on the [container CLI setup](../getting-started/installation.md#container-cli)
+from the installation guide. You do not need Python, Ansible, or PostgreSQL installed on the
+host — the bridge and database run in containers.
+
+### Host kernel setting
+
+Golden image builds run privileged systemd containers (and podman-in-podman for AAP 2.5+).
+These workloads consume kernel keyring entries. The default limit on many systems
+(`kernel.keys.maxkeys=200`) is too low and can cause `add_key: quota exceeded` errors
+mid-build.
+
+Raise it once on your development host:
+
+```bash
+echo 'kernel.keys.maxkeys = 5000' | sudo tee /etc/sysctl.d/99-aap-bridge.conf
+sudo sysctl --system
+```
+
+Verify:
+
+```bash
+sysctl kernel.keys.maxkeys
+```
+
+This is a permanent, system-wide setting that survives reboots. It is a common tweak for
+container-heavy development machines. To undo it, delete `/etc/sysctl.d/99-aap-bridge.conf`
+and run `sudo sysctl --system`.
+
+### Nested podman limits
+
+AAP 2.5+ runs podman inside the test containers (for example during project SCM sync).
+The integration playbooks and golden image base raise them when you `run-pair` or `reset-pair`.
+
+Advanced overrides live in `tests/integration/inventory/group_vars/all.yml` and
+`tests/integration/containerfiles/Containerfile.ubi9-init`.
+
+### Podman API socket
+
+Integration builds run Ansible in a builder container that drives the host Podman
+service via `podman-remote`. That requires the user socket API — separate from
+`podman compose`, which uses the CLI directly.
+
+Enable it once per login session (or enable permanently):
+
+```bash
+systemctl --user enable --now podman.socket
+```
+
+After a reboot, the socket starts automatically if enabled. If `make build-aap-bases`
+fails with `no such file or directory` for `podman.sock`, run the command above.
+
+### Subscription Manifest
+
+AAP instances require a subscription manifest to be fully licensed. To set this up:
+
+1. Go to [https://console.redhat.com/subscriptions/manifests](https://console.redhat.com/subscriptions/manifests)
+2. Create or download a manifest for Ansible Automation Platform
+3. Place the `.zip` file in `tests/integration/files/manifest/`
+
+The build process will automatically detect and apply the manifest after
+installation. If no manifest is found, the instance will be unlicensed (a
+warning is printed during build). A manifest upload failure in the build log
+is non-blocking — the golden image is still created; place a valid `.zip` in
+`tests/integration/files/manifest/` before the next build to license the instance.
+
+> **Note:** AAP **2.7** golden images can be built for integration testing, but
+> aap-bridge migration compatibility still tops out at **2.6** until separate
+> 2.7 migration support lands in the tool.
+
+## Architecture
+
+Everything runs in containers. No Python, Ansible, or other tools needed on the host.
+
+| Container | Purpose |
+|-----------|---------|
+| **bridge** | aap-bridge app + dev tools (Python 3.12, pytest, ruff, mypy) |
+| **db** | PostgreSQL 15 for migration state |
+| **builder** | Ansible + podman-remote for managing AAP test containers |
+| **AAP containers** | Privileged UBI systemd containers; install method depends on version (see below) |
+
+Each AAP golden image is built once per version (`make build-aap VERSION=…`) and committed
+from a transient install container. The outer container is always a UBI **systemd** image
+(`ubi-init`); what differs is how AAP is installed inside it:
+
+| AAP versions | Install method | What runs inside |
+|--------------|----------------|------------------|
+| 1.0–2.4 | **RPM** (`setup.sh`) | Controller (and Hub/EDA where enabled) as systemd services on the host RHEL in the container |
+| 2.5–2.7 | **Containerized** (`ansible.containerized_installer`) | Nested podman stacks for gateway, controller, etc. (podman-in-podman) |
+
+Version-specific settings live in `tests/integration/versions/matrix.yml` (`installer.method`).
+
+```text
+Host (podman + make)
+├── compose: bridge + db
+├── builder container (ansible, runs via podman socket)
+└── AAP containers (systemd, privileged, one per version)
+    ├── aap-24-src / aap-26-tgt   (from golden images at run-pair time)
+    └── golden images: aap-golden-2.4, aap-golden-2.6, …
+```
+
+## Quick Start
+
+```bash
+git clone https://github.com/redhat-cop/aap-bridge.git
+cd aap-bridge
+
+# 1. Create .env (generates PostgreSQL credentials and encryption key)
+#    Skip if you already have one from make setup
+make init-env
+
+# 2. Authenticate once so compose can pull Red Hat images
+podman login registry.redhat.io
+
+# 3. Place the subscription manifest zip in tests/integration/files/manifest/
+
+# 4. Configure build secrets (required before make build-aap)
+#    RHSM login, Red Hat API offline token, AAP admin/PG passwords.
+#    Ansible Vault is recommended; env vars work too — see Secrets Management below.
+
+# 5. Build the app and start the CLI dev container with postgres
+make build
+make up-dev
+
+# 6. Quick smoke check inside the bridge container
+make c-test
+
+# 7. Build the ansible builder image (once)
+make build-builder
+
+# 8. Build AAP base images (once)
+make build-aap-bases
+
+# 9. Build an AAP golden image (once per version, ~45 min)
+#    Requires kernel.keys.maxkeys >= 5000 (see Prerequisites)
+make build-aap VERSION=2.4
+
+# 10. Run a migration test pair
+make run-pair SOURCE=2.4 TARGET=2.6
+make test-bridge SOURCE=2.4 TARGET=2.6
+
+# 11. Reset the pair (instant, from golden images)
+make reset-pair SOURCE=2.4 TARGET=2.6
+```
+
+### Step reference
+
+| Step | Command(s) | Detailed below |
+|------|------------|----------------|
+| 1 | `make init-env` | [Bridge and compose setup](#bridge-and-compose-setup) |
+| 2 | `podman login registry.redhat.io` | [Bridge and compose setup](#bridge-and-compose-setup) |
+| 3 | Manifest zip in `tests/integration/files/manifest/` | [Prerequisites → Subscription Manifest](#subscription-manifest) |
+| 4 | RHSM, API token, AAP passwords | [Secrets Management](#secrets-management) |
+| 5 | `make build`, `make up-dev` | [Bridge and compose setup](#bridge-and-compose-setup) |
+| 6 | `make c-test` | [Bridge and compose setup](#bridge-and-compose-setup) |
+| 7 | `make build-builder` | [Building golden images → Integration toolchain](#integration-toolchain) |
+| 8 | `make build-aap-bases` | [Building golden images → Integration toolchain](#integration-toolchain) |
+| 9 | `make build-aap VERSION=…` | [Building AAP Golden Images](#building-aap-golden-images) |
+| 10 | `make run-pair`, `make test-bridge` | [Running Test Pairs](#running-test-pairs) |
+| 11 | `make reset-pair` | [Running Test Pairs](#running-test-pairs) |
+
+Teardown (not in the numbered flow above): `make down-all` (everything stopped),
+`make down-pair`, `make destroy-pair`, or `make destroy-all` (remove images too) —
+see [Notes](#notes) and [Running Test Pairs](#running-test-pairs).
+
+### Notes
+
+- `compose.yml` pulls `registry.redhat.io/rhel9/postgresql-15` for the bundled database service.
+- `make up-dev` is a shortcut for `podman compose up -d db bridge`.
+- The bridge container mounts `./src` and `./tests/unit` from the host so `make c-test`
+  and other `c-*` targets run against your working tree without rebuilding the image.
+- The bridge container bind-mounts `./exports`, `./xformed`, `./reports`, `./logs`, and
+  `./schemas` from the repo root (same paths as the engine service) so migration artifacts
+  are visible on the host.
+- **Bridge + database:** `make down` stops only the compose stack (db + bridge).
+  `make down-all` also stops every running AAP test/build container (`aap-*-build`,
+  `aap-*-src`, `aap-*-tgt`). Containers are stopped, not removed — use
+  `make destroy-pair` or `podman rm -f` to delete them.
+- **AAP test pair:** `make down-pair SOURCE=2.4 TARGET=2.6` stops the source and target
+  containers without removing them; `make destroy-pair SOURCE=2.4 TARGET=2.6` removes the
+  containers and pair network. Golden images are kept either way.
+- When you are done for the day: `make down-all` (or `make down-pair …` then `make down`
+  if you only have a pair and no leftover build containers).
+
+### Verify
+
+Inside the bridge container opened with `make shell`:
+
+```bash
+aap-bridge --version
+aap-bridge --help
+```
+
+## Bridge and compose setup
+
+Steps 1, 2, 5, and 6 in [Quick Start](#quick-start) prepare the aap-bridge dev stack
+(PostgreSQL + bridge container). This is separate from the AAP golden-image toolchain
+(steps 7–9).
+
+### Initialize environment (`make init-env`)
+
+Creates `.env` from `.env.example` with generated PostgreSQL credentials, encryption key,
+and database URL. Required for `make up-dev` and the compose stack. Skip if you already
+ran `make setup` on the host (which also calls `init-env`).
+
+See also the [installation guide](../getting-started/installation.md#container-cli).
+
+### Registry login
+
+```bash
+podman login registry.redhat.io
+```
+
+One-time (per credential rotation) authentication so compose can pull Red Hat base images
+(PostgreSQL, UBI) and so you can pull/push golden images from a registry if needed.
+
+### Build and start (`make build`, `make up-dev`)
+
+```bash
+make build    # Build localhost/aap-bridge-dev:latest (Containerfile.dev)
+make up-dev   # mkdir artifact dirs; podman compose up -d db bridge
+```
+
+`make up-dev` is a shortcut for `podman compose up -d db bridge`. The bridge container
+bind-mounts `./src`, `./tests/unit`, and migration artifact directories from the repo root
+so code and data changes on the host are visible without rebuilding the image.
+
+### Smoke test (`make c-test`)
+
+```bash
+make c-test   # pytest unit tests inside the bridge container (quick, no coverage)
+```
+
+Confirms the bridge image and compose stack work before investing time in AAP golden
+image builds. For ongoing app development, see [Development Workflow](#development-workflow).
+
+## Secrets Management
+
+### Option 1: Ansible Vault (recommended)
+
+Create a vault password file:
+
+```bash
+echo 'your-vault-password' > tests/integration/.vault_pass
+```
+
+Create a vaulted secrets file:
+
+```bash
+ansible-vault create tests/integration/inventory/group_vars/vault.yml \
+    --vault-password-file tests/integration/.vault_pass
+```
+
+Add your secrets to `vault.yml` (use these exact variable names):
+
+```yaml
+rh_api_offline_token: "eyJhbG..."
+rhsm_username: "your-user"
+rhsm_password: "your-pass"
+aap_admin_password: "your-password"
+aap_pg_password: "your-password"
+```
+
+The Makefile auto-detects `tests/integration/.vault_pass` and passes
+`--vault-password-file` to all `ansible-playbook` calls. The vault file
+lives in `inventory/group_vars/` so Ansible loads it automatically as
+group variables — no extra includes needed.
+
+**Variable precedence** (highest wins):
+
+1. Vault file (`group_vars/vault.yml`) — overrides everything
+2. Environment variables (`RHSM_USER`, `RHSM_PASS`, `RH_TOKEN`, `AAP_ADMIN_PASSWORD`, `AAP_PG_PASSWORD`)
+3. Role defaults — fallback to `redhat123!` for AAP passwords, omit for credentials
+
+Both `.vault_pass`, `inventory/group_vars/vault.yml`, and the bundles directory are gitignored.
+
+### Option 2: Environment variables
+
+Export credentials before running make:
+
+```bash
+export RHSM_USER=myuser
+export RHSM_PASS=mypass
+export RH_TOKEN=eyJhbG...
+make build-aap VERSION=2.4
+```
+
+Or pass them inline:
+
+```bash
+RHSM_USER=myuser RHSM_PASS=mypass make build-aap VERSION=2.4
+```
+
+### Option 3: Plain vars file
+
+Uncomment and fill in values in `tests/integration/inventory/group_vars/all.yml`.
+Keep it out of version control.
+
+```bash
+make build-aap VERSION=2.4 \
+    RHSM_USER=myuser \
+    RHSM_PASS=mypass \
+    RH_TOKEN=eyJhbG...
+```
+
+## Building AAP Golden Images
+
+Golden images are pre-installed AAP containers committed with `podman commit`.
+Build once, reuse many times.
+
+### Integration toolchain
+
+Steps 7 and 8 in [Quick Start](#quick-start) build the images used to **install** AAP on
+the host via Ansible and podman-remote. Run these once before `make build-aap`.
+
+**Podman API socket** — required for all integration make targets (`build-builder`,
+`build-aap-bases`, `build-aap`, `run-pair`, etc.). Enable once per host:
+
+```bash
+systemctl --user enable --now podman.socket
+```
+
+See [Prerequisites → Podman API socket](#podman-api-socket) if the socket is missing.
+
+**Builder image** — Ansible runner with collections, talks to the host Podman socket:
+
+```bash
+make build-builder
+```
+
+Produces `localhost/aap-bridge-builder:latest` from `tests/integration/Containerfile.builder`.
+
+**AAP base images** — UBI systemd init images with fixes for installer quirks:
+
+```bash
+make build-aap-bases
+```
+
+Builds `localhost/aap-base-ubi8:latest` and `localhost/aap-base-ubi9:latest` from
+`tests/integration/containerfiles/`. AAP 1.x–2.4 use UBI 8; 2.5–2.7 use UBI 9.
+
+### Installer bundles
+
+Place setup bundles in `tests/integration/files/aap-installer-bundles/` (gitignored).
+Newer versions (2.1+) can be downloaded automatically when `RH_TOKEN` / `rh_api_offline_token`
+is set. Older releases are no longer in the Red Hat download API and must be obtained from
+the [Red Hat Customer Portal](https://access.redhat.com) and placed manually.
+
+| Version | Expected bundle filename | API download |
+|---------|-------------------------|--------------|
+| 1.0 | `ansible-tower-setup-bundle-3.6.2-1.tar.gz` | No |
+| 1.1 | `ansible-tower-setup-bundle-3.7.3-1.tar.gz` | No |
+| 1.2 | `ansible-automation-platform-setup-bundle-1.2.7-2.tar.gz` | No |
+| 2.0 | `ansible-automation-platform-setup-bundle-2.0.2-1-early-access.tar.gz` | No |
+| 2.1+ | `ansible-automation-platform-setup-bundle-<version>*.tar.gz` (or containerized prefix for 2.5+) | Yes (if token set) |
+
+`bundle_name` in the version matrix is only set for 1.0–2.0 (manual bundles). Newer versions
+are discovered by version glob or downloaded from the Red Hat API.
+
+Tower-era bundles (1.0–1.1) use the `ansible-tower-setup-bundle` prefix instead of
+`ansible-automation-platform-setup-bundle`. The version matrix records the exact filename
+and whether API download is enabled (`bundle_download_api`).
+
+### Supported Versions
+
+| Version | Base | Install Method | Status |
+|---------|------|---------------|--------|
+| 1.0-1.2 | UBI 8 | RPM (RHEL 7 bundle) | Supported; [manual bundle required](#installer-bundles) |
+| 2.0-2.4 | UBI 8 | RPM | Supported; 2.0 needs [manual bundle](#installer-bundles) |
+| 2.5-2.7 | UBI 9 | Containerized (podman-in-podman) | Supported |
+
+### Build a single version
+
+Step 9 in [Quick Start](#quick-start). Requires [secrets](#secrets-management), the
+[integration toolchain](#integration-toolchain), and `kernel.keys.maxkeys` (see
+[Prerequisites](#host-kernel-setting)).
+
+```bash
+make build-aap VERSION=2.4
+```
+
+This creates a container, runs the AAP installer inside it, commits the result as
+`localhost/aap-golden-2.4:latest`, and removes the build container.
+
+### Build all versions
+
+```bash
+make build-aap-all
+```
+
+Rebuilds every version in the matrix (1.0 through 2.7) in order, stopping on the
+first failure. Versions that already have a local golden image (`localhost/aap-golden-<version>:latest`)
+are skipped so you can resume after a partial run. Use `FORCE=1 make build-aap-all` to rebuild all.
+Versions 1.0–2.0 require [manual installer bundles](#installer-bundles).
+
+`make build-aap` always starts the install container from the **UBI base image**, even when
+a golden image for that version already exists locally. Golden images are only used for
+`run-pair` / `reset-pair` fast startup, not for single-version rebuilds.
+
+### Golden image API tokens
+
+Each golden image build creates a **write** token saved to
+`tests/integration/generated/images/<version>_rw_token`. Pair targets reuse this file;
+the source gets a separate read-only token per pair in `generated/pairs/`.
+
+| AAP version | Token method |
+|-------------|--------------|
+| 1.0, 1.1 (Tower RPM) | `awx-manage create_oauth2_token` inside the container (no scope API) |
+| 1.2–2.4 (RPM / controller API) | `POST /api/v2/tokens/` |
+| 2.5+ (containerized / gateway) | `POST /api/gateway/v1/tokens/` |
+
+### Push to a registry
+
+```bash
+make push-aap VERSION=2.4 REGISTRY=quay.io/myorg
+make pull-aap VERSION=2.4 REGISTRY=quay.io/myorg
+```
+
+### List golden images
+
+```bash
+make list-golden
+```
+
+## Running Test Pairs
+
+Steps 10 and 11 in [Quick Start](#quick-start). Once golden images are built, start any
+source/target pair instantly. Golden images are clean installs only; the **source**
+instance is populated with test data when a pair starts or resets (target stays empty).
+
+```bash
+# Start a pair (source populated with small test data by default)
+make run-pair SOURCE=2.3 TARGET=2.6
+
+# Validate bridge can reach source and target AAP APIs
+make test-bridge SOURCE=2.3 TARGET=2.6
+
+# Reset to clean state and re-populate source (~tens of seconds)
+make reset-pair SOURCE=2.3 TARGET=2.6
+
+# Stop without removing (containers can be restarted with run-pair)
+make down-pair SOURCE=2.3 TARGET=2.6
+
+# Remove completely
+make destroy-pair SOURCE=2.3 TARGET=2.6
+```
+
+Pair lifecycle mirrors the compose stack: `run-pair` / `down-pair` / `destroy-pair` for the
+AAP instances; `make up-dev` / `make down` for bridge + database only; `make down-all` for
+both.
+
+### Source test data
+
+When a pair starts or resets, the **source** container is populated via
+`populate_test_data.py` using admin basic auth. A **read-only** source API token
+is created afterward for `aap-bridge`. The **target** reuses the **write** token
+created during `make build-aap` (platform gateway token for AAP 2.5+, controller
+token for 2.4 and earlier), saved to `generated/images/<version>_rw_token`.
+The target is never populated — it stays empty for migration testing.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `POPULATE_TEST_DATA` | `true` | Populate source on `run-pair` / `reset-pair` |
+| `POPULATE_TEST_DATA_SIZE` | `small` | Data tier: `small`, `med`, `large`, `xl`, `xxl` |
+
+The `small` tier creates on the order of 5 organizations, ~50 users, and ~100
+hosts — enough to exercise all major migration resource types without long
+startup times.
+
+```bash
+# Skip population (empty source — rarely needed)
+make run-pair SOURCE=2.4 TARGET=2.6 POPULATE_TEST_DATA=false
+
+# Larger dataset for stress testing
+make reset-pair SOURCE=2.4 TARGET=2.6 POPULATE_TEST_DATA_SIZE=med
+```
+
+Golden images (`make build-aap`) are always clean installs with no test data.
+
+### Using aap-bridge with a pair
+
+After `make run-pair`, open a bridge shell with the pair `.env` already loaded.
+The pair `.env` supplies `SOURCE__*` / `TARGET__*` connection settings; tuning and
+export behavior use the same shared `config/config.yaml` as a laptop workflow.
+
+```bash
+make up-dev    # if db + bridge are not already running
+make shell-pair SOURCE=2.4 TARGET=2.6
+aap-bridge              # interactive TUI
+```
+
+When only one pair exists under `generated/pairs/`, `SOURCE` and `TARGET`
+default from that directory name, so `make shell-pair` is often enough.
+
+Inside an existing `make shell` session, load the env manually:
+
+```bash
+set -a && source /app/tests/integration/generated/pairs/24-to-26/.env && set +a
+aap-bridge
+```
+
+For other pairs, substitute the directory name (`23-to-26` for SOURCE=2.3
+TARGET=2.6, and so on).
+
+Browse the AAP UIs from your host browser (accept the self-signed certificate):
+
+- Source UI: `https://localhost:<source-controller-port>/` (e.g. `10743` for 2.4)
+- Target UI: `https://localhost:<target-envoy-port>/` for 2.5+ (e.g. `20947` for 2.6)
+
+Run `make build-aap VERSION=2.6` after upgrading testing infrastructure if pair
+start fails with a missing golden-image token.
+
+See [Golden image API tokens](#golden-image-api-tokens) and [Port Allocation](#port-allocation).
+
+### Batch connectivity checks
+
+`make test-all` runs `test-bridge` for each source version **1.0 through 2.5** against a
+**2.6** target (requires golden images for both sides). It does not yet include 2.6 as a
+source or 2.7 as a target — use explicit `run-pair` / `test-bridge` for those combinations.
+
+### Port Allocation
+
+Each version gets a deterministic port block so pairs don't conflict:
+
+```text
+Source ports: 10000 + (version_index * 100) + offset
+Target ports: 20000 + (version_index * 100) + offset
+
+Version indices: 1.0=0, 1.1=1, 1.2=2, 2.0=3, ..., 2.7=10
+Offsets: controller=43, hub=44, eda=45, gateway=46, envoy=47
+```
+
+Example for 2.3 (source) -> 2.6 (target):
+
+- Source controller: `https://localhost:10643`
+- Target (via envoy): `https://localhost:20947` (UI + all APIs)
+- Target controller (direct): `https://localhost:20943`
+
+For AAP 2.5+, the envoy proxy (offset 47) is the primary entry point — it
+serves the UI and routes API requests to the correct backend. The controller
+port (offset 43) provides direct API access but does not serve the UI.
+
+## Development Workflow
+
+Day-to-day bridge app work after the stack from [Bridge and compose setup](#bridge-and-compose-setup)
+is running. Pair-specific migration testing uses [Using aap-bridge with a pair](#using-aap-bridge-with-a-pair)
+instead of plain `make shell`.
+
+### App development (runs inside bridge container)
+
+```bash
+make up-dev      # Start bridge + postgres
+make c-test      # Run pytest
+make c-lint      # Run ruff
+make c-format    # Run black + isort
+make c-typecheck # Run mypy
+make c-check     # All of the above
+make shell       # Shell into bridge container
+make logs        # Tail logs
+make down        # Stop db + bridge only
+make down-all    # Stop db + bridge + all AAP test/build containers
+```
+
+### Debugging
+
+```bash
+# Ansible verbosity (V=1 through V=4)
+make build-aap VERSION=2.4 V=2
+
+# Disable no_log to see secrets in output
+make build-aap VERSION=2.4 DEBUG=1
+
+# Both
+make build-aap VERSION=2.4 V=2 DEBUG=1
+
+# Shell into a running AAP container
+make shell-src SOURCE=2.3
+make shell-tgt TARGET=2.6
+
+# View AAP container status
+make status
+```
+
+### Installer troubleshooting
+
+If the AAP installer fails, the build output shows the last 150 lines of the installer log
+automatically. Common issues:
+
+| Error | Fix |
+|-------|-----|
+| `dnf module reset postgresql` fails | Fixed: dnf wrapper in UBI 8 base image |
+| `localhost` rejected in inventory | Fixed: uses container hostname |
+| `restorecon: command not found` | Fixed: `policycoreutils` in base image |
+| `en_US.UTF-8` locale missing | Fixed: `glibc-langpack-en` in base image |
+| `loginctl enable-linger` fails | Fixed: `systemd-logind` unmasked |
+| `sysctl: Read-only file system` | Fixed: containers run privileged |
+| `add_key: quota exceeded` | Raise `kernel.keys.maxkeys` (see Prerequisites) |
+| `can't start new thread` / `crun: resource temporarily unavailable` | Rebuild golden images and `make reset-pair` (limits are pre-configured; likely an old image) |
+| `container state improper` / build hangs at "Wait for container" | Stuck `podman wait` on a crashed container — Ctrl+C, `podman rm -f aap-*-build`, retry; if the container exits in under a second, check host systemd-in-podman (see below) |
+| AAP container exits immediately (exit 255) | Host cannot run `--systemd always` containers; verify `podman run -d --systemd always --privileged registry.redhat.io/ubi9/ubi-init:latest` stays running, then reboot or fix cgroup/podman if not |
+| `storage/overlay/tempdirs: permission denied` | Run `chown -R aap:aap /home/aap/.local/share/containers/storage` inside the target container, or `make reset-pair` (ownership fix runs at start) |
+| `mapping 1:65536 in /etc/subuid includes the user UID` (AAP 2.0) | Rebuild UBI8 base (`make build-aap-bases`) or retry build — install playbooks seed `root:0:65536` before `setup.sh` |
+| `[automationmetrics] section` missing (AAP 2.7 preflight) | Fixed: gateway inventory template adds metrics group and DB vars for 2.7+ |
+| `rsync` / `mknod` / `pymp-*` during golden image bake (2.5+) | Fixed: bake step skips ephemeral FIFOs and stops metrics containers before rsync |
+
+## File Layout
+
+```text
+Containerfile                        # aap-bridge app (UBI 9 + Python 3.12)
+compose.yml                          # db + bridge + engine + ui services
+Makefile                             # All targets (host needs only podman + make)
+tests/integration/
+├── Containerfile.builder            # Ansible builder (podman-remote + collections)
+├── containerfiles/
+│   ├── Containerfile.ubi8-init      # Base for AAP 1.x-2.4
+│   └── Containerfile.ubi9-init      # Base for AAP 2.5-2.7
+├── versions/
+│   └── matrix.yml                   # Version matrix (all per-version config)
+├── inventory/
+│   └── group_vars/
+│       ├── all.yml                  # Shared variables
+│       └── vault.yml                # Vaulted secrets (gitignored)
+├── roles/
+│   ├── aap_install/                 # Install AAP inside container
+│   ├── base_container/              # Create + start systemd container
+│   ├── golden_image/                # podman commit workflow
+│   ├── lifecycle/                   # Reset + destroy operations
+│   └── pair_networking/             # Port allocation + bridge config
+├── playbooks/
+│   ├── build-instance.yml           # Build one AAP golden image
+│   ├── run-pair.yml                 # Start a source+target pair
+│   ├── reset-pair.yml               # Reset pair from golden images
+│   └── ...
+├── files/
+│   ├── manifest/                    # Subscription manifest zip (gitignored)
+│   └── aap-installer-bundles/       # Downloaded bundles (gitignored)
+└── generated/
+    └── pairs/                       # Per-pair .env files (gitignored)
+```

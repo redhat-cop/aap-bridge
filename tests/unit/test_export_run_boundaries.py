@@ -76,9 +76,10 @@ async def test_export_clears_stale_mappings(tmp_path: Path) -> None:
             with patch("aap_migration.cli.commands.export_import.handle_errors", lambda x: x):
                 runner = CliRunner()
                 # Run export for specific type
-                with patch("asyncio.run") as mock_run:
-                    # Make asyncio.run do nothing but accept the coroutine
-                    mock_run.return_value = None
+                with patch(
+                    "aap_migration.cli.commands.export_import.asyncio.run",
+                    side_effect=lambda coro: coro.close(),
+                ):
                     runner.invoke(export, ["-r", "organizations", "--yes"], obj=mock_ctx)
 
                 # Check that clear_mappings was called for the requested type
@@ -143,8 +144,7 @@ async def test_resume_export_uses_mappings(tmp_path: Path) -> None:
     assert resources[0]["id"] == 2
 
 
-@pytest.mark.asyncio
-async def test_resume_context_mismatch_aborts(
+def test_resume_context_mismatch_aborts(
     tmp_path: Path, run_context: ExportRunContext
 ) -> None:
     """REQ-008: proves mismatched fingerprint blocks resume."""
@@ -159,6 +159,10 @@ async def test_resume_context_mismatch_aborts(
 
     mock_ctx = MagicMock()
     mock_ctx.config.source.url = run_context.source_url
+    mock_ctx.config.source.version = run_context.source_version
+    mock_ctx.config.export.filters = dict(run_context.filters)
+    mock_ctx.config.export.records_per_file = 100
+    mock_ctx.config.performance.parallel_resource_types = False
     mock_ctx.config.paths.export_dir = str(output_dir)
     mock_ctx.migration_state.database_url = "sqlite:///:memory:"
 
@@ -172,8 +176,7 @@ async def test_resume_context_mismatch_aborts(
                 assert "Resume mismatch" in result.output
 
 
-@pytest.mark.asyncio
-async def test_resume_context_mismatch_force_override(
+def test_resume_context_mismatch_force_override(
     tmp_path: Path, run_context: ExportRunContext
 ) -> None:
     """REQ-008: proves --force bypasses the block."""
@@ -188,14 +191,24 @@ async def test_resume_context_mismatch_force_override(
 
     mock_ctx = MagicMock()
     mock_ctx.config.source.url = run_context.source_url
+    mock_ctx.config.source.version = run_context.source_version
+    mock_ctx.config.export.filters = dict(run_context.filters)
+    mock_ctx.config.export.records_per_file = 100
+    mock_ctx.config.performance.parallel_resource_types = False
     mock_ctx.config.paths.export_dir = str(output_dir)
     mock_ctx.migration_state.database_url = "sqlite:///:memory:"
 
-    # Mock run_export to avoid actual API calls
+    def consume_asyncio_run(coro):
+        coro.close()
+
+    # Mock asyncio.run to avoid actual API calls after resume validation passes
     with patch("aap_migration.cli.commands.export_import.pass_context", lambda x: x):
         with patch("aap_migration.cli.commands.export_import.requires_config", lambda x: x):
             with patch("aap_migration.cli.commands.export_import.handle_errors", lambda x: x):
-                with patch("aap_migration.cli.commands.export_import.asyncio.run"):
+                with patch(
+                    "aap_migration.cli.commands.export_import.asyncio.run",
+                    side_effect=consume_asyncio_run,
+                ):
                     runner = CliRunner()
                     result = runner.invoke(export, ["--resume", "--force", "--yes"], obj=mock_ctx)
 

@@ -1,0 +1,76 @@
+---
+- name: Load version matrix
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../versions/matrix.yml"
+
+- name: Set source and target configs
+  ansible.builtin.set_fact:
+    src_config: "{{ aap_versions[source_version] }}"
+    tgt_config: "{{ aap_versions[target_version] }}"
+    pair_id: "{{ source_version | replace('.', '') }}-to-{{ target_version | replace('.', '') }}"
+
+- name: Calculate source ports
+  ansible.builtin.set_fact:
+    src_port_base: "{{ port_base_source | int + (version_index[source_version] | int * 100) }}"
+
+- name: Calculate target ports
+  ansible.builtin.set_fact:
+    tgt_port_base: "{{ port_base_target | int + (version_index[target_version] | int * 100) }}"
+
+- name: Set individual port variables
+  ansible.builtin.set_fact:
+    src_controller_port: "{{ src_port_base | int + port_offset_controller }}"
+    src_hub_port: "{{ src_port_base | int + port_offset_hub }}"
+    src_eda_port: "{{ src_port_base | int + port_offset_eda }}"
+    src_envoy_port: "{{ src_port_base | int + port_offset_envoy }}"
+    tgt_controller_port: "{{ tgt_port_base | int + port_offset_controller }}"
+    tgt_hub_port: "{{ tgt_port_base | int + port_offset_hub }}"
+    tgt_eda_port: "{{ tgt_port_base | int + port_offset_eda }}"
+    tgt_gateway_port: "{{ tgt_port_base | int + port_offset_gateway }}"
+    tgt_envoy_port: "{{ tgt_port_base | int + port_offset_envoy }}"
+
+- name: Read source token if available
+  ansible.builtin.slurp:
+    src: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/src_token"
+  register: src_token_raw
+  failed_when: false
+
+- name: Read target token if available
+  ansible.builtin.slurp:
+    src: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/tgt_token"
+  register: tgt_token_raw
+  failed_when: false
+
+- name: Set tokens
+  ansible.builtin.set_fact:
+    source_token: "{{ (src_token_raw.content | b64decode | trim) if (src_token_raw.content is defined) else 'TOKEN_NOT_YET_GENERATED' }}"
+    target_token: "{{ (tgt_token_raw.content | b64decode | trim) if (tgt_token_raw.content is defined) else 'TOKEN_NOT_YET_GENERATED' }}"
+
+- name: Ensure generated pair directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}"
+    state: directory
+    mode: "0750"
+
+- name: Generate .env for aap-bridge
+  ansible.builtin.template:
+    src: bridge-env.j2
+    dest: "{{ playbook_dir }}/../generated/pairs/{{ pair_id }}/.env"
+    mode: "0640"
+
+- name: Report generated config
+  ansible.builtin.debug:
+    msg: |
+      Bridge env generated for {{ source_version }} -> {{ target_version }}:
+        .env:              generated/pairs/{{ pair_id }}/.env
+        config (shared):   config/config.yaml
+        {% if src_config.components.gateway.enabled | default(false) %}
+        Source (envoy):    https://localhost:{{ src_envoy_port }}/
+        {% else %}
+        Source Controller: https://localhost:{{ src_controller_port }}{{ src_config.api.controller_path }}
+        {% endif %}
+        {% if tgt_config.components.gateway.enabled | default(false) %}
+        Target (envoy):    https://localhost:{{ tgt_envoy_port }}/
+        {% else %}
+        Target Controller: https://localhost:{{ tgt_controller_port }}{{ tgt_config.api.controller_path }}
+        {% endif %}

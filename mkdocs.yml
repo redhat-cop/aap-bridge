@@ -43,6 +43,7 @@ nav:
       - Troubleshooting: user-guide/troubleshooting.md
   - Developer Guide:
       - Contributing: developer-guide/contributing.md
+      - Testing: developer-guide/testing.md
       - Adding Resource Types: developer-guide/adding-resource-types.md
       - Architecture: developer-guide/architecture.md
   - Reference:

@@ -426,7 +426,8 @@ docs/
 ├── developer-guide/
 │   ├── contributing.md                # Contribution guidelines
 │   ├── adding-resource-types.md       # How to add new resource types
-│   └── architecture.md                # Architecture overview
+│   ├── architecture.md                # Architecture overview
+│   └── testing.md                     # Ephemeral AAP golden images and pairs
 └── reference/
     ├── compatibility-matrix.md        # Source-to-target version paths
     ├── awx-migration.md               # AWX source configuration and mapping
@@ -434,6 +435,13 @@ docs/
 ```
 
 ## Development
+
+### Ephemeral AAP instances (integration testing)
+
+To build and run containerized AAP golden images across versions 1.0–2.7 and test
+migrations with `make run-pair`, see the
+[Testing with Ephemeral AAP Instances](docs/developer-guide/testing.md) guide.
+The host only needs **podman** and **make**; bridge and PostgreSQL run in compose.
 
 ### Running Tests
 
@@ -450,6 +458,9 @@ pytest --cov=src/aap_migration --cov-report=html
 
 # Run integration tests (requires AAP instances)
 pytest tests/integration/ -m integration
+
+# Ephemeral AAP golden images and migration pairs (podman + make on host)
+# See docs/developer-guide/testing.md
 
 # Run performance benchmarks
 pytest tests/performance/

@@ -1,0 +1,355 @@
+---
+# AAP Version Matrix for Ephemeral Testing Environments
+# Single source of truth for all version-specific parameters.
+
+aap_versions:
+  "1.0":
+    display_name: "AAP 1.0"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+      download_rhel_version: 7
+      bundle_name: "ansible-tower-setup-bundle-3.6.2-1.tar.gz"
+      bundle_prefix: "ansible-tower-setup-bundle"
+      bundle_download_api: false
+      ansible_pip_package: "ansible==2.9.27"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 10
+      cpus: 4
+    container:
+      hostname_prefix: "aap10"
+      privileged: true
+    inventory_template: "inventory-tower.j2"
+
+  "1.1":
+    display_name: "AAP 1.1"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+      download_rhel_version: 7
+      bundle_name: "ansible-tower-setup-bundle-3.7.3-1.tar.gz"
+      bundle_prefix: "ansible-tower-setup-bundle"
+      bundle_download_api: false
+      ansible_pip_package: "ansible==2.9.27"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 10
+      cpus: 4
+    container:
+      hostname_prefix: "aap11"
+      privileged: true
+    inventory_template: "inventory-tower.j2"
+
+  "1.2":
+    display_name: "AAP 1.2"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+      download_rhel_version: 7
+      bundle_name: "ansible-automation-platform-setup-bundle-1.2.7-2.tar.gz"
+      bundle_download_api: false
+      ansible_pip_package: "ansible==2.9.27"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 10
+      cpus: 4
+    container:
+      hostname_prefix: "aap12"
+      privileged: true
+    inventory_template: "inventory-tower.j2"
+
+  "2.0":
+    display_name: "AAP 2.0"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      bundle_name: "ansible-automation-platform-setup-bundle-2.0.2-1-early-access.tar.gz"
+      bundle_download_api: false
+      setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.12.10"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: true
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - ansible-automation-platform-2.0-early-access-for-rhel-8-x86_64-rpms
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 12
+      cpus: 4
+    container:
+      hostname_prefix: "aap20"
+      privileged: true
+    inventory_template: "inventory-controller.j2"
+
+  "2.1":
+    display_name: "AAP 2.1"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.12.10"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: true
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - ansible-automation-platform-2.1-for-rhel-8-x86_64-rpms
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 12
+      cpus: 4
+    container:
+      hostname_prefix: "aap21"
+      privileged: true
+    inventory_template: "inventory-controller.j2"
+
+  "2.2":
+    display_name: "AAP 2.2"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+      ansible_pip_package: "ansible-core==2.12.10"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: true
+      eda:
+        enabled: false
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - ansible-automation-platform-2.2-for-rhel-8-x86_64-rpms
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 12
+      cpus: 4
+    container:
+      hostname_prefix: "aap22"
+      privileged: true
+    inventory_template: "inventory-controller.j2"
+
+  "2.3":
+    display_name: "AAP 2.3"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: true
+      eda:
+        enabled: true
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - ansible-automation-platform-2.3-for-rhel-8-x86_64-rpms
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 14
+      cpus: 4
+    container:
+      hostname_prefix: "aap23"
+      privileged: true
+    inventory_template: "inventory-controller.j2"
+
+  "2.4":
+    display_name: "AAP 2.4"
+    rhel_version: 8
+    base_image: "registry.redhat.io/ubi8/ubi-init:latest"
+    installer:
+      method: rpm
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: true
+      eda:
+        enabled: true
+      gateway:
+        enabled: false
+    api:
+      controller_path: "/api/v2"
+    repos:
+      - ansible-automation-platform-2.4-for-rhel-8-x86_64-rpms
+      - rhel-8-for-x86_64-baseos-rpms
+      - rhel-8-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 14
+      cpus: 4
+    container:
+      hostname_prefix: "aap24"
+      privileged: true
+    inventory_template: "inventory-controller.j2"
+
+  "2.5":
+    display_name: "AAP 2.5"
+    rhel_version: 9
+    base_image: "registry.redhat.io/ubi9/ubi-init:latest"
+    installer:
+      method: containerized
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: true
+    api:
+      controller_path: "/api/controller/v2"
+      gateway_path: "/api/gateway/v1"
+    repos:
+      - ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms
+      - rhel-9-for-x86_64-baseos-rpms
+      - rhel-9-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 16
+      cpus: 4
+    container:
+      hostname_prefix: "aap25"
+      privileged: true
+    inventory_template: "inventory-gateway.j2"
+
+  "2.6":
+    display_name: "AAP 2.6"
+    rhel_version: 9
+    base_image: "registry.redhat.io/ubi9/ubi-init:latest"
+    installer:
+      method: containerized
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: true
+    api:
+      controller_path: "/api/controller/v2"
+      gateway_path: "/api/gateway/v1"
+    repos:
+      - ansible-automation-platform-2.6-for-rhel-9-x86_64-rpms
+      - rhel-9-for-x86_64-baseos-rpms
+      - rhel-9-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 16
+      cpus: 4
+    container:
+      hostname_prefix: "aap26"
+      privileged: true
+    inventory_template: "inventory-gateway.j2"
+
+  "2.7":
+    display_name: "AAP 2.7"
+    rhel_version: 9
+    base_image: "registry.redhat.io/ubi9/ubi-init:latest"
+    installer:
+      method: containerized
+      setup_script: "setup.sh"
+    components:
+      controller:
+        enabled: true
+      hub:
+        enabled: false
+      eda:
+        enabled: false
+      gateway:
+        enabled: true
+      metrics:
+        enabled: true
+    api:
+      controller_path: "/api/controller/v2"
+      gateway_path: "/api/gateway/v1"
+    repos:
+      - ansible-automation-platform-2.7-for-rhel-9-x86_64-rpms
+      - rhel-9-for-x86_64-baseos-rpms
+      - rhel-9-for-x86_64-appstream-rpms
+    resource_requirements:
+      ram_gb: 16
+      cpus: 4
+    container:
+      hostname_prefix: "aap27"
+      privileged: true
+    inventory_template: "inventory-gateway.j2"

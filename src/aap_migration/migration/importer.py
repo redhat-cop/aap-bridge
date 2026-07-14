@@ -170,6 +170,8 @@ class ResourceImporter:
         # Track issues for reporting
         self.unresolved_dependencies: list[dict[str, Any]] = []
         self.import_errors: list[dict[str, Any]] = []
+        # Cache target instance group name → id for capacity associations
+        self._instance_group_id_by_name: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # Shared classic-RBAC helpers (used by UserImporter and TeamImporter)
@@ -957,6 +959,123 @@ class ResourceImporter:
                     trigger=trigger,
                     target_nt_id=target_nt_id,
                     template_name=template_name,
+                    error=str(e),
+                )
+
+    async def _resolve_instance_group_id_by_name(self, name: str) -> int | None:
+        """Resolve a target instance group ID by exact name (cached).
+
+        Instance groups are not migrated; they must already exist on the target.
+        """
+        if not name:
+            return None
+        if name in self._instance_group_id_by_name:
+            return self._instance_group_id_by_name[name]
+
+        try:
+            endpoint = get_endpoint("instance_groups")
+            results = await self.client.get(endpoint, params={"name": name})
+            resources = results.get("results", []) if isinstance(results, dict) else []
+            if resources:
+                target_id = int(resources[0]["id"])
+                self._instance_group_id_by_name[name] = target_id
+                return target_id
+        except Exception as e:
+            logger.warning(
+                "instance_group_name_lookup_failed",
+                name=name,
+                error=str(e),
+            )
+            return None
+
+        logger.warning(
+            "instance_group_not_found_on_target",
+            name=name,
+            message="Instance group must exist on the target with the same name",
+        )
+        return None
+
+    async def _associate_instance_groups(
+        self,
+        resource_type: str,
+        target_id: int,
+        instance_group_names: list[str],
+        resource_name: str | None = None,
+    ) -> None:
+        """Associate instance groups with a resource via POST (capacity assignment).
+
+        Resolves each name on the target and POSTs in list order (controller priority).
+        Missing groups are skipped with a warning; the parent resource is not failed.
+
+        On gateway topology, organizations are created on the gateway API but the
+        nested ``instance_groups`` capacity endpoint is controller-only. For
+        organizations we resolve the controller org id by name and POST on the
+        controller base.
+        """
+        if not instance_group_names:
+            return
+
+        base = get_endpoint(resource_type).rstrip("/")
+        associate_id = target_id
+        api_base: str | None = None
+
+        layout = getattr(self.client, "api_layout", None)
+        if (
+            resource_type == "organizations"
+            and layout is not None
+            and layout.mode is ApiMode.GATEWAY
+            and layout.controller_base
+        ):
+            api_base = layout.controller_base
+            if resource_name:
+                resolved = await _lookup_organization_id_on_base(
+                    self.client, api_base, resource_name
+                )
+                if resolved is None:
+                    logger.warning(
+                        "organization_controller_id_unavailable_for_instance_groups",
+                        gateway_org_id=target_id,
+                        organization_name=resource_name,
+                        message=(
+                            "Cannot associate instance groups: organization not found "
+                            "on controller API"
+                        ),
+                    )
+                    return
+                associate_id = resolved
+            endpoint = f"organizations/{associate_id}/instance_groups/"
+        else:
+            endpoint = f"{base}/{associate_id}/instance_groups/"
+
+        for name in instance_group_names:
+            target_ig_id = await self._resolve_instance_group_id_by_name(name)
+            if not target_ig_id:
+                continue
+            try:
+                if api_base:
+                    await self.client.post_on_base(
+                        api_base, endpoint, json_data={"id": target_ig_id}
+                    )
+                else:
+                    await self.client.post(endpoint, json_data={"id": target_ig_id})
+                logger.debug(
+                    "instance_group_associated",
+                    resource_type=resource_type,
+                    target_id=associate_id,
+                    instance_group_name=name,
+                    instance_group_id=target_ig_id,
+                    resource_name=resource_name,
+                    api_base=api_base,
+                )
+            except Exception as e:
+                logger.warning(
+                    "instance_group_association_failed",
+                    resource_type=resource_type,
+                    target_id=associate_id,
+                    instance_group_name=name,
+                    instance_group_id=target_ig_id,
+                    resource_name=resource_name,
+                    api_base=api_base,
                     error=str(e),
                 )
 
@@ -1986,6 +2105,31 @@ class OrganizationImporter(ResourceImporter):
 
     DEPENDENCIES = {}  # No dependencies
 
+    async def import_resource(
+        self,
+        resource_type: str,
+        source_id: int | str,
+        data: dict[str, Any],
+        resolve_dependencies: bool = True,
+    ) -> dict[str, Any] | None:
+        """Import an organization and associate instance groups after create."""
+        instance_group_names = data.pop("_instance_group_names", []) or []
+        org_name = data.get("name")
+
+        result = await super().import_resource(
+            resource_type, source_id, data, resolve_dependencies=resolve_dependencies
+        )
+
+        if result and result.get("id") and instance_group_names:
+            await self._associate_instance_groups(
+                "organizations",
+                result["id"],
+                instance_group_names,
+                resource_name=org_name,
+            )
+
+        return result
+
     async def import_organizations(
         self,
         organizations: list[dict[str, Any]],
@@ -2163,6 +2307,31 @@ class InventoryImporter(ResourceImporter):
     DEPENDENCIES = {
         "organization": "organizations",
     }
+
+    async def import_resource(
+        self,
+        resource_type: str,
+        source_id: int | str,
+        data: dict[str, Any],
+        resolve_dependencies: bool = True,
+    ) -> dict[str, Any] | None:
+        """Import an inventory and associate instance groups after create."""
+        instance_group_names = data.pop("_instance_group_names", []) or []
+        inventory_name = data.get("name")
+
+        result = await super().import_resource(
+            resource_type, source_id, data, resolve_dependencies=resolve_dependencies
+        )
+
+        if result and result.get("id") and instance_group_names:
+            await self._associate_instance_groups(
+                "inventory",
+                result["id"],
+                instance_group_names,
+                resource_name=inventory_name,
+            )
+
+        return result
 
     async def import_inventories(
         self,
@@ -4088,6 +4257,7 @@ class JobTemplateImporter(ResourceImporter):
         nt_ids: dict[str, list[int]] = {}
         for trigger in ("started", "success", "error"):
             nt_ids[trigger] = data.pop(f"_nt_{trigger}_ids", []) or []
+        instance_group_names = data.pop("_instance_group_names", []) or []
         template_name = data.get("name")
 
         # Call base import_resource
@@ -4117,6 +4287,13 @@ class JobTemplateImporter(ResourceImporter):
                     await self._associate_notification_templates(
                         "job_templates", result["id"], ids, trigger, template_name
                     )
+            if instance_group_names:
+                await self._associate_instance_groups(
+                    "job_templates",
+                    result["id"],
+                    instance_group_names,
+                    resource_name=template_name,
+                )
 
         return result
 

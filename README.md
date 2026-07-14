@@ -63,10 +63,12 @@ The tool is organized into several key components:
   create and modify resources during import and cleanup).
 - **HashiCorp Vault** (Optional but recommended): For migrating encrypted
   credentials securely
-- **Instance Groups**: Any instance groups that have RBAC role assignments on
-  the source must already exist on the target with the same name before running
-  the migration. Instance groups are not migrated by this tool; they are
-  resolved by name on the target when applying role assignments.
+- **Instance Groups**: Any instance groups referenced by RBAC role assignments or
+  assigned as capacity to organizations, inventories, or job templates on the
+  source must already exist on the target with the same name before running the
+  migration. Instance group objects are not migrated by this tool; they are
+  resolved by name on the target when applying role assignments and when
+  re-associating capacity links.
 
 ### Installation
 

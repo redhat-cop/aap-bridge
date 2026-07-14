@@ -1,0 +1,8 @@
+---
+collections:
+  - name: containers.podman
+    version: ">=1.12.0"
+  - name: ansible.posix
+    version: ">=1.5.0"
+  - name: infra.aap_utilities
+    version: ">=2.4.0"

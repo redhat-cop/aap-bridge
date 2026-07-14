@@ -2,6 +2,11 @@
 
 This guide explains the complete AAP migration process.
 
+The source instance may be Ansible Automation Platform (AAP) or upstream AWX.
+When using AWX, configure `SOURCE__VERSION` to the equivalent AAP release level
+(only AWX 24.6.1 has been tested). See
+[AWX Migration](../reference/awx-migration.md) for the version mapping.
+
 ## Overview
 
 AAP Bridge follows an ETL (Export, Transform, Load) pattern:

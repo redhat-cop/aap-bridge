@@ -1,0 +1,71 @@
+---
+# Build a single AAP version's golden image.
+# This is the slow, one-time step: create container, install AAP, commit image.
+# Once built, push to a registry and run on-demand with run-pair.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/build-instance.yml \
+#     -e aap_version=2.3 \
+#     -e rhsm_username=XXX \
+#     -e rhsm_password=XXX
+#
+#   # With automatic bundle download:
+#   ansible-playbook playbooks/build-instance.yml \
+#     -e aap_version=2.3 \
+#     -e rhsm_username=XXX \
+#     -e rhsm_password=XXX \
+#     -e rh_api_offline_token=XXX
+#
+- name: Build AAP golden image
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    role_suffix: "build"
+    container_name: "aap-{{ aap_version | replace('.', '') }}-build"
+    pair_id: ""
+
+  tasks:
+    - name: Display build configuration
+      ansible.builtin.debug:
+        msg: |
+          Building golden image for AAP {{ aap_version }}
+          Container: {{ container_name }}
+          Image will be: {{ golden_image_prefix }}-{{ aap_version }}:latest
+
+    - name: Create build container
+      ansible.builtin.include_role:
+        name: base_container
+      vars:
+        aap_version: "{{ aap_version }}"
+
+    - name: Install AAP
+      ansible.builtin.include_role:
+        name: aap_install
+      vars:
+        aap_version: "{{ aap_version }}"
+
+    - name: Commit as golden image
+      ansible.builtin.include_role:
+        name: golden_image
+      vars:
+        aap_version: "{{ aap_version }}"
+
+    - name: Remove build container (image is committed)
+      ansible.builtin.command:
+        cmd: "podman rm -f {{ container_name }}"
+      changed_when: true
+
+    - name: Build complete
+      ansible.builtin.debug:
+        msg: |
+          Golden image ready: {{ golden_image_prefix }}-{{ aap_version }}:latest
+          RW token saved:   tests/integration/generated/images/{{ aap_version | replace('.', '') }}_rw_token
+
+          Next steps:
+            # Push to registry:
+            make push-aap VERSION={{ aap_version }} REGISTRY=quay.io/myorg
+
+            # Or run a pair right away:
+            make run-pair SOURCE={{ aap_version }} TARGET=2.6

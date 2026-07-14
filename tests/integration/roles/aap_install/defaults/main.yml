@@ -1,0 +1,14 @@
+---
+aap_version: "2.6"
+role_suffix: "src"
+pair_id: ""
+container_name: "aap-{{ aap_version | replace('.', '') }}-{{ role_suffix }}"
+installer_bundles_dir: "{{ playbook_dir }}/../files/aap-installer-bundles"
+
+aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') | default('redhat123!', true) }}"
+aap_pg_password: "{{ lookup('env', 'AAP_PG_PASSWORD') | default('redhat123!', true) }}"
+aap_rabbitmq_cookie: "{{ lookup('env', 'AAP_RABBITMQ_COOKIE') | default('aapbridgetestcookie', true) }}"
+aap_rabbitmq_username: "{{ lookup('env', 'AAP_RABBITMQ_USERNAME') | default('tower', true) }}"
+rhsm_username: "{{ lookup('env', 'RHSM_USER') | default('', true) }}"
+rhsm_password: "{{ lookup('env', 'RHSM_PASS') | default('', true) }}"
+rh_api_offline_token: "{{ lookup('env', 'RH_TOKEN') | default('', true) }}"

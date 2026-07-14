@@ -155,18 +155,21 @@ def role_definition_api_base(
     Export stores ``_api_base`` with the source hostname to record which API
     surface the role came from. Import must remap that to the target layout's
     gateway/controller bases — not POST back to the source host.
+
+    On gateway topology, ``content_type`` determines the correct API surface
+    (``awx.*`` → controller, ``shared.*`` → gateway). The exported source base
+    must not override that routing — the same custom role can appear on both
+    APIs during export, but assignments for ``awx.*`` objects are always
+    created on the controller.
     """
+    if layout.mode is ApiMode.GATEWAY:
+        return layout.base_for_role_assignment(content_type)
+
     if exported_api_base:
         topology = api_topology_from_url(exported_api_base)
-        if topology == "gateway" and layout.gateway_base:
-            return layout.gateway_base
-        if topology == "controller" and layout.controller_base:
-            return layout.controller_base
         if topology == "legacy" and layout.legacy_base:
             return layout.legacy_base
 
-    if layout.mode is ApiMode.GATEWAY:
-        return layout.base_for_role_assignment(content_type)
     if not layout.legacy_base:
         raise ValueError("legacy_base is required for legacy API mode")
     return layout.legacy_base

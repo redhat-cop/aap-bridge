@@ -59,7 +59,7 @@ async def test_retry_project_sync_does_not_trigger_update_when_running() -> None
     still_unfinished, recovered = await _retry_project_sync(
         ctx=ctx,
         failed_ids=[42],
-        timeout=1,
+        sync_timeout=1,
         poll_interval=1,
     )
 

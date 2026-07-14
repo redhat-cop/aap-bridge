@@ -25,6 +25,7 @@ from aap_migration.cli.commands.patch_projects import (
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
 from aap_migration.cli.utils import (
+    confirm_overwrite_directory,
     echo_error,
     echo_info,
     echo_success,
@@ -223,6 +224,54 @@ def get_missing_dependencies(
     return missing
 
 
+def _validate_export_resume_context(
+    ctx: MigrationContext,
+    output: Path,
+    types_to_export: list[str],
+    *,
+    resume: bool,
+    force: bool,
+    source_version: str | None,
+) -> None:
+    """Abort resume when stored export metadata does not match current run identity."""
+    if not resume:
+        return
+
+    metadata_file = output / "metadata.json"
+    if not metadata_file.exists():
+        return
+
+    current_run = ExportRunContext(
+        source_url=ctx.config.source.url,
+        source_version=source_version,
+        output_dir=str(output.absolute()),
+        resource_types=tuple(sorted(types_to_export)),
+        filters=tuple(sorted(ctx.config.export.filters.items())),
+        state_dsn_fingerprint=ExportRunContext.hash_dsn(ctx.migration_state.database_url),
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+
+    try:
+        with open(metadata_file) as f:
+            existing_metadata = json.load(f)
+        stored_fingerprint = existing_metadata.get("run_context", {}).get("run_fingerprint")
+        if stored_fingerprint and stored_fingerprint != current_run.run_fingerprint:
+            if not force:
+                echo_error(
+                    f"Resume mismatch: stored run fingerprint {stored_fingerprint} "
+                    f"does not match current {current_run.run_fingerprint}.\n"
+                    "Source URL, resource types, or filters have changed since "
+                    "the original export.\n"
+                    "Use --force to override, or run without --resume for a fresh export."
+                )
+                raise click.ClickException("Resume context mismatch")
+            echo_warning(
+                "Resume mismatch detected but --force is set. Proceeding with caution."
+            )
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("failed_to_load_existing_metadata", error=str(e))
+
+
 @click.command(name="export")
 @click.option(
     "--output",
@@ -322,10 +371,9 @@ def export(
     if records_per_file is None:
         records_per_file = ctx.config.export.records_per_file
 
-    # Check if directory exists
-    if output.exists() and not force:
-        if not yes and not click.confirm(f"Directory {output} exists. Overwrite?"):
-            raise click.exceptions.Exit(0)
+    # Check if directory already has export data
+    if not confirm_overwrite_directory(output, force=force, yes=yes):
+        raise click.exceptions.Exit(0)
 
     # Create directory structure
     output.mkdir(parents=True, exist_ok=True)
@@ -359,6 +407,15 @@ def export(
             if cleared > 0:
                 logger.info("cleared_stale_export_mappings", resource_type=rtype, count=cleared)
 
+    _validate_export_resume_context(
+        ctx,
+        output,
+        types_to_export,
+        resume=resume,
+        force=force,
+        source_version=ctx.config.source.version,
+    )
+
     async def run_export():
         import logging
         from datetime import datetime
@@ -371,6 +428,16 @@ def export(
         # Store on context for downstream use
         ctx.source_version = source_version
         ctx.target_version = target_version
+
+        if resume and ctx.config.source.version is None:
+            _validate_export_resume_context(
+                ctx,
+                output,
+                types_to_export,
+                resume=resume,
+                force=force,
+                source_version=source_version,
+            )
 
         from aap_migration.resources import get_version_path
 
@@ -399,30 +466,6 @@ def export(
             state_dsn_fingerprint=ExportRunContext.hash_dsn(ctx.migration_state.database_url),
             timestamp=datetime.utcnow().isoformat(),
         )
-
-        # Resume validation (REQ-003)
-        metadata_file = output / "metadata.json"
-        if resume and metadata_file.exists():
-            try:
-                with open(metadata_file) as f:
-                    existing_metadata = json.load(f)
-                stored_fingerprint = existing_metadata.get("run_context", {}).get("run_fingerprint")
-                if stored_fingerprint and stored_fingerprint != current_run.run_fingerprint:
-                    if not force:
-                        echo_error(
-                            f"Resume mismatch: stored run fingerprint {stored_fingerprint} "
-                            f"does not match current {current_run.run_fingerprint}.\n"
-                            "Source URL, resource types, or filters have changed since "
-                            "the original export.\n"
-                            "Use --force to override, or run without --resume for a fresh export."
-                        )
-                        raise click.ClickException("Resume context mismatch")
-                    else:
-                        echo_warning(
-                            "Resume mismatch detected but --force is set. Proceeding with caution."
-                        )
-            except (OSError, json.JSONDecodeError) as e:
-                logger.warning("failed_to_load_existing_metadata", error=str(e))
 
         # Suppress console logging for cleaner output (Live progress display will handle it)
         root_logger = logging.getLogger()

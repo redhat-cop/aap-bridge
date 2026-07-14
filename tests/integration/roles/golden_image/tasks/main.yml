@@ -1,0 +1,93 @@
+---
+- name: Stop inner containers (containerized installs)
+  ansible.builtin.command:
+    cmd: >
+      podman exec -u 1000
+        -e XDG_RUNTIME_DIR=/run/user/1000
+        -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+        {{ container_name }}
+        bash -c "
+          systemctl --user stop
+            postgresql.service
+            redis-tcp.service
+            redis-unix.service
+            receptor.service
+            automation-controller-web.service
+            automation-controller-task.service
+            automation-controller-rsyslog.service
+            automation-gateway.service
+            automation-gateway-proxy.service
+            automation-metrics-web.service
+            automation-metrics-tasks.service
+            automation-metrics-scheduler.service
+            2>/dev/null || true;
+          podman stop -a 2>/dev/null || true
+        "
+  failed_when: false
+  changed_when: true
+  when: ver_config.installer.method | default('rpm') == 'containerized'
+
+- name: Bake inner container storage into image (containerized installs)
+  ansible.builtin.shell:
+    cmd: |
+      podman exec {{ container_name }} bash -c '
+        set -e
+        find /home/aap/.local/share/containers/storage/overlay \
+          -path "*/diff/tmp/pymp-*" -delete 2>/dev/null || true
+        rm -rf /home/aap/.local/share/containers/storage-baked
+        rsync -a --no-specials \
+          --exclude="*/diff/tmp/pymp-*" \
+          /home/aap/.local/share/containers/storage/ \
+          /home/aap/.local/share/containers/storage-baked/
+      '
+  changed_when: true
+  when: ver_config.installer.method | default('rpm') == 'containerized'
+
+- name: Stop AAP services before commit
+  ansible.builtin.command:
+    cmd: >
+      podman exec {{ container_name }}
+        bash -c "
+          systemctl stop automation-controller.service 2>/dev/null || true;
+          systemctl stop nginx.service 2>/dev/null || true;
+          systemctl stop supervisord.service 2>/dev/null || true;
+          systemctl stop pulpcore-api.service 2>/dev/null || true;
+          systemctl stop pulpcore-worker@1.service 2>/dev/null || true;
+          systemctl stop automation-eda-api.service 2>/dev/null || true;
+          systemctl stop redis.service 2>/dev/null || true;
+          systemctl stop postgresql.service 2>/dev/null || true;
+          sync
+        "
+  changed_when: true
+
+- name: Stop the container
+  ansible.builtin.command:
+    cmd: "podman stop {{ container_name }}"
+
+- name: Get current timestamp
+  ansible.builtin.set_fact:
+    commit_timestamp: "{{ ansible_date_time.epoch }}"
+
+- name: Commit container as golden image
+  ansible.builtin.command:
+    cmd: >
+      podman commit
+        --change 'CMD=["/sbin/init"]'
+        --author "aap-bridge-testing"
+        -f docker
+        {{ container_name }}
+        {{ golden_image_prefix }}-{{ aap_version }}:latest
+
+- name: Tag with timestamp for rollback
+  ansible.builtin.command:
+    cmd: >
+      podman tag
+        {{ golden_image_prefix }}-{{ aap_version }}:latest
+        {{ golden_image_prefix }}-{{ aap_version }}:{{ commit_timestamp }}
+
+- name: Report golden image created
+  ansible.builtin.debug:
+    msg: >
+      Golden image created: {{ golden_image_prefix }}-{{ aap_version }}:latest
+      (also tagged :{{ commit_timestamp }}).
+      Push with: make push-aap VERSION={{ aap_version }} REGISTRY=quay.io/myorg

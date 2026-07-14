@@ -16,6 +16,9 @@ in the repository.
   bridge images (`make build`, `make up-dev`, `make shell`, etc.)
 - Web UI: React/PatternFly browser interface with connection management, migration
   preview, TUI-matching phased migration controls, job history, and live log streaming
+- Integration testing infrastructure: Ansible playbooks and roles under
+  `tests/integration/` for golden-image builds (AAP 1.0–2.7), pair orchestration,
+  and bridge connectivity checks (`make build-aap`, `run-pair`, `reset-pair`, etc.)
 - Source version support expanded to AAP 1.0, 1.1, 1.2, 2.0, 2.1, 2.2, 2.5, and 2.6
 - Survey spec migration for job templates and workflow job templates
 - Notification template association migration (started/success/error/approvals)
@@ -33,6 +36,8 @@ in the repository.
 - `skip_credential_names` configuration option (defaults exclude installer-created credentials)
 - `skip_execution_environment_names` configuration option (defaults exclude platform-managed EEs)
 - MkDocs GitHub Actions deployment workflow
+- AWX migration documentation: version mapping, configuration guidance, and compatibility
+  matrix entries (only AWX 24.6.1 tested)
 
 **Improvements:**
 
@@ -41,8 +46,20 @@ in the repository.
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.
 
+**Added:**
+
+- Bridge dev container bind-mounts `exports`, `xformed`, `reports`, `logs`, and `schemas`
+  from the repo root (matching engine) so artifacts are visible on the host
+
 **Bug Fixes:**
 
+- Cleanup clears export/transform contents without removing mount points; export/transform
+  overwrite prompts only when directories contain data
+- Phase 2 project sync wait uses `project_sync_timeout` (not batch interval); ignores
+  stale failed status until the current sync job is active
+- Controller organization FK resolution on gateway targets (lookup org by name on the
+  controller API for credentials and other controller-scoped imports)
+- Credential import reruns retry previously failed resources instead of skipping them
 - Credential deduplication: same-name/different-type and non-unique name+org+type cases
   handled correctly
 - Batch precheck scoping fixed for org-scoped, parent-scoped, notification template, and
@@ -66,6 +83,8 @@ in the repository.
 - Host bulk import reruns now skip already-mapped hosts and persist host progress state
 - Gateway RBAC routing for 2.5+ sources (dual-base role definitions/assignments,
   `shared.*` content types, target `_api_base` remapping)
+- Gateway RBAC assignment dedupe and principal resolution when gateway and
+  controller APIs use different surrogate IDs for the same user, team, or assignment
 - Legacy source RBAC (1.0–2.4) converted to role assignments on AAP 2.6 targets
 - Role definitions export via parallel path on AAP 2.5+ sources
 - Team member sync when team create is skipped on rerun

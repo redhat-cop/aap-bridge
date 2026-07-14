@@ -43,21 +43,23 @@ services:
     build:
       context: .
       dockerfile: Containerfile.dev
-    user: "0"
+    userns_mode: "keep-id:uid=998,gid=998"
+    user: "bridge"
     command:
       - /bin/sh
       - -ec
       - |
-        mkdir -p /app/exports /app/reports /app/logs
-        chown -R bridge:bridge /app/exports /app/reports /app/logs
+        mkdir -p /app/exports /app/xformed /app/reports /app/logs /app/schemas
         touch /tmp/ready
         exec sleep infinity
     security_opt:
       - label=disable
     volumes:
-      - bridge-exports:/app/exports
-      - bridge-reports:/app/reports
-      - bridge-logs:/app/logs
+      - ./exports:/app/exports
+      - ./xformed:/app/xformed
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./schemas:/app/schemas
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/ready"]
       interval: 2s
@@ -69,6 +71,7 @@ services:
     build:
       context: .
       dockerfile: Containerfile.dev
+    userns_mode: "keep-id:uid=998,gid=998"
     depends_on:
       db:
         condition: service_healthy
@@ -86,9 +89,14 @@ services:
       - label=disable
     volumes:
       - ./config:/app/config:ro
-      - bridge-exports:/app/exports
-      - bridge-reports:/app/reports
-      - bridge-logs:/app/logs
+      - ./src:/app/src
+      - ./tests/unit:/app/tests/unit
+      - ./exports:/app/exports
+      - ./xformed:/app/xformed
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./schemas:/app/schemas
+      - ./tests/integration/generated:/app/tests/integration/generated
     working_dir: /app
     entrypoint: ["sleep", "infinity"]
 
@@ -114,6 +122,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./exports:/app/exports
+      - ./xformed:/app/xformed
       - ./reports:/app/reports
       - ./schemas:/app/schemas
 
@@ -128,6 +137,3 @@ services:
 
 volumes:
   pgdata:
-  bridge-exports:
-  bridge-reports:
-  bridge-logs:

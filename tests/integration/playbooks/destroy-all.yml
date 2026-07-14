@@ -1,0 +1,72 @@
+---
+# Destroy ALL aap-bridge test containers, images, and networks.
+#
+# Usage:
+#   ansible-playbook playbooks/destroy-all.yml
+#
+- name: Destroy all AAP testing infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Find all aap-bridge containers
+      ansible.builtin.command:
+        cmd: "podman ps -aq --filter label=io.aap-bridge.role=aap-instance"
+      register: containers
+      changed_when: false
+      failed_when: false
+
+    - name: Remove all containers
+      ansible.builtin.command:
+        cmd: "podman rm -f {{ item }}"
+      loop: "{{ containers.stdout_lines | default([]) }}"
+      when: containers.stdout_lines | default([]) | length > 0
+      changed_when: true
+
+    - name: Find all golden images
+      ansible.builtin.command:
+        cmd: "podman images -q --filter reference=localhost/aap-golden-*"
+      register: golden_images
+      changed_when: false
+      failed_when: false
+
+    - name: Remove all golden images
+      ansible.builtin.command:
+        cmd: "podman rmi -f {{ item }}"
+      loop: "{{ golden_images.stdout_lines | default([]) | unique }}"
+      when: golden_images.stdout_lines | default([]) | length > 0
+      changed_when: true
+
+    - name: Find all pair networks
+      ansible.builtin.command:
+        cmd: "podman network ls -q --filter name=aap-pair-"
+      register: networks
+      changed_when: false
+      failed_when: false
+
+    - name: Remove all pair networks
+      ansible.builtin.command:
+        cmd: "podman network rm {{ item }}"
+      loop: "{{ networks.stdout_lines | default([]) }}"
+      when: networks.stdout_lines | default([]) | length > 0
+      changed_when: true
+
+    - name: Remove all generated configs
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../generated/pairs"
+        state: absent
+
+    - name: Recreate generated directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../generated/pairs"
+        state: directory
+        mode: "0750"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >
+          All AAP testing infrastructure destroyed.
+          Containers: {{ containers.stdout_lines | default([]) | length }}
+          Golden images: {{ golden_images.stdout_lines | default([]) | unique | length }}
+          Networks: {{ networks.stdout_lines | default([]) | length }}

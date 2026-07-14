@@ -183,7 +183,7 @@ async def _trigger_project_sync_updates(
 async def _retry_project_sync(
     ctx: MigrationContext,
     failed_ids: list[int],
-    timeout: int,
+    sync_timeout: int,
     poll_interval: int,
 ) -> tuple[list[int], list[int]]:
     """Follow up on projects that did not finish syncing.
@@ -195,7 +195,7 @@ async def _retry_project_sync(
     Args:
         ctx: Migration context (provides client and config)
         failed_ids: Target project IDs that need follow-up
-        timeout: Seconds to wait for sync completion
+        sync_timeout: Seconds to wait for sync completion (project_sync_timeout)
         poll_interval: Seconds between status polls
 
     Returns:
@@ -240,8 +240,9 @@ async def _retry_project_sync(
     _, _, retry_failed_ids, retry_in_progress_ids = await wait_for_project_sync(
         client=ctx.target_client,
         project_ids=wait_ids,
-        timeout=timeout,
+        timeout=sync_timeout,
         poll_interval=poll_interval,
+        ignore_stale_failure=True,
     )
 
     still_unfinished = list(dict.fromkeys(retry_failed_ids + retry_in_progress_ids))
@@ -271,7 +272,7 @@ async def patch_project_scm_details(
         ctx: Migration context
         input_dir: Directory containing transformed project files
         batch_size: Number of projects to patch at once (default 100)
-        interval: Seconds to sleep between batches (default 600)
+        interval: Seconds to pause between batches (default from config)
         progress_display: Optional existing progress display to use
     """
     projects_with_deferred = load_projects_with_deferred_scm(input_dir)
@@ -328,10 +329,14 @@ async def patch_project_scm_details(
     max_retries = ctx.config.performance.project_sync_max_retries
     fail_on_failure = ctx.config.performance.project_sync_fail_on_sync_failure
     poll_interval = ctx.config.performance.project_sync_poll_interval
+    sync_timeout = ctx.config.performance.project_sync_timeout
 
     if not progress_display:
         echo_info(f"Found {total_projects} projects requiring SCM activation.")
-        echo_info(f"Starting Phase 2: Patching {batch_size} projects every {interval}s")
+        echo_info(
+            f"Starting Phase 2: Patching {batch_size} projects per batch "
+            f"({sync_timeout}s sync timeout, {interval}s between batches)"
+        )
 
     # Define phases for progress display (matches Phase 3 pattern)
     # phases = [
@@ -471,16 +476,17 @@ async def patch_project_scm_details(
                 logger.info(
                     "phase2_batch_wait",
                     batch_size=len(batch_target_ids),
-                    timeout=interval,
-                    message=f"Waiting up to {interval}s for batch sync to complete.",
+                    timeout=sync_timeout,
+                    message=f"Waiting up to {sync_timeout}s for batch sync to complete.",
                 )
 
                 batch_synced_count, batch_failed_count, batch_failed_ids, batch_in_progress_ids = (
                     await wait_for_project_sync(
                         client=ctx.target_client,
                         project_ids=batch_target_ids,
-                        timeout=interval,
+                        timeout=sync_timeout,
                         poll_interval=poll_interval,
+                        ignore_stale_failure=True,
                     )
                 )
 
@@ -511,7 +517,7 @@ async def patch_project_scm_details(
                     still_failed_ids, recovered = await _retry_project_sync(
                         ctx=ctx,
                         failed_ids=still_failed_ids,
-                        timeout=interval,
+                        sync_timeout=sync_timeout,
                         poll_interval=poll_interval,
                     )
                     if recovered:
@@ -533,8 +539,8 @@ async def patch_project_scm_details(
                     )
                     permanently_failed_ids.extend(still_failed_ids)
 
-                # Small delay before next batch to avoid overwhelming controller
-                await asyncio.sleep(5)
+                # Pause between batches to avoid overwhelming the controller
+                await asyncio.sleep(interval)
 
         progress.complete_phase("patching")
 

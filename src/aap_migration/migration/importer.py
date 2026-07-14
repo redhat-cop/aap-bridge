@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from aap_migration.client.aap_target_client import AAPTargetClient
-from aap_migration.client.api_layout import normalize_rbac_content_type, role_definition_api_base
+from aap_migration.client.api_layout import (
+    ApiMode,
+    normalize_rbac_content_type,
+    role_definition_api_base,
+    uses_gateway_api,
+)
 from aap_migration.client.bulk_operations import BulkOperations
 from aap_migration.client.exceptions import APIError, ConflictError
 from aap_migration.config import (
@@ -487,8 +492,13 @@ class ResourceImporter:
                     dep_resource_type=dep_resource_type,
                 )
 
-                # Get mapped target ID
-                target_id = self.state.get_mapped_id(dep_resource_type, dep_source_id)
+                # Get mapped target ID (controller org FKs resolved by name on gateway topology)
+                target_id = await self._resolve_dependency_target_id(
+                    resource_type,
+                    field,
+                    dep_resource_type,
+                    dep_source_id,
+                )
 
                 logger.debug(
                     "dependency_mapping_lookup",
@@ -632,6 +642,45 @@ class ResourceImporter:
         """
         # Use class-level DEPENDENCIES or return empty dict
         return self.DEPENDENCIES
+
+    async def _resolve_dependency_target_id(
+        self,
+        resource_type: str,
+        field: str,
+        dep_resource_type: str,
+        dep_source_id: int | Any,
+    ) -> int | None:
+        """Resolve a dependency source ID to a target-side primary key.
+
+        On gateway topology, organization mappings store gateway PKs. Resources
+        posted to the controller API need organization FKs resolved on the
+        controller base (by name lookup), not the gateway mapping alone.
+        """
+        if (
+            field == "organization"
+            and dep_resource_type == "organizations"
+            and _resource_uses_controller_api(self.client, resource_type)
+        ):
+            layout = self.client.api_layout
+            if layout and layout.controller_base:
+                try:
+                    org_source_id = int(dep_source_id)
+                except (TypeError, ValueError):
+                    return None
+                return await _resolve_organization_id_for_controller(
+                    self.state,
+                    self.client,
+                    org_source_id,
+                    layout.controller_base,
+                )
+            return None
+
+        try:
+            dep_source_id = int(dep_source_id)
+        except (TypeError, ValueError):
+            return None
+
+        return self.state.get_mapped_id(dep_resource_type, dep_source_id)
 
     async def _handle_conflict(
         self, resource_type: str, source_id: int, data: dict[str, Any]
@@ -3521,6 +3570,11 @@ class CredentialImporter(ResourceImporter):
         if not name:
             logger.error("credential_missing_name", source_id=source_id)
             self.stats["error_count"] += 1
+            self.state.mark_failed(
+                resource_type=resource_type,
+                source_id=source_id,
+                error_message="Credential missing name",
+            )
             return None
 
         # Clean up transformer markers
@@ -3647,6 +3701,11 @@ class CredentialImporter(ResourceImporter):
                 error=str(e),
             )
             self.stats["error_count"] += 1
+            self.state.mark_failed(
+                resource_type=resource_type,
+                source_id=source_id,
+                error_message=str(e),
+            )
             self.import_errors.append(
                 {
                     "resource_type": resource_type,
@@ -3723,7 +3782,9 @@ class CredentialImporter(ResourceImporter):
 
             if field in data and data[field]:
                 source_id = data[field]
-                target_id = self.state.get_mapped_id(dep_resource_type, source_id)
+                target_id = await self._resolve_dependency_target_id(
+                    resource_type, field, dep_resource_type, source_id
+                )
                 if target_id:
                     resolved[field] = target_id
                     logger.debug(
@@ -3881,6 +3942,8 @@ async def wait_for_project_sync(
     timeout: int = 600,
     poll_interval: int = 10,
     progress_callback: Callable[[int, int, int], None] | None = None,
+    *,
+    ignore_stale_failure: bool = False,
 ) -> tuple[int, int, list[int], list[int]]:
     """Wait for projects to complete SCM sync after import.
 
@@ -3894,6 +3957,10 @@ async def wait_for_project_sync(
         timeout: Maximum time to wait in seconds (default 600 = 10 minutes)
         poll_interval: Time between status checks in seconds (default 10)
         progress_callback: Optional callback for progress updates (completed, total)
+        ignore_stale_failure: When True, do not treat failed/error/canceled as terminal
+            until the project has entered pending/waiting/running during this wait. Use
+            after PATCH or POST update/ so a prior job's failed status is not mistaken
+            for the current sync.
 
     Returns:
         Tuple of (
@@ -3923,6 +3990,7 @@ async def wait_for_project_sync(
     synced: set[int] = set()
     failed: set[int] = set()
     last_status: dict[int, str] = {}
+    seen_active: set[int] = set()
 
     while True:
         elapsed = time.time() - start_time
@@ -3958,7 +4026,8 @@ async def wait_for_project_sync(
             try:
                 project = await client.get(f"projects/{project_id}/")
                 status = project.get("status", "unknown")
-                last_status[project_id] = normalize_project_sync_status(status)
+                normalized = normalize_project_sync_status(status)
+                last_status[project_id] = normalized
                 scm_type = project.get("scm_type", "")
 
                 # Manual projects (no SCM) - no sync needed
@@ -3972,23 +4041,33 @@ async def wait_for_project_sync(
                     continue
 
                 # Project synced successfully
-                if last_status[project_id] == "successful":
+                if normalized == "successful":
                     synced.add(project_id)
                     logger.debug(
                         "project_sync_complete",
                         project_id=project_id,
                         name=project.get("name"),
                     )
-                # Project sync failed
-                elif project_sync_failed(last_status[project_id]):
-                    failed.add(project_id)
-                    logger.warning(
-                        "project_sync_failed",
-                        project_id=project_id,
-                        name=project.get("name"),
-                        status=status,
-                    )
-                # Still syncing (pending, waiting, running) - continue waiting
+                elif project_sync_in_progress(normalized):
+                    seen_active.add(project_id)
+                # Project sync failed (ignore stale failed until active seen when requested)
+                elif project_sync_failed(normalized):
+                    if not ignore_stale_failure or project_id in seen_active:
+                        failed.add(project_id)
+                        logger.warning(
+                            "project_sync_failed",
+                            project_id=project_id,
+                            name=project.get("name"),
+                            status=status,
+                        )
+                    else:
+                        logger.debug(
+                            "project_sync_stale_failure_ignored",
+                            project_id=project_id,
+                            name=project.get("name"),
+                            status=status,
+                        )
+                # Other statuses - continue waiting
 
             except Exception as e:
                 logger.warning(
@@ -4848,7 +4927,12 @@ class ConstructedInventoryImporter(ResourceImporter):
             # Resolve organization
             org_source_id = inventory.get("organization")
             if org_source_id:
-                target_org_id = self.state.get_mapped_id("organizations", org_source_id)
+                target_org_id = await self._resolve_dependency_target_id(
+                    "constructed_inventories",
+                    "organization",
+                    "organizations",
+                    org_source_id,
+                )
                 if target_org_id:
                     inventory["organization"] = target_org_id
                 else:
@@ -5119,6 +5203,76 @@ async def _resolve_content_object_target_id(
     return None
 
 
+def _resource_uses_controller_api(client: Any, resource_type: str) -> bool:
+    """Return True when *resource_type* is imported via the controller API base."""
+    layout = getattr(client, "api_layout", None)
+    if layout is None or layout.mode is not ApiMode.GATEWAY:
+        return False
+    try:
+        endpoint = get_endpoint(resource_type)
+    except KeyError:
+        return False
+    return not uses_gateway_api(layout, endpoint)
+
+
+async def _lookup_organization_id_on_base(
+    client: Any,
+    api_base: str,
+    org_name: str,
+) -> int | None:
+    """Look up an organization id by name on a specific API base."""
+    try:
+        response = await client.get_on_base(
+            api_base, "organizations/", params={"name": org_name, "page_size": 1}
+        )
+        results = response.get("results", [])
+        if results:
+            return int(results[0]["id"])
+    except Exception:
+        return None
+    return None
+
+
+async def _resolve_organization_id_for_controller(
+    state: Any,
+    client: Any,
+    source_id: int,
+    controller_api_base: str,
+) -> int | None:
+    """Return an organization pk valid for controller-scoped resource creates.
+
+    Organizations are created/mapped on the gateway API, but credentials,
+    projects, inventories, and similar resources reference organization FKs on
+    the controller API. Resolve by name on the controller base when gateway
+    topology is in use.
+    """
+    layout = client.api_layout
+
+    if layout is None or layout.mode is not ApiMode.GATEWAY:
+        return state.get_mapped_id("organizations", source_id)
+
+    org_name = state.get_mapping_source_name("organizations", source_id)
+
+    if org_name:
+        resolved = await _lookup_organization_id_on_base(
+            client, controller_api_base, org_name
+        )
+        if resolved is not None:
+            return resolved
+
+    mapped_id = state.get_mapped_id("organizations", source_id)
+    if mapped_id is not None:
+        try:
+            await client.get_on_base(
+                controller_api_base, f"organizations/{mapped_id}/"
+            )
+            return mapped_id
+        except Exception:
+            pass
+
+    return None
+
+
 async def _lookup_principal_id_on_base(
     client: Any,
     api_base: str,
@@ -5204,6 +5358,24 @@ async def _resolve_role_definition_target_id(
     (shared.*) live on different API bases — lookups must use the same base as
     the assignment being created.
     """
+    lookup_base = role_definition_api_base(client.api_layout, content_type, api_base)
+
+    if role_def_name:
+        try:
+            results = await client.get_on_base(
+                lookup_base, "role_definitions/", params={"name": role_def_name}
+            )
+            resources = results.get("results", [])
+            if resources:
+                return resources[0]["id"]
+        except Exception as e:
+            logger.error(
+                "role_definition_name_lookup_failed",
+                role_def_name=role_def_name,
+                api_base=lookup_base,
+                error=str(e),
+            )
+
     target_id = state.get_mapped_id("role_definitions", role_def_source_id)
     if target_id:
         return target_id
@@ -5216,23 +5388,6 @@ async def _resolve_role_definition_target_id(
         )
         return None
 
-    lookup_base = role_definition_api_base(client.api_layout, content_type, api_base)
-
-    try:
-        results = await client.get_on_base(
-            lookup_base, "role_definitions/", params={"name": role_def_name}
-        )
-        resources = results.get("results", [])
-        if resources:
-            return resources[0]["id"]
-    except Exception as e:
-        logger.error(
-            "role_definition_name_lookup_failed",
-            role_def_name=role_def_name,
-            api_base=lookup_base,
-            error=str(e),
-        )
-
     logger.warning(
         "role_definition_not_found_on_target",
         role_def_name=role_def_name,
@@ -5241,6 +5396,113 @@ async def _resolve_role_definition_target_id(
         api_base=lookup_base,
     )
     return None
+
+
+def _resolve_user_target_id_for_assignment(
+    state: Any,
+    assignment: dict[str, Any],
+    user_source_id: Any,
+) -> int | None:
+    """Resolve target user ID for a role_user_assignment.
+
+    Gateway user exports use gateway surrogate IDs, but the same assignment can
+    be listed from the controller API with a different user FK. Prefer username
+    from export/transform when available.
+    """
+    username = assignment.get("user_username")
+    if username:
+        mapping = state.get_mapping_by_name("users", str(username))
+        if mapping and mapping.target_id:
+            return int(mapping.target_id)
+
+    if user_source_id is None:
+        return None
+    try:
+        source_id = int(user_source_id)
+    except (TypeError, ValueError):
+        return None
+    return state.get_mapped_id("users", source_id)
+
+
+async def _resolve_assignment_user_id(
+    state: Any,
+    client: Any,
+    assignment: dict[str, Any],
+    user_source_id: Any,
+    api_base: str,
+) -> int | None:
+    """Resolve the user pk to use when POSTing a role_user_assignment."""
+    from aap_migration.client.api_layout import ApiMode
+
+    username = assignment.get("user_username")
+    if username and client.api_layout.mode is ApiMode.GATEWAY:
+        resolved = await _lookup_principal_id_on_base(
+            client, api_base, "users", str(username)
+        )
+        if resolved is not None:
+            return resolved
+
+    target_user_id = _resolve_user_target_id_for_assignment(
+        state, assignment, user_source_id
+    )
+    if user_source_id is not None:
+        resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
+            state, client, "users", int(user_source_id), api_base
+        )
+        if resolved_on_base is not None:
+            return resolved_on_base
+    return target_user_id
+
+
+async def _resolve_assignment_team_id(
+    state: Any,
+    client: Any,
+    assignment: dict[str, Any],
+    team_source_id: Any,
+    api_base: str,
+) -> int | None:
+    """Resolve the team pk to use when POSTing a role_team_assignment."""
+    from aap_migration.client.api_layout import ApiMode
+
+    team_name = assignment.get("team_name")
+    if team_name and client.api_layout.mode is ApiMode.GATEWAY:
+        resolved = await _lookup_principal_id_on_base(
+            client, api_base, "teams", str(team_name)
+        )
+        if resolved is not None:
+            return resolved
+
+    target_team_id = _resolve_team_target_id_for_assignment(
+        state, assignment, team_source_id
+    )
+    if team_source_id is not None:
+        resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
+            state, client, "teams", int(team_source_id), api_base
+        )
+        if resolved_on_base is not None:
+            return resolved_on_base
+    return target_team_id
+
+
+def _resolve_team_target_id_for_assignment(
+    state: Any,
+    assignment: dict[str, Any],
+    team_source_id: Any,
+) -> int | None:
+    """Resolve target team ID for a role_team_assignment."""
+    team_name = assignment.get("team_name")
+    if team_name:
+        mapping = state.get_mapping_by_name("teams", str(team_name))
+        if mapping and mapping.target_id:
+            return int(mapping.target_id)
+
+    if team_source_id is None:
+        return None
+    try:
+        source_id = int(team_source_id)
+    except (TypeError, ValueError):
+        return None
+    return state.get_mapped_id("teams", source_id)
 
 
 class RoleUserAssignmentImporter(ResourceImporter):
@@ -5323,8 +5585,8 @@ class RoleUserAssignmentImporter(ResourceImporter):
 
             # Resolve user
             api_base = self.client.api_layout.base_for_role_assignment(content_type)
-            target_user_id = await _resolve_rbac_principal_id_for_assignment(
-                self.state, self.client, "users", int(user_source_id), api_base
+            target_user_id = await _resolve_assignment_user_id(
+                self.state, self.client, assignment, user_source_id, api_base
             )
             if not target_user_id:
                 logger.warning(
@@ -5441,8 +5703,8 @@ class RoleTeamAssignmentImporter(ResourceImporter):
 
             # Resolve team
             api_base = self.client.api_layout.base_for_role_assignment(content_type)
-            target_team_id = await _resolve_rbac_principal_id_for_assignment(
-                self.state, self.client, "teams", int(team_source_id), api_base
+            target_team_id = await _resolve_assignment_team_id(
+                self.state, self.client, assignment, team_source_id, api_base
             )
             if not target_team_id:
                 logger.warning(

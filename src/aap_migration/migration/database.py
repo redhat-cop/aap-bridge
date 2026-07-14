@@ -25,6 +25,13 @@ _engine: Engine | None = None
 _SessionFactory: sessionmaker | None = None
 
 
+def normalize_database_url(db_path: str) -> str:
+    """Return a SQLAlchemy-compatible URL from a DSN or filesystem path."""
+    if db_path.startswith(("postgresql://", "sqlite://", "mysql://")):
+        return db_path
+    return f"sqlite:///{db_path}"
+
+
 def _enable_sqlite_foreign_keys(dbapi_conn, connection_record):
     """
     Enable foreign key constraints for SQLite connections.

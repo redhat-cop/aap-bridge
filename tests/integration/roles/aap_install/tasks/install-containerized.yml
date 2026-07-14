@@ -1,0 +1,121 @@
+---
+# Containerized installer for AAP 2.5+.
+# Uses ansible-playbook with the ansible.containerized_installer collection.
+# Requires podman inside the container for nested containers.
+
+- name: Run AAP containerized installer
+  block:
+    - name: Install ansible-core and podman inside container
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            dnf install -y ansible-core podman
+
+    - name: Set installer directory permissions for aap user
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "chown -R aap:aap {{ installer_dir }}"
+
+    - name: Ensure XDG_RUNTIME_DIR exists for aap user
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "mkdir -p /run/user/1000 && chown aap:aap /run/user/1000"
+
+    - name: Patch installer to ignore sysctl errors (container limitation)
+      ansible.builtin.shell:
+        cmd: |
+          podman exec {{ container_name }} python3 -c "
+          import pathlib
+          p = pathlib.Path('{{ installer_dir }}/collections/ansible_collections/ansible/containerized_installer/roles/common/tasks/main.yml')
+          t = p.read_text()
+          t = t.replace('      ansible.posix.sysctl:', '      ignore_errors: true\n      ansible.posix.sysctl:')
+          p.write_text(t)
+          print('patched')
+          "
+      failed_when: false
+      changed_when: false
+      when: aap_version is version('2.5', '>=')
+
+    - name: Clean stale inner container state (prevents UID mapping conflicts)
+      ansible.builtin.command:
+        cmd: >
+          podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000
+            {{ container_name }}
+            bash -c "podman system reset --force 2>/dev/null; echo done"
+      failed_when: false
+      changed_when: false
+
+    - name: Run containerized installer playbook as aap user
+      ansible.builtin.command:
+        cmd: >
+          podman exec --user aap
+            -e XDG_RUNTIME_DIR=/run/user/1000
+            -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+            {{ container_name }}
+            bash -c "cd {{ installer_dir }} && ansible-playbook -i inventory ansible.containerized_installer.install -e bundle_install=true -e bundle_dir={{ installer_dir }}/bundle -e tune_host_limits=false --become"
+      register: install_result
+      timeout: 5400
+
+    - name: Recover crashed nested containers (stale overlay state after install)
+      ansible.builtin.shell:
+        cmd: |
+          podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} bash -c '
+            for ctr in postgresql receptor; do
+              STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null)
+              if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ]; then
+                echo "$ctr is $STATUS, recreating..."
+                CREATE_CMD=$(podman inspect "$ctr" --format "{{ '{{' }}json .Config.CreateCommand{{ '}}' }}")
+                podman rm -f "$ctr" 2>/dev/null
+                echo "$CREATE_CMD" | python3 -c "import sys,json,subprocess; subprocess.run(json.load(sys.stdin))"
+                podman start "$ctr"
+                sleep 3
+                NEW_STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null)
+                echo "$ctr is now $NEW_STATUS"
+              else
+                echo "$ctr is $STATUS, no action needed"
+              fi
+            done
+          '
+      failed_when: false
+      changed_when: false
+      when: aap_version is version('2.5', '>=')
+
+    - name: Report installer result
+      ansible.builtin.debug:
+        msg: "AAP {{ aap_version }} containerized installer finished successfully."
+
+  rescue:
+    - name: Dump installer log
+      ansible.builtin.command:
+        cmd: >
+          podman exec {{ container_name }}
+            bash -c "tail -150 {{ installer_dir }}/aap_install.log 2>/dev/null || echo 'No install log found'"
+      register: setup_log
+      failed_when: false
+      changed_when: false
+
+    - name: Show installer log (last 150 lines)
+      ansible.builtin.debug:
+        msg: "{{ setup_log.stdout_lines[-150:] | default(['No log output']) }}"
+
+    - name: Dump installer stdout
+      ansible.builtin.debug:
+        msg: "{{ install_result.stdout_lines[-50:] | default(['No stdout']) }}"
+      when: install_result is defined
+
+    - name: List nested containers (if any)
+      ansible.builtin.command:
+        cmd: "podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} podman ps -a"
+      register: nested_ps
+      failed_when: false
+      changed_when: false
+
+    - name: Show nested containers
+      ansible.builtin.debug:
+        msg: "{{ nested_ps.stdout_lines | default(['No nested containers']) }}"
+
+    - name: Fail install after dumping logs
+      ansible.builtin.fail:
+        msg: "AAP {{ aap_version }} containerized installer failed. See log output above."

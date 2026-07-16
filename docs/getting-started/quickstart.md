@@ -28,7 +28,7 @@ MIGRATION_STATE_DB_PATH=postgresql://user:password@localhost:5432/aap_migration
 ```
 
 !!! note "Version-driven API routing"
-    Set `SOURCE__VERSION` and `TARGET__VERSION` (e.g. `2.4`, `2.6`). The tool
+    Set `SOURCE__VERSION` and `TARGET__VERSION` (e.g. `2.4`, `2.6`, `2.7`). The tool
     uses these to select `/api/v2` (2.4 and earlier) or `/api/gateway/v1` plus
     `/api/controller/v2` (2.5+). Host URLs should be `https://fqdn` only. The
     source may be upstream AWX — set `SOURCE__VERSION` to the equivalent AAP

@@ -12,9 +12,9 @@ migrations (e.g., 80,000+ hosts)
 - **Idempotency**: Safely resume interrupted migrations without creating
   duplicates
 - **Broad Source Version Support**: Migrate from AAP 1.0, 1.1, 1.2, 2.0, 2.1,
-  2.2, 2.3, 2.4, 2.5, or 2.6 — or from upstream AWX at the equivalent release
-  level — to a target AAP 2.6+ instance (only AWX 24.6.1 has been tested as a
-  source; see [AWX Migration](docs/reference/awx-migration.md))
+  2.2, 2.3, 2.4, 2.5, 2.6, or 2.7 — or from upstream AWX at the equivalent
+  release level — to a target AAP 2.6 or 2.7 instance (only AWX 24.6.1 has been
+  tested as a source; see [AWX Migration](docs/reference/awx-migration.md))
 - **Complete Resource Coverage**: Organizations, users, teams, credentials,
   execution environments, inventories, groups, hosts, projects, job templates,
   workflow job templates (including nodes, survey specs, and notification
@@ -179,7 +179,7 @@ curl -k -X POST -u "<username>:<password>" \
   https://<source_aap_base_url>/api/gateway/v1/tokens/ | jq -r '.token'
 
 # Target AAP — read/write scope required (import, cleanup, and validation write data)
-# AAP 2.6+ (Platform Gateway)
+# AAP 2.6 or 2.7 (Platform Gateway)
 curl -k -X POST -u "<username>:<password>" \
   -H "Content-Type: application/json" \
   -d '{"description": "CLI Target Token", "scope": "write"}' \

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from aap_migration.client.exceptions import ConfigurationError, StateError
 from aap_migration.migration.models import Base
-from aap_migration.utils.logging import get_logger
+from aap_migration.utils.logging import get_logger, redact_database_url
 
 logger = get_logger(__name__)
 
@@ -123,7 +123,11 @@ def create_database_engine(
         return engine
 
     except Exception as e:
-        logger.error("Failed to create database engine", error=str(e), database_url=database_url)
+        logger.error(
+            "Failed to create database engine",
+            error=str(e),
+            database_url=redact_database_url(database_url),
+        )
         raise ConfigurationError(f"Failed to create database engine: {e}") from e
 
 
@@ -176,14 +180,18 @@ def init_database(
 
         logger.info(
             "Database initialized successfully",
-            database_url=database_url,
+            database_url=redact_database_url(database_url),
             tables=len(Base.metadata.tables),
         )
 
         return _engine
 
     except Exception as e:
-        logger.error("Failed to initialize database", error=str(e), database_url=database_url)
+        logger.error(
+            "Failed to initialize database",
+            error=str(e),
+            database_url=redact_database_url(database_url),
+        )
         raise ConfigurationError(f"Failed to initialize database: {e}") from e
 
 
@@ -299,17 +307,23 @@ def reset_database(database_url: str) -> None:
 
         # Drop all tables
         Base.metadata.drop_all(engine)
-        logger.warning("All database tables dropped", database_url=database_url)
+        logger.warning(
+            "All database tables dropped", database_url=redact_database_url(database_url)
+        )
 
         # Recreate all tables
         Base.metadata.create_all(engine)
-        logger.info("Database tables recreated", database_url=database_url)
+        logger.info("Database tables recreated", database_url=redact_database_url(database_url))
 
         # Dispose of the engine
         engine.dispose()
 
     except Exception as e:
-        logger.error("Failed to reset database", error=str(e), database_url=database_url)
+        logger.error(
+            "Failed to reset database",
+            error=str(e),
+            database_url=redact_database_url(database_url),
+        )
         raise ConfigurationError(f"Failed to reset database: {e}") from e
 
 
@@ -329,12 +343,17 @@ def validate_database_connection(database_url: str) -> bool:
             # Execute a simple query to verify connection
             conn.execute(text("SELECT 1"))
         engine.dispose()
-        logger.info("Database connection validated successfully", database_url=database_url)
+        logger.info(
+            "Database connection validated successfully",
+            database_url=redact_database_url(database_url),
+        )
         return True
 
     except Exception as e:
         logger.error(
-            "Database connection validation failed", error=str(e), database_url=database_url
+            "Database connection validation failed",
+            error=str(e),
+            database_url=redact_database_url(database_url),
         )
         return False
 

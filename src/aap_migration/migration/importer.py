@@ -4324,21 +4324,31 @@ class WorkflowImporter(ResourceImporter):
             # Extract nodes for separate import
             nodes = workflow.pop("_workflow_job_template_nodes", None)
 
-            result = await self.import_resource(
-                resource_type="workflow_job_templates",
-                source_id=source_id,
-                data=workflow,
-            )
+            try:
+                result = await self.import_resource(
+                    resource_type="workflow_job_templates",
+                    source_id=source_id,
+                    data=workflow,
+                )
 
-            if result:
-                if nodes:
-                    for node in nodes:
-                        if isinstance(node, dict):
-                            pending_nodes.append(dict(node))
-                results.append(result)
-                success_count += 1
-            else:
+                if result:
+                    if nodes:
+                        for node in nodes:
+                            if isinstance(node, dict):
+                                pending_nodes.append(dict(node))
+                    results.append(result)
+                    success_count += 1
+                else:
+                    failed_count += 1
+
+            except Exception as e:
                 failed_count += 1
+                logger.error(
+                    "workflow_import_failed",
+                    source_id=source_id,
+                    name=workflow.get("name"),
+                    error=str(e),
+                )
 
             # Update progress after each workflow
             if progress_callback:

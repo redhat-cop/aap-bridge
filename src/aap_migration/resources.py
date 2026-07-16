@@ -119,7 +119,7 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
         notes="Primary migration path. Fully tested.",
         known_exceptions=[
             "Encrypted credentials cannot be extracted from source API",
-            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+            "Instance groups referenced by RBAC assignments or assigned as capacity to organizations, inventories, or job templates must exist on the target with the same name",
         ],
     ),
     VersionPath(
@@ -129,7 +129,7 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
         notes="Same-version migration path. Schema fully compatible.",
         known_exceptions=[
             "Encrypted credentials cannot be extracted from source API",
-            "Instance groups referenced by RBAC assignments must exist on the target with the same name",
+            "Instance groups referenced by RBAC assignments or assigned as capacity to organizations, inventories, or job templates must exist on the target with the same name",
         ],
     ),
 ]

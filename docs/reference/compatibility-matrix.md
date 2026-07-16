@@ -56,7 +56,8 @@ version. For example, AWX 24.6.1 is configured as `SOURCE__VERSION=2.4`.
 
 ### AAP 2.5+ → AAP 2.6
 
-- **Instance Groups**: Instance groups referenced by RBAC assignments must exist on the target
+- **Instance Groups**: Instance groups referenced by RBAC assignments or assigned as
+  capacity to organizations, inventories, or job templates must exist on the target
   with the same name before migration.
 
 ## Verifying Your Migration Path

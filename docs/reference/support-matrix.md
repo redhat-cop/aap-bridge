@@ -48,7 +48,7 @@ classification, and any caveats associated with their migration.
 | `dashboard` | `dashboard/` | Never Migrate | - | Dashboard aggregation, read-only |
 | `host_metric_summary_monthly` | `host_metric_summary_monthly/` | Never Migrate | - | Monthly usage summary, auto-expires (2.6 only) |
 | `host_metrics` | `host_metrics/` | Never Migrate | - | Host usage metrics, auto-generated (2.6 only) |
-| `instance_groups` | `instance_groups/` | Never Migrate | - | Must exist on target with same name; resolved by name during RBAC import |
+| `instance_groups` | `instance_groups/` | Never Migrate | - | Must exist on target with same name; resolved by name for RBAC and for org/inventory/job template capacity assignments |
 | `instances` | `instances/` | Never Migrate | - | Controller infrastructure, not migrated |
 | `inventory_updates` | `inventory_updates/` | Never Migrate | - | Inventory source sync logs (historical) |
 | `me` | `me/` | Never Migrate | - | Current user session, read-only |

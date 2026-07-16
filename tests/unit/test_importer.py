@@ -280,6 +280,136 @@ class TestOrganizationImporter:
         """Test that organizations have no dependencies."""
         assert org_importer.DEPENDENCIES == {}
 
+    @pytest.mark.asyncio
+    async def test_import_organization_associates_instance_groups_in_order(
+        self, org_importer, mock_client
+    ):
+        """Instance groups are POSTed in export order after org create."""
+        mock_client.create_resource.return_value = {"id": 100, "name": "Org With IG"}
+        mock_client.post = AsyncMock(return_value={})
+
+        async def get_side_effect(endpoint, params=None):
+            name = (params or {}).get("name")
+            mapping = {
+                "Custom Instance Group 1": 3,
+                "Custom Instance Group 2": 4,
+                "Container Group 1": 5,
+            }
+            if name in mapping:
+                return {"count": 1, "results": [{"id": mapping[name], "name": name}]}
+            return {"count": 0, "results": []}
+
+        mock_client.get = AsyncMock(side_effect=get_side_effect)
+
+        orgs = [
+            {
+                "_source_id": 1,
+                "name": "Org With IG",
+                "_instance_group_names": [
+                    "Custom Instance Group 1",
+                    "Custom Instance Group 2",
+                    "Container Group 1",
+                ],
+            }
+        ]
+
+        await org_importer.import_organizations(orgs)
+
+        assert mock_client.post.call_count == 3
+        posted_ids = [c.kwargs["json_data"]["id"] for c in mock_client.post.call_args_list]
+        assert posted_ids == [3, 4, 5]
+        for call in mock_client.post.call_args_list:
+            assert "organizations/100/instance_groups/" in call.args[0]
+
+    @pytest.mark.asyncio
+    async def test_import_organization_skips_missing_instance_group(
+        self, org_importer, mock_client
+    ):
+        """Missing target IG is skipped; remaining names still associate."""
+        mock_client.create_resource.return_value = {"id": 100, "name": "Org With IG"}
+        mock_client.post = AsyncMock(return_value={})
+
+        async def get_side_effect(endpoint, params=None):
+            name = (params or {}).get("name")
+            if name == "Present IG":
+                return {"count": 1, "results": [{"id": 10, "name": name}]}
+            return {"count": 0, "results": []}
+
+        mock_client.get = AsyncMock(side_effect=get_side_effect)
+
+        orgs = [
+            {
+                "_source_id": 1,
+                "name": "Org With IG",
+                "_instance_group_names": ["Missing IG", "Present IG"],
+            }
+        ]
+
+        await org_importer.import_organizations(orgs)
+
+        mock_client.post.assert_called_once()
+        assert mock_client.post.call_args.kwargs["json_data"] == {"id": 10}
+
+    @pytest.mark.asyncio
+    async def test_import_organization_empty_instance_groups_no_post(
+        self, org_importer, mock_client
+    ):
+        """Empty _instance_group_names does not POST associations."""
+        mock_client.create_resource.return_value = {"id": 100, "name": "Org"}
+        mock_client.post = AsyncMock(return_value={})
+
+        orgs = [{"_source_id": 1, "name": "Org", "_instance_group_names": []}]
+        await org_importer.import_organizations(orgs)
+
+        mock_client.post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_import_organization_associates_via_controller_on_gateway(
+        self, org_importer, mock_client
+    ):
+        """On gateway topology, org IG associations POST to the controller base."""
+        from aap_migration.client.api_layout import ApiLayout, ApiMode
+
+        mock_client.api_layout = ApiLayout(
+            host_url="https://aap.example.com",
+            mode=ApiMode.GATEWAY,
+            aap_version="2.6",
+            gateway_base="https://aap.example.com/api/gateway/v1",
+            controller_base="https://aap.example.com/api/controller/v2",
+        )
+        # Gateway create returns gateway org id 100; controller org id is 2
+        mock_client.create_resource.return_value = {"id": 100, "name": "Org With IG"}
+        mock_client.post = AsyncMock(return_value={})
+        mock_client.post_on_base = AsyncMock(return_value={})
+
+        async def get_side_effect(endpoint, params=None):
+            name = (params or {}).get("name")
+            if name == "Custom Instance Group 1":
+                return {"count": 1, "results": [{"id": 3, "name": name}]}
+            return {"count": 0, "results": []}
+
+        mock_client.get = AsyncMock(side_effect=get_side_effect)
+        mock_client.get_on_base = AsyncMock(
+            return_value={"count": 1, "results": [{"id": 2, "name": "Org With IG"}]}
+        )
+
+        orgs = [
+            {
+                "_source_id": 1,
+                "name": "Org With IG",
+                "_instance_group_names": ["Custom Instance Group 1"],
+            }
+        ]
+
+        await org_importer.import_organizations(orgs)
+
+        mock_client.post.assert_not_called()
+        mock_client.post_on_base.assert_called_once_with(
+            "https://aap.example.com/api/controller/v2",
+            "organizations/2/instance_groups/",
+            json_data={"id": 3},
+        )
+
 
 class TestInventoryImporter:
     """Tests for InventoryImporter."""
@@ -307,6 +437,33 @@ class TestInventoryImporter:
         """Test that inventories depend on organizations."""
         assert "organization" in inventory_importer.DEPENDENCIES
         assert inventory_importer.DEPENDENCIES["organization"] == "organizations"
+
+    @pytest.mark.asyncio
+    async def test_import_inventory_associates_instance_groups(
+        self, inventory_importer, mock_client, mock_state
+    ):
+        """Inventory import POSTs instance group associations after create."""
+        mock_client.create_resource.return_value = {"id": 200, "name": "Instance Group Inventory"}
+        mock_state.get_mapped_id.return_value = 50
+        mock_client.post = AsyncMock(return_value={})
+        mock_client.get = AsyncMock(
+            return_value={"count": 1, "results": [{"id": 3, "name": "Custom Instance Group 1"}]}
+        )
+
+        inventories = [
+            {
+                "_source_id": 1,
+                "name": "Instance Group Inventory",
+                "organization": 5,
+                "_instance_group_names": ["Custom Instance Group 1"],
+            }
+        ]
+
+        await inventory_importer.import_inventories(inventories)
+
+        mock_client.post.assert_called_once()
+        assert mock_client.post.call_args.kwargs["json_data"] == {"id": 3}
+        assert "inventories/200/instance_groups/" in mock_client.post.call_args.args[0]
 
 
 class TestHostImporter:
@@ -686,6 +843,48 @@ class TestJobTemplateImporter:
         call_kw = mock_client.post.call_args[1]
         assert call_kw["json_data"] == {"name": "", "description": "", "spec": []}
         assert "job_templates/500/survey_spec/" in mock_client.post.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_import_job_template_associates_instance_groups(
+        self, job_template_importer, mock_client
+    ):
+        """Job template import POSTs instance group associations after create."""
+        mock_client.create_resource.return_value = {
+            "id": 500,
+            "name": "Demo Job Template Custom Instance Group",
+        }
+        mock_client.post = AsyncMock(return_value={})
+
+        async def get_side_effect(endpoint, params=None):
+            name = (params or {}).get("name")
+            mapping = {"Custom Instance Group 1": 3, "Custom Instance Group 2": 4}
+            if name in mapping:
+                return {"count": 1, "results": [{"id": mapping[name], "name": name}]}
+            return {"count": 0, "results": []}
+
+        mock_client.get = AsyncMock(side_effect=get_side_effect)
+
+        templates = [
+            {
+                "_source_id": 1,
+                "name": "Demo Job Template Custom Instance Group",
+                "inventory": 1,
+                "project": 1,
+                "playbook": "hello_world.yml",
+                "_instance_group_names": [
+                    "Custom Instance Group 1",
+                    "Missing IG",
+                    "Custom Instance Group 2",
+                ],
+            }
+        ]
+
+        await job_template_importer.import_job_templates(templates)
+
+        posted_ids = [c.kwargs["json_data"]["id"] for c in mock_client.post.call_args_list]
+        assert posted_ids == [3, 4]
+        for call in mock_client.post.call_args_list:
+            assert "job_templates/500/instance_groups/" in call.args[0]
 
 
 class TestWorkflowImporter:

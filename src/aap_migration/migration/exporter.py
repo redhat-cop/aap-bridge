@@ -83,6 +83,115 @@ async def _fetch_notification_template_ids(
         return []
 
 
+async def _paginate_on_base(
+    client: AAPSourceClient,
+    api_base: str,
+    endpoint: str,
+    page_size: int = 200,
+) -> list[dict[str, Any]]:
+    """Fetch all pages from a paginated endpoint on an explicit API base."""
+    all_results: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        response = await client.get_on_base(
+            api_base,
+            endpoint,
+            params={"page": page, "page_size": min(page_size, 200)},
+        )
+        results = response.get("results", []) if isinstance(response, dict) else []
+        all_results.extend(results)
+        if not response.get("next") or not results:
+            break
+        page += 1
+    return all_results
+
+
+async def _fetch_instance_group_names(
+    client: AAPSourceClient,
+    resource_type: str,
+    resource_id: int,
+    *,
+    resource_name: str | None = None,
+) -> list[str]:
+    """GET ``{resource}/{id}/instance_groups/`` and return ordered names.
+
+    Instance group objects are not migrated; names are stored on export so import
+    can resolve matching groups on the target and re-associate them.
+    List order is the capacity priority order used by the controller.
+
+    On gateway topology, organizations live on the gateway API but the nested
+    ``instance_groups`` capacity endpoint is controller-only. For organizations
+    we therefore resolve the controller org id (by name when available) and
+    fetch from the controller base.
+    """
+    base = get_endpoint(resource_type).rstrip("/")
+    endpoint = f"{base}/{resource_id}/instance_groups/"
+    try:
+        layout = getattr(client, "api_layout", None)
+        if (
+            resource_type == "organizations"
+            and layout is not None
+            and layout.mode is ApiMode.GATEWAY
+            and layout.controller_base
+        ):
+            controller_org_id = resource_id
+            if resource_name:
+                try:
+                    resp = await client.get_on_base(
+                        layout.controller_base,
+                        "organizations/",
+                        params={"name": resource_name, "page_size": 1},
+                    )
+                    results = resp.get("results", []) if isinstance(resp, dict) else []
+                    if results:
+                        controller_org_id = int(results[0]["id"])
+                except Exception as e:
+                    logger.debug(
+                        "organization_controller_id_lookup_failed",
+                        name=resource_name,
+                        gateway_id=resource_id,
+                        error=str(e),
+                    )
+            endpoint = f"organizations/{controller_org_id}/instance_groups/"
+            rows = await _paginate_on_base(client, layout.controller_base, endpoint)
+        else:
+            rows = await client.get_paginated(endpoint, page_size=200)
+        return [str(row["name"]) for row in rows if row.get("name")]
+    except Exception as e:
+        logger.warning(
+            "instance_groups_fetch_failed",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            error=str(e),
+        )
+        return []
+
+
+async def _attach_instance_group_names(
+    client: AAPSourceClient,
+    resource: dict[str, Any],
+    resource_type: str,
+) -> None:
+    """Fetch and attach ``_instance_group_names`` for capacity assignment migration."""
+    rid = resource.get("id") or resource.get("_source_id")
+    if not rid:
+        return
+    names = await _fetch_instance_group_names(
+        client,
+        resource_type,
+        int(rid),
+        resource_name=resource.get("name"),
+    )
+    resource["_instance_group_names"] = names
+    if names:
+        logger.debug(
+            "instance_group_names_attached",
+            resource_type=resource_type,
+            resource_id=rid,
+            instance_group_names=names,
+        )
+
+
 @runtime_checkable
 class ExporterProtocol(Protocol):
     """Protocol defining the interface for resource exporters.
@@ -754,13 +863,13 @@ class OrganizationExporter(ResourceExporter):
     async def export(
         self, filters: dict[str, Any] | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Export organizations.
+        """Export organizations with related instance group names.
 
         Args:
             filters: Optional query parameters for filtering
 
         Yields:
-            Organization dictionaries
+            Organization dictionaries with optional ``_instance_group_names``
         """
         logger.info("exporting_organizations")
         async for org in self.export_resources(
@@ -769,6 +878,26 @@ class OrganizationExporter(ResourceExporter):
             page_size=self.performance_config.batch_sizes.get("organizations", 200),
             filters=filters,
         ):
+            await _attach_instance_group_names(self.client, org, "organizations")
+            yield org
+
+    async def export_parallel(
+        self,
+        resource_type: str,
+        endpoint: str,
+        page_size: int = 200,
+        max_concurrent_pages: int = 5,
+        filters: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Parallel fetch with instance group name enrichment."""
+        async for org in super().export_parallel(
+            resource_type=resource_type,
+            endpoint=endpoint,
+            page_size=page_size,
+            max_concurrent_pages=max_concurrent_pages,
+            filters=filters,
+        ):
+            await _attach_instance_group_names(self.client, org, "organizations")
             yield org
 
 
@@ -939,6 +1068,7 @@ class InventoryExporter(ResourceExporter):
                         message="Sub-list returned no input inventory PKs; UI input list will not migrate",
                     )
 
+            await _attach_instance_group_names(self.client, inventory, "inventory")
             yield inventory
 
     async def export_parallel(
@@ -982,6 +1112,7 @@ class InventoryExporter(ResourceExporter):
                         message="Sub-list returned no input inventory PKs; UI input list will not migrate",
                     )
 
+            await _attach_instance_group_names(self.client, inventory, "inventory")
             yield inventory
 
 
@@ -1571,6 +1702,7 @@ class JobTemplateExporter(ResourceExporter):
             )
 
             await self._attach_notification_template_ids(template, "job_templates")
+            await _attach_instance_group_names(self.client, template, "job_templates")
 
             yield template
 
@@ -1627,6 +1759,7 @@ class JobTemplateExporter(ResourceExporter):
             )
 
             await self._attach_notification_template_ids(template, "job_templates")
+            await _attach_instance_group_names(self.client, template, "job_templates")
 
             yield template
 

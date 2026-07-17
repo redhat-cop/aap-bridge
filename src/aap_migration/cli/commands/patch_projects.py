@@ -78,8 +78,11 @@ def _scm_fields_match(target: dict, deferred: dict, ctx: MigrationContext) -> bo
     source_cred_id = deferred.get("credential")
     if source_cred_id:
         expected_cred = ctx.migration_state.get_mapped_id("credentials", source_cred_id)
-        if expected_cred and target.get("credential") != expected_cred:
+        if not expected_cred or target.get("credential") != expected_cred:
             return False
+    elif target.get("credential"):
+        # Deferred has no credential but target still has one — not a match.
+        return False
     return True
 
 
@@ -92,9 +95,9 @@ async def classify_project_patch_action(
 
     Returns one of:
       - ``patch``: apply deferred SCM details to the target project
-      - ``skip``: SCM already matches and no sync follow-up is needed
+      - ``skip``: SCM already matches and last sync succeeded
       - ``wait_sync``: SCM already matches but a sync is still in progress
-      - ``retry_sync``: SCM already matches but the last sync failed
+      - ``retry_sync``: SCM already matches but sync failed or never completed
     """
     try:
         target = await ctx.target_client.get(f"projects/{target_id}/")
@@ -109,12 +112,15 @@ async def classify_project_patch_action(
     if not _scm_fields_match(target, deferred, ctx):
         return "patch"
 
-    status = (target.get("status") or "").lower()
-    if status in ("pending", "waiting", "running"):
+    status = target.get("status")
+    if project_sync_in_progress(status):
         return "wait_sync"
-    if status in ("failed", "error", "canceled"):
+    if project_sync_failed(status):
         return "retry_sync"
-    return "skip"
+    if (status or "").lower() == "successful":
+        return "skip"
+    # "never updated", empty, or unknown — SCM matches but no successful sync yet.
+    return "retry_sync"
 
 
 async def count_projects_needing_scm_patch(ctx: MigrationContext, input_dir: Path) -> int:
@@ -155,8 +161,12 @@ async def _trigger_project_sync_updates(
     ctx: MigrationContext,
     project_ids: list[int],
 ) -> list[int]:
-    """Trigger SCM updates only for projects that are not already syncing."""
-    triggered: list[int] = []
+    """Trigger SCM updates for projects that are not already syncing.
+
+    Returns project IDs that should be waited on: newly triggered updates and
+    projects already syncing (so callers do not drop in-progress work).
+    """
+    to_wait: list[int] = []
     for project_id in project_ids:
         try:
             project = await ctx.target_client.get(f"projects/{project_id}/")
@@ -167,9 +177,10 @@ async def _trigger_project_sync_updates(
                     project_id=project_id,
                     status=status,
                 )
+                to_wait.append(project_id)
                 continue
             await ctx.target_client.post(f"projects/{project_id}/update/", json_data={})
-            triggered.append(project_id)
+            to_wait.append(project_id)
             logger.info("project_sync_retry_triggered", project_id=project_id)
         except Exception as e:
             logger.warning(
@@ -177,7 +188,7 @@ async def _trigger_project_sync_updates(
                 project_id=project_id,
                 error=str(e),
             )
-    return triggered
+    return to_wait
 
 
 async def _retry_project_sync(
@@ -467,9 +478,10 @@ async def patch_project_scm_details(
                 progress.update_phase("patching", patched_count, failed_patch_count)
 
             for project_id in batch_retry_ids:
-                triggered = await _trigger_project_sync_updates(ctx, [project_id])
-                if triggered:
-                    batch_target_ids.append(project_id)
+                # Always enqueue IDs returned for wait (triggered or already syncing).
+                batch_target_ids.extend(
+                    await _trigger_project_sync_updates(ctx, [project_id])
+                )
 
             # After batch is patched, wait for SCM sync and retry failures
             if batch_target_ids:

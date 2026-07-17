@@ -41,6 +41,36 @@ def test_scm_fields_match_requires_matching_scm_type_and_url() -> None:
     assert _scm_fields_match(target, deferred, ctx) is False
 
 
+def test_scm_fields_match_requires_mapped_credential_when_deferred() -> None:
+    ctx = _ctx_with_mappings(credential_map={7: 70})
+    deferred = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+        "credential": 7,
+    }
+    target = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+        "credential": 70,
+    }
+    assert _scm_fields_match(target, deferred, ctx) is True
+
+    ctx_unmapped = _ctx_with_mappings()
+    assert _scm_fields_match(target, deferred, ctx_unmapped) is False
+
+    target_wrong = {**target, "credential": 99}
+    assert _scm_fields_match(target_wrong, deferred, ctx) is False
+
+    deferred_no_cred = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+    }
+    assert _scm_fields_match(target, deferred_no_cred, ctx) is False
+
+
 @pytest.mark.asyncio
 async def test_classify_project_patch_action_skips_already_configured_project() -> None:
     ctx = _ctx_with_mappings()
@@ -98,3 +128,43 @@ async def test_classify_project_patch_action_retries_failed_sync_without_repatch
     action = await classify_project_patch_action(ctx, 42, deferred)
 
     assert action == "retry_sync"
+
+
+@pytest.mark.asyncio
+async def test_classify_project_patch_action_retries_never_updated() -> None:
+    ctx = _ctx_with_mappings()
+    ctx.target_client.get.return_value = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+        "status": "never updated",
+    }
+    deferred = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+    }
+
+    action = await classify_project_patch_action(ctx, 42, deferred)
+
+    assert action == "retry_sync"
+
+
+@pytest.mark.asyncio
+async def test_classify_project_patch_action_waits_for_in_progress_sync() -> None:
+    ctx = _ctx_with_mappings()
+    ctx.target_client.get.return_value = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+        "status": "running",
+    }
+    deferred = {
+        "scm_type": "git",
+        "scm_url": "https://example.com/repo.git",
+        "scm_branch": "main",
+    }
+
+    action = await classify_project_patch_action(ctx, 42, deferred)
+
+    assert action == "wait_sync"

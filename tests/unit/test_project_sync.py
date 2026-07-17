@@ -6,7 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aap_migration.cli.commands.patch_projects import _retry_project_sync
+from aap_migration.cli.commands.patch_projects import (
+    _retry_project_sync,
+    _trigger_project_sync_updates,
+)
 from aap_migration.cli.context import MigrationContext
 from aap_migration.migration.importer import wait_for_project_sync
 
@@ -66,3 +69,19 @@ async def test_retry_project_sync_does_not_trigger_update_when_running() -> None
     ctx.target_client.post.assert_not_called()
     assert recovered == []
     assert still_unfinished == [42]
+
+
+@pytest.mark.asyncio
+async def test_trigger_project_sync_updates_returns_in_progress_for_wait() -> None:
+    ctx = MagicMock(spec=MigrationContext)
+    ctx.target_client = AsyncMock()
+    ctx.target_client.get.return_value = {
+        "scm_type": "git",
+        "status": "running",
+        "name": "demo",
+    }
+
+    to_wait = await _trigger_project_sync_updates(ctx, [42])
+
+    ctx.target_client.post.assert_not_called()
+    assert to_wait == [42]

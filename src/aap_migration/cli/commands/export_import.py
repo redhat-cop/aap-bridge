@@ -18,7 +18,10 @@ from aap_migration.cli.commands.migrate import (
     PHASE1_RESOURCE_TYPES,
     PHASE2_RESOURCE_TYPES,
 )
-from aap_migration.cli.commands.patch_projects import patch_project_scm_details
+from aap_migration.cli.commands.patch_projects import (
+    count_projects_needing_scm_patch,
+    patch_project_scm_details,
+)
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
 from aap_migration.cli.utils import (
@@ -1604,22 +1607,7 @@ def import_cmd(
 
         # If Phase 2, check for projects to patch and add as first phase
         if phase == "phase2" and not dry_run:
-            # Duplicate scanning logic to get count for progress bar
-            projects_dir = input_dir / "projects"
-            patch_count = 0
-            if projects_dir.exists():
-                json_files = sorted(projects_dir.glob("projects_*.json"))
-                # Silent scan (no step_progress)
-                for json_file in json_files:
-                    try:
-                        with open(json_file) as f:
-                            resources = json.load(f)
-                            for resource in resources:
-                                if "_deferred_scm_details" in resource:
-                                    patch_count += 1
-                    except Exception:
-                        pass
-
+            patch_count = await count_projects_needing_scm_patch(ctx, input_dir)
             if patch_count > 0:
                 phases.append(("patching", "Patching Projects", patch_count))
 

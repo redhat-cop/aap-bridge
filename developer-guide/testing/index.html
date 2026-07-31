@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1641,9 +1641,10 @@ warning is printed during build). A manifest upload failure in the build log
 is non-blocking — the golden image is still created; place a valid <code>.zip</code> in
 <code>tests/integration/files/manifest/</code> before the next build to license the instance.</p>
 <blockquote>
-<p><strong>Note:</strong> AAP <strong>2.7</strong> golden images can be built for integration testing, but
-aap-bridge migration compatibility still tops out at <strong>2.6</strong> until separate
-2.7 migration support lands in the tool.</p>
+<p><strong>Note:</strong> AAP <strong>2.7</strong> golden images can be built for integration testing. AAP 2.7
+is supported as a migration source and target in the tool; batch integration tests
+(<code>make test-all</code>) still exercise <strong>1.0–2.5 → 2.6</strong> only — use explicit
+<code>run-pair</code> / <code>test-bridge</code> for 2.6-source or 2.7-target combinations.</p>
 </blockquote>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <p>Everything runs in containers. No Python, Ansible, or other tools needed on the host.</p>
@@ -2356,7 +2357,7 @@ automatically. Common issues:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../javascripts/mermaid.js" type="module"></script>
       

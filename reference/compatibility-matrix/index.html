@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1076,10 +1076,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#all-source-versions-aap-26" class="md-nav__link">
+  <a href="#all-source-versions-aap-26-and-27" class="md-nav__link">
     <span class="md-ellipsis">
       
-        All Source Versions → AAP 2.6
+        All Source Versions → AAP 2.6 and 2.7
       
     </span>
   </a>
@@ -1090,7 +1090,7 @@
   <a href="#aap-25-aap-26" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AAP 2.5+ → AAP 2.6
+        AAP 2.5+ → AAP 2.6+
       
     </span>
   </a>
@@ -1208,6 +1208,10 @@
 <h1 id="source-version-compatibility-matrix">Source-Version Compatibility Matrix<a class="headerlink" href="#source-version-compatibility-matrix" title="Permanent link">&para;</a></h1>
 <p>This document defines the supported source-to-target migration paths for the AAP Bridge tool
 and documents known version-specific exceptions.</p>
+<p>Migration supports <strong>same-or-forward</strong> target versions only. Each source version may migrate
+to AAP 2.6 and/or 2.7 as listed in the matrix below — not every source may use every target.
+For example, an AAP <strong>2.7 source must target AAP 2.7</strong>; downgrade paths such as 2.7 → 2.6
+are not supported.</p>
 <p>AAP Bridge also supports <strong>AWX</strong> as a migration source. AWX shares the Controller API with
 AAP at equivalent release levels; configure <code>SOURCE__VERSION</code> using the AAP version that
 matches your AWX release. See <a href="../awx-migration/">AWX Migration</a> for the full version mapping
@@ -1229,7 +1233,7 @@ but they have not been verified.</p>
 <tbody>
 <tr>
 <td style="text-align: left;"><strong>Supported</strong></td>
-<td style="text-align: left;">Fully tested migration path. Core resource families and dependency chains are verified.</td>
+<td style="text-align: left;">Declared migration path. Core resource families are expected to work; see Notes for test coverage.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Partial</strong></td>
@@ -1323,6 +1327,83 @@ but they have not been verified.</p>
 <td style="text-align: left;">2026-04-25</td>
 <td style="text-align: left;">Same-version migration path. Schema fully compatible.</td>
 </tr>
+<tr>
+<td style="text-align: left;">AAP 1.0</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 1.1</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 1.2</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.0</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.1</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.2</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.3</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.4</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.5</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.6</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Primary upgrade path. Supported; integration coverage pending.</td>
+</tr>
+<tr>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;">AAP 2.7</td>
+<td style="text-align: left;"><strong>Supported</strong></td>
+<td style="text-align: left;">2026-06-24</td>
+<td style="text-align: left;">Same-version migration path. Supported; integration coverage pending.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="awx-as-migration-source">AWX as Migration Source<a class="headerlink" href="#awx-as-migration-source" title="Permanent link">&para;</a></h2>
@@ -1356,13 +1437,13 @@ version. For example, AWX 24.6.1 is configured as <code>SOURCE__VERSION=2.4</cod
 </tbody>
 </table>
 <h2 id="known-version-specific-exceptions">Known Version-Specific Exceptions<a class="headerlink" href="#known-version-specific-exceptions" title="Permanent link">&para;</a></h2>
-<h3 id="all-source-versions-aap-26">All Source Versions → AAP 2.6<a class="headerlink" href="#all-source-versions-aap-26" title="Permanent link">&para;</a></h3>
+<h3 id="all-source-versions-aap-26-and-27">All Source Versions → AAP 2.6 and 2.7<a class="headerlink" href="#all-source-versions-aap-26-and-27" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Encrypted Credentials</strong>: Encrypted field values (passwords, SSH keys) cannot be extracted
   via the source AAP API. These must be migrated using HashiCorp Vault or re-entered manually
   on the target.</li>
 </ul>
-<h3 id="aap-25-aap-26">AAP 2.5+ → AAP 2.6<a class="headerlink" href="#aap-25-aap-26" title="Permanent link">&para;</a></h3>
+<h3 id="aap-25-aap-26">AAP 2.5+ → AAP 2.6+<a class="headerlink" href="#aap-25-aap-26" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Instance Groups</strong>: Instance groups referenced by RBAC assignments must exist on the target
   with the same name before migration.</li>
@@ -1433,7 +1514,7 @@ but this is recommended for experimental use only.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../javascripts/mermaid.js" type="module"></script>
       

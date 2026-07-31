@@ -19,15 +19,15 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Resource Support Matrix (AAP 2.3 → 2.6) - AAP Bridge</title>
+        <title>Resource Support Matrix - AAP Bridge</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#resource-support-matrix-aap-23-26" class="md-skip">
+        <a href="#resource-support-matrix" class="md-skip">
           Skip to content
         </a>
       
@@ -108,7 +108,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Resource Support Matrix (AAP 2.3 → 2.6)
+              Resource Support Matrix
             
           </span>
         </div>
@@ -1064,12 +1064,13 @@
   
 
 
-<h1 id="resource-support-matrix-aap-23-26">Resource Support Matrix (AAP 2.3 → 2.6)<a class="headerlink" href="#resource-support-matrix-aap-23-26" title="Permanent link">&para;</a></h1>
+<h1 id="resource-support-matrix">Resource Support Matrix<a class="headerlink" href="#resource-support-matrix" title="Permanent link">&para;</a></h1>
 <p>This document lists all resources supported by the AAP Bridge migration tool, their
-classification, and any caveats associated with their migration.</p>
+classification, and any caveats associated with their migration to AAP 2.6 or 2.7 targets
+(per the <a href="../compatibility-matrix/">compatibility matrix</a>; same-or-forward paths only).</p>
 <h2 id="migration-categories">Migration Categories<a class="headerlink" href="#migration-categories" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Migrate</strong>: Business resources with durable value that are recreated on the target AAP 2.6
+<li><strong>Migrate</strong>: Business resources with durable value that are recreated on the target AAP 2.6 or 2.7
   instance.</li>
 <li><strong>Export-Only</strong>: Resources exported from the source for audit, reporting, or analysis
   purposes, but <strong>not recreated</strong> on the target.</li>
@@ -1268,7 +1269,7 @@ classification, and any caveats associated with their migration.</p>
 <td style="text-align: left;"><code>analytics/</code></td>
 <td style="text-align: left;">Never Migrate</td>
 <td style="text-align: left;">-</td>
-<td style="text-align: left;">Analytics data, read-only (2.6 only)</td>
+<td style="text-align: left;">Analytics data, read-only (2.5+)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>applications</code></td>
@@ -1303,14 +1304,14 @@ classification, and any caveats associated with their migration.</p>
 <td style="text-align: left;"><code>host_metric_summary_monthly/</code></td>
 <td style="text-align: left;">Never Migrate</td>
 <td style="text-align: left;">-</td>
-<td style="text-align: left;">Monthly usage summary, auto-expires (2.6 only)</td>
+<td style="text-align: left;">Monthly usage summary, auto-expires (2.5+)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>host_metrics</code></td>
 <td style="text-align: left;"><code>host_metrics/</code></td>
 <td style="text-align: left;">Never Migrate</td>
 <td style="text-align: left;">-</td>
-<td style="text-align: left;">Host usage metrics, auto-generated (2.6 only)</td>
+<td style="text-align: left;">Host usage metrics, auto-generated (2.5+)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>instance_groups</code></td>
@@ -1380,7 +1381,7 @@ classification, and any caveats associated with their migration.</p>
 <td style="text-align: left;"><code>receptor_addresses/</code></td>
 <td style="text-align: left;">Never Migrate</td>
 <td style="text-align: left;">-</td>
-<td style="text-align: left;">Receptor mesh addresses, infrastructure (2.6 only)</td>
+<td style="text-align: left;">Receptor mesh addresses, infrastructure (2.5+)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>roles</code></td>
@@ -1394,7 +1395,7 @@ classification, and any caveats associated with their migration.</p>
 <td style="text-align: left;"><code>service_index/</code></td>
 <td style="text-align: left;">Never Migrate</td>
 <td style="text-align: left;">-</td>
-<td style="text-align: left;">Service discovery index, read-only (2.6 only)</td>
+<td style="text-align: left;">Service discovery index, read-only (2.5+)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>settings</code></td>
@@ -1459,7 +1460,7 @@ classification, and any caveats associated with their migration.</p>
 <p>Workflow job template nodes (<code>workflow_job_template_nodes/</code>) are not migrated as standalone
 resources. They are embedded within their parent <code>workflow_job_templates</code>.</p>
 <h3 id="system-job-templates">System Job Templates<a class="headerlink" href="#system-job-templates" title="Permanent link">&para;</a></h3>
-<p>System job templates are auto-created by the target AAP 2.6 instance. The migration tool only
+<p>System job templates are auto-created by the target AAP 2.6 or 2.7 instance. The migration tool only
 creates ID mappings so that schedules referencing these templates can be correctly linked on
 the target.</p>
 
@@ -1520,7 +1521,7 @@ the target.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "toc.integrate", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../javascripts/mermaid.js" type="module"></script>
       

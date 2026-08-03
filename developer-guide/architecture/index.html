@@ -1789,7 +1789,7 @@ management for checkpointing and idempotency.</p>
 </ul>
 <h3 id="bulk-operations">Bulk Operations<a class="headerlink" href="#bulk-operations" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Hosts: 200 per bulk request</li>
+<li>Hosts: up to <code>BULK_HOST_MAX_CREATE</code> per bulk request (stock default 100; API max 200)</li>
 <li>Uses <code>/bulk/host_create</code> endpoint</li>
 <li>Significantly faster than individual creates</li>
 </ul>

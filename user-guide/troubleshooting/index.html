@@ -1577,15 +1577,41 @@ stripped but no longer required.</p>
 <h3 id="bulk-import-errors">Bulk import errors<a class="headerlink" href="#bulk-import-errors" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Error: Bulk host create failed: 400 Bad Request
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>Number of hosts exceeds system setting BULK_HOST_MAX_CREATE
 </code></pre></div>
+<p><strong>Cause:</strong> AAP Bridge batch size (<code>performance.batch_sizes.hosts</code>) exceeds the
+target controller setting <code>BULK_HOST_MAX_CREATE</code>. Stock AAP/AWX installs default
+this to <strong>100</strong>, while the bulk API accepts up to <strong>200</strong> hosts per request.
+Bridge used to default to 200, which fails on unmodified targets.</p>
 <p><strong>Solutions:</strong></p>
 <ol>
-<li>Check for invalid host data (duplicate names, invalid characters)</li>
-<li>Reduce batch size:</li>
+<li>Set Bridge batch size to match (or stay below) the target limit:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">performance</span><span class="p">:</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">batch_sizes</span><span class="p">:</span>
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">hosts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</code></pre></div>
+<ol>
+<li>
+<p>Or raise the limit on the target: <strong>Settings → Bulk Actions → Max number of
+   hosts to allow to be created in a single bulk action</strong> (requires admin access).</p>
+</li>
+<li>
+<p>Verify the target limit before migrating:</p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>aap-bridge<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>--config<span class="w"> </span>config/config.yaml<span class="w"> </span>--check-connectivity
+</code></pre></div>
+<p>Bridge now defaults to 100 and auto-caps batch size at import time when it can
+read <code>BULK_HOST_MAX_CREATE</code> from the target.</p>
+<p><strong>Other bulk import failures:</strong></p>
+<ol>
+<li>Check for invalid host data (duplicate names, invalid characters)</li>
+<li>Reduce batch size further if hosts have large <code>variables</code> payloads (nginx ~1MB body limit):</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">performance</span><span class="p">:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">batch_sizes</span><span class="p">:</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="nt">hosts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
 </code></pre></div>
 <ol>
 <li>Check target AAP logs for details</li>
@@ -1593,7 +1619,7 @@ stripped but no longer required.</p>
 <h2 id="validation-issues">Validation Issues<a class="headerlink" href="#validation-issues" title="Permanent link">&para;</a></h2>
 <h3 id="count-mismatch">Count mismatch<a class="headerlink" href="#count-mismatch" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>Validation failed: Source has 1000 hosts, target has 998
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Validation failed: Source has 1000 hosts, target has 998
 </code></pre></div>
 <p><strong>Causes:</strong></p>
 <ol>
@@ -1613,8 +1639,8 @@ stripped but no longer required.</p>
 <ol>
 <li>Increase concurrency:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">performance</span><span class="p">:</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">performance</span><span class="p">:</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
 </code></pre></div>
 <ol>
 <li>
@@ -1626,34 +1652,34 @@ stripped but no longer required.</p>
 </ol>
 <h3 id="rate-limiting-errors">Rate limiting errors<a class="headerlink" href="#rate-limiting-errors" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Error: 429 Too Many Requests
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>Error: 429 Too Many Requests
 </code></pre></div>
 <p><strong>Solutions:</strong></p>
 <ol>
 <li>Reduce rate limit:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">performance</span><span class="p">:</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">rate_limit</span><span class="p">:</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">    </span><span class="nt">requests_per_second</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nt">performance</span><span class="p">:</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">rate_limit</span><span class="p">:</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">    </span><span class="nt">requests_per_second</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 </code></pre></div>
 <ol>
 <li>Reduce concurrency:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">performance</span><span class="p">:</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nt">performance</span><span class="p">:</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 </code></pre></div>
 <h2 id="logging-and-debugging">Logging and Debugging<a class="headerlink" href="#logging-and-debugging" title="Permanent link">&para;</a></h2>
 <h3 id="enable-debug-logging">Enable debug logging<a class="headerlink" href="#enable-debug-logging" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>aap-bridge<span class="w"> </span>--log-level<span class="w"> </span>DEBUG<span class="w"> </span>migrate<span class="w"> </span>full
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>aap-bridge<span class="w"> </span>--log-level<span class="w"> </span>DEBUG<span class="w"> </span>migrate<span class="w"> </span>full
 </code></pre></div>
 <h3 id="check-log-files">Check log files<a class="headerlink" href="#check-log-files" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>tail<span class="w"> </span>-f<span class="w"> </span>logs/aap-bridge.log
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>tail<span class="w"> </span>-f<span class="w"> </span>logs/aap-bridge.log
 </code></pre></div>
 <h3 id="enable-payload-logging">Enable payload logging<a class="headerlink" href="#enable-payload-logging" title="Permanent link">&para;</a></h3>
 <p>In <code>config/config.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nt">logging</span><span class="p">:</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">log_payloads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">file_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEBUG</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nt">logging</span><span class="p">:</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">log_payloads</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">file_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DEBUG</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>

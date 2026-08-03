@@ -1519,7 +1519,7 @@ When using AWX, configure <code>SOURCE__VERSION</code> to the equivalent AAP rel
 </ol>
 <p><strong>Import Features:</strong></p>
 <ul>
-<li><strong>Bulk Operations</strong>: Hosts imported 200 at a time via the AAP bulk API</li>
+<li><strong>Bulk Operations</strong>: Hosts imported in batches sized to the target's <code>BULK_HOST_MAX_CREATE</code> (stock default: 100; API max: 200)</li>
 <li><strong>Host-Group Associations</strong>: Hosts are associated with their groups after bulk import</li>
 <li><strong>Inventory Source Sync</strong>: After importing inventory sources, the tool triggers a sync and
   waits for completion before moving to constructed and smart inventories</li>

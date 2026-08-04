@@ -12,7 +12,8 @@ in the repository.
 
 **New Features:**
 
-- AAP 2.7 supported as a migration source and target
+- AAP 2.7 supported as a migration source and target (same-or-forward paths only;
+  see compatibility matrix)
 - Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and
   bridge images (`make build`, `make up-dev`, `make shell`, etc.)
 - Web UI: React/PatternFly browser interface with connection management, migration
@@ -20,7 +21,8 @@ in the repository.
 - Integration testing infrastructure: Ansible playbooks and roles under
   `tests/integration/` for golden-image builds (AAP 1.0–2.7), pair orchestration,
   and bridge connectivity checks (`make build-aap`, `run-pair`, `reset-pair`, etc.)
-- Source version support expanded to AAP 1.0 through 2.7 (sources) and AAP 2.6 and 2.7 (targets)
+- Source version support expanded to AAP 1.0 through 2.7 on same-or-forward paths to
+  AAP 2.6 or 2.7 targets per the compatibility matrix
 - Survey spec migration for job templates and workflow job templates
 - Notification template association migration (started/success/error/approvals)
 - Nested inventory group hierarchy export and import
@@ -46,6 +48,9 @@ in the repository.
 - Export and transform phase order now matches the import dependency order (credential
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.
+- Compatibility matrix messaging clarifies same-or-forward migration rules and
+  distinguishes integration-tested 2.6 paths from 2.7 paths where batch integration
+  coverage is still pending
 
 **Added:**
 

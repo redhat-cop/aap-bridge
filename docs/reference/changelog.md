@@ -54,6 +54,8 @@ in the repository.
 
 **Bug Fixes:**
 
+- Phase 2 import summary reports patched project count instead of always
+  `0 resources processed` (#116)
 - Cleanup clears export/transform contents without removing mount points; export/transform
   overwrite prompts only when directories contain data
 - Phase 2 project sync wait uses `project_sync_timeout` (not batch interval); ignores

@@ -93,13 +93,18 @@ async def _retry_project_sync(
     return still_failed, recovered
 
 
+def _empty_patch_stats() -> dict[str, int]:
+    """Return zeroed patch stats compatible with import run_stats."""
+    return {"imported": 0, "skipped": 0, "failed": 0, "total": 0}
+
+
 async def patch_project_scm_details(
     ctx: MigrationContext,
     input_dir: Path,
     batch_size: int = 100,
     interval: int = 600,
     progress_display: MigrationProgressDisplay | None = None,
-) -> None:
+) -> dict[str, int]:
     """Execute Phase 2: Patch projects with SCM details.
 
     1. Reads transformed project files.
@@ -118,17 +123,21 @@ async def patch_project_scm_details(
         batch_size: Number of projects to patch at once (default 100)
         interval: Seconds to pause between batches (default from config)
         progress_display: Optional existing progress display to use
+
+    Returns:
+        Stats dict with keys imported (patched count), skipped, failed, and total
+        for the import summary. Early exits return zeros.
     """
     projects_dir = input_dir / "projects"
     if not projects_dir.exists():
         echo_warning("No projects directory found in transformed output. Skipping Phase 2.")
-        return
+        return _empty_patch_stats()
 
     # Find all project files
     json_files = sorted(projects_dir.glob("projects_*.json"))
     if not json_files:
         echo_warning("No project files found. Skipping Phase 2.")
-        return
+        return _empty_patch_stats()
 
     # Load all projects with deferred details
     projects_to_patch = []
@@ -154,7 +163,7 @@ async def patch_project_scm_details(
     if not projects_to_patch:
         if not progress_display:
             echo_info("No projects found with deferred SCM details. Phase 2 not required.")
-        return
+        return _empty_patch_stats()
 
     total_projects = len(projects_to_patch)
     max_retries = ctx.config.performance.project_sync_max_retries
@@ -384,6 +393,13 @@ async def patch_project_scm_details(
                     f"{max_retries} retries. Downstream resources that depend on these "
                     "projects may fail to import."
                 )
+
+        return {
+            "imported": patched_count,
+            "skipped": 0,
+            "failed": failed_patch_count,
+            "total": total_projects,
+        }
 
 
 @click.command(name="patch-projects")

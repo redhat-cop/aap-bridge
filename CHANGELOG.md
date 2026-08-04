@@ -106,6 +106,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Import Summary – Project Patching Count (#116)**: Phase 2 import summary now reports
+  how many projects were patched instead of always showing `0 resources processed`
 - **Testing – Cleanup and Overwrite Prompts**: Cleanup clears export/transform directory
   contents without removing mount points; export and transform only prompt to overwrite
   when output directories contain data (not empty dirs left after cleanup)

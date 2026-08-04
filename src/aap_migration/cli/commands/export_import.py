@@ -1670,13 +1670,15 @@ def import_cmd(
                     if rtype == "patching":
                         # Call patch logic using existing progress display
                         # Note: patch_project_scm_details handles start_phase/update/complete internally
-                        await patch_project_scm_details(
+                        patch_stats = await patch_project_scm_details(
                             ctx,
                             input_dir,
                             batch_size=ctx.config.performance.project_patch_batch_size,
                             interval=ctx.config.performance.project_patch_batch_interval,
                             progress_display=progress,
                         )
+                        run_stats["patching"] = patch_stats
+                        total_failed += patch_stats.get("failed", 0)
                         continue
 
                     # Start phase
@@ -2242,7 +2244,9 @@ def import_cmd(
 
                 status_parts = []
                 if imported > 0:
-                    status_parts.append(f"{format_count(imported)} imported")
+                    # Patching is not a create/import — use accurate wording (#116)
+                    verb = "patched" if rtype == "patching" else "imported"
+                    status_parts.append(f"{format_count(imported)} {verb}")
                 if skipped > 0:
                     status_parts.append(f"{format_count(skipped)} skipped")
                 if failed > 0:

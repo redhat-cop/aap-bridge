@@ -77,7 +77,7 @@ aap-bridge export
 | 14 | Job Templates | Includes survey spec and notification associations |
 | 15 | Workflow Job Templates | Includes nodes, survey spec, and notification associations |
 | 16 | System Job Templates | |
-| 17 | Schedules | System-job schedules excluded |
+| 17 | Schedules | System-job schedules excluded; imported with `enabled=false` |
 | 18 | Users | |
 | 19 | Teams | |
 | 20 | Role Definitions | AAP 2.5+ RBAC custom role definitions |

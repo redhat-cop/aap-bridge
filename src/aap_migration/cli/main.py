@@ -84,8 +84,8 @@ def cli(
         # Validate configuration
         aap-bridge config validate --config config.yaml
 
-        # Run full migration
-        aap-bridge migrate full --config config.yaml
+        # Run full migration (unattended)
+        aap-bridge migrate --config config.yaml
 
         # Export resources only
         aap-bridge export --config config.yaml --output export.json

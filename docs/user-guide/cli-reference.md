@@ -226,7 +226,7 @@ aap-bridge migrate SUBCOMMAND [OPTIONS]
 
 ```bash
 # Full migration (prep + export + transform + import)
-aap-bridge migrate full
+aap-bridge migrate
 
 # Resume from checkpoint
 aap-bridge migrate resume
@@ -364,19 +364,19 @@ Control output verbosity:
 
 ```bash
 # Default: Live progress with WARNING logs
-aap-bridge migrate full
+aap-bridge migrate
 
 # Quiet: Errors only
-aap-bridge migrate full --quiet
+aap-bridge migrate --quiet
 
 # CI/CD: No live display
-aap-bridge migrate full --disable-progress
+aap-bridge migrate --disable-progress
 
 # Detailed: Extra statistics
-aap-bridge migrate full --show-stats
+aap-bridge migrate --show-stats
 
 # Combined: Quiet + no progress
-aap-bridge migrate full --quiet --disable-progress
+aap-bridge migrate --quiet --disable-progress
 
 ```
 
@@ -387,6 +387,6 @@ Override options via environment:
 ```bash
 export AAP_BRIDGE__LOGGING__CONSOLE_LEVEL=DEBUG
 export AAP_BRIDGE__LOGGING__DISABLE_PROGRESS=true
-aap-bridge migrate full
+aap-bridge migrate
 
 ```

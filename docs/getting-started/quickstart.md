@@ -1,16 +1,16 @@
 # Quick Start
 
-Get AAP Bridge running in 5 minutes.
+Get AAP Bridge running in a few minutes after installation.
 
-## 1. Set Up Environment
+!!! tip "Install first"
+    Complete [Installation](installation.md) (local host, container CLI, or
+    Web UI) before continuing. That guide covers PostgreSQL, `make setup` /
+    compose, and seeding `.env`.
 
-Copy the example environment file:
+## 1. Configure Environment
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your AAP credentials:
+Edit `.env` with your AAP credentials and database URL (created by
+`make setup` or `make init-env`):
 
 ```bash
 # Source AAP instance (read-only token)
@@ -27,19 +27,9 @@ TARGET__TOKEN=your_target_write_token
 MIGRATION_STATE_DB_PATH=postgresql://user:password@localhost:5432/aap_migration
 ```
 
-!!! note "Version-driven API routing"
-    Set `SOURCE__VERSION` and `TARGET__VERSION` (e.g. `2.4`, `2.6`, `2.7`). The tool
-    uses these to select `/api/v2` (2.4 and earlier) or `/api/gateway/v1` plus
-    `/api/controller/v2` (2.5+). Host URLs should be `https://fqdn` only. The
-    source may be upstream AWX — set `SOURCE__VERSION` to the equivalent AAP
-    version (e.g. AWX 24.6.1 → `2.4`). Only AWX 24.6.1 has been tested; see
-    [AWX Migration](../reference/awx-migration.md).
-
-!!! note "API token scope"
-    The source token needs read-only scope (export/prep only read data). The
-    target token needs read/write scope with admin-level access for import and
-    cleanup. See [Configuration](configuration.md#api-token-permissions) for
-    details and `curl` examples.
+For version-driven API routing, token scopes, Vault, and full settings, see
+[Configuration](configuration.md). For AWX sources, see
+[AWX Migration](../reference/awx-migration.md).
 
 ## 2. Validate Configuration
 
@@ -93,23 +83,33 @@ aap-bridge validate
 
 Compares source and target to verify migration success.
 
-## One-Command Migration
+## Interactive Mode (recommended)
 
-For a complete migration in one command:
-
-```bash
-aap-bridge migrate full
-```
-
-This runs all phases sequentially with progress tracking.
-
-## Interactive Mode
-
-Run without arguments for an interactive menu:
+Run without arguments for the interactive menu:
 
 ```bash
 aap-bridge
 ```
+
+Use this for most migrations. The menu runs prep, export, transform, and
+import in separate steps so you can pause after export/transform to load
+credential secrets into Vault (or recreate them on the target) before import.
+Encrypted fields appear as `$encrypted$` on the source API and cannot be
+migrated without that step — see
+[Compatibility Matrix](../reference/compatibility-matrix.md) and
+[Configuration](configuration.md#optional-variables).
+
+## Unattended full pipeline
+
+When Vault (or manual secrets) is already in place and you want a single
+unattended run:
+
+```bash
+aap-bridge migrate
+```
+
+This runs prep → export → transform → import sequentially. Prefer the TUI
+until that secret path is ready.
 
 ## Next Steps
 

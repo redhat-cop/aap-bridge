@@ -103,6 +103,14 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - **Testing – Host-Visible Migration Artifacts**: Bridge dev container bind-mounts
   `exports`, `xformed`, `reports`, `logs`, and `schemas` from the repo root (matching
   the engine service) so prep/export/transform output is visible on the host
+- **Documentation – README and Getting Started**: Slimmed the README to a GitHub
+  front door that links into MkDocs; moved PostgreSQL hardening and install
+  detail into `docs/getting-started/installation.md`; made Quick Start defer to
+  Installation/Configuration; removed duplicated/conflicting migration-order
+  lists from the docs home page (canonical order lives in
+  `docs/user-guide/migration-workflow.md`). Corrected obsolete
+  `aap-bridge migrate full` examples to `aap-bridge migrate`. Added Resource
+  Support Matrix to the MkDocs nav. Addresses #108
 
 ### Fixed
 

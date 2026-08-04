@@ -57,7 +57,8 @@ aap-bridge export
 3. Splits large datasets into multiple files
 4. Tracks export progress in state database
 
-**Export Order:**
+**Export / import order** (canonical — keep this table in sync with the
+implementation; other docs should link here rather than duplicate it):
 
 | Order | Resources | Notes |
 | --- | --- | --- |
@@ -83,6 +84,10 @@ aap-bridge export
 | 20 | Role Definitions | AAP 2.5+ RBAC custom role definitions |
 | 21 | User Role Assignments | |
 | 22 | Team Role Assignments | |
+
+Instance group *objects* are not migrated. Ensure matching instance groups
+already exist on the target before import (RBAC and capacity associations
+resolve by name).
 
 **Output Structure:**
 
@@ -144,7 +149,8 @@ aap-bridge import
 
 **Import Features:**
 
-- **Bulk Operations**: Hosts imported in batches sized to the target's `BULK_HOST_MAX_CREATE` (stock default: 100; API max: 200)
+- **Bulk Operations**: Hosts imported in batches sized to the target's
+  `BULK_HOST_MAX_CREATE` (stock default: 100; API max: 200)
 - **Host-Group Associations**: Hosts are associated with their groups after bulk import
 - **Inventory Source Sync**: After importing inventory sources, the tool triggers a sync and
   waits for completion before moving to constructed and smart inventories
@@ -261,6 +267,10 @@ Role Definitions (AAP 2.5+ RBAC)
 4. **Verify credentials** - Source API token has read-only scope with
    permission to read all resources being migrated; target API token has
    read/write scope with admin-level access to create and modify resources
+5. **Instance groups on target** - Create any referenced instance groups on
+   the target (same names as source) before import
+6. **Encrypted secrets** - Plan Vault or manual re-entry for credential secret
+   fields (`$encrypted$` cannot be read via the API)
 
 ### During Migration
 

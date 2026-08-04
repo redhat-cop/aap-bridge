@@ -183,7 +183,7 @@ docs-serve: venv ## Serve documentation locally
 .PHONY: run-example
 run-example: venv ## Run example migration (requires config)
 	$(require_venv)
-	$(PYTHON) -m aap_migration.cli migrate full --config config/config.yaml --dry-run
+	$(PYTHON) -m aap_migration.cli migrate --config config/config.yaml --dry-run
 
 init-env: ## Initialize .env from .env.example (CLI, containers, and Web UI)
 	@if [ ! -f .env ]; then \

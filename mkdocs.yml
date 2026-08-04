@@ -48,6 +48,7 @@ nav:
       - Architecture: developer-guide/architecture.md
   - Reference:
       - Compatibility Matrix: reference/compatibility-matrix.md
+      - Resource Support Matrix: reference/support-matrix.md
       - AWX Migration: reference/awx-migration.md
       - Changelog: reference/changelog.md
 

@@ -8,13 +8,16 @@ migrations (e.g., 80,000+ hosts).
 
 - **Flexible Setup** - Run AAP Bridge directly on the host or use the optional
   containerized CLI workflow
-- **Web UI** - Add a browser-based workflow for connections, previews, and
-  migration runs with live log streaming
+- **Web UI** - Browser-based workflow for connections, previews, and migration
+  runs with live log streaming
 - **Bulk Operations** - Leverages AAP bulk APIs for high-performance migrations
 - **State Management** - PostgreSQL-backed state tracking with checkpoint/resume
   capability
 - **Idempotency** - Safely resume interrupted migrations without creating
   duplicates
+- **Broad Source Support** - AAP 1.0–2.7 or upstream AWX (equivalent release
+  level) to a same-or-newer target; see the
+  [compatibility matrix](reference/compatibility-matrix.md)
 - **Professional Progress Display** - Rich-based live progress with real-time
   metrics
 - **Flexible Output Modes** - Normal, quiet, CI/CD, and detailed modes
@@ -46,6 +49,10 @@ migrations (e.g., 80,000+ hosts).
 
     Configure AAP Bridge for your environment
 
+- :material-transit-connection-variant: **[Migration Workflow](user-guide/migration-workflow.md)**
+
+    Phases, resource order, checkpoints, and best practices
+
 </div>
 
 ## Architecture Overview
@@ -75,19 +82,9 @@ graph LR
 - **CLI / TUI** - User-friendly command-line interface for host or container use
 - **Web UI / API** - Optional FastAPI + React interface for browser-based runs
 
-## Migration Order
-
-Resources are migrated in dependency order:
-
-1. Organizations, Labels, Users, Teams
-2. Credential Types, Credentials
-3. Execution Environments
-4. Inventories, Inventory Sources, Inventory Groups
-5. Hosts (bulk operations)
-6. Instances, Instance Groups
-7. Projects
-8. Job Templates, Workflows
-9. Schedules
+Resources are migrated in dependency order. See
+[Migration Workflow](user-guide/migration-workflow.md#phase-2-export) for the
+canonical resource order.
 
 ## License
 

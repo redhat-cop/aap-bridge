@@ -254,7 +254,7 @@ aap-bridge config show
 ```bash
 export AAP_BRIDGE__LOGGING__DISABLE_PROGRESS=true
 export AAP_BRIDGE__LOGGING__CONSOLE_LEVEL=INFO
-aap-bridge migrate full
+aap-bridge migrate
 
 ```
 

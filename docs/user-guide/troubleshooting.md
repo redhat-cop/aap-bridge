@@ -324,7 +324,7 @@ Error: 429 Too Many Requests
 ### Enable debug logging
 
 ```bash
-aap-bridge --log-level DEBUG migrate full
+aap-bridge --log-level DEBUG migrate
 
 ```
 

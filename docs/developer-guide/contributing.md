@@ -95,6 +95,26 @@ pairs, `make test-bridge`), see [Testing with Ephemeral AAP Instances](testing.m
 That workflow uses podman on the host and does not require a local Python install for the
 AAP side of the stack.
 
+### Preview documentation
+
+User-facing docs live under `docs/` and are built with MkDocs Material. Most
+readers use GitHub (or the published site); local serve is for contributors
+editing docs.
+
+```bash
+# Live reload (recommended while editing)
+make docs-serve
+# Open http://127.0.0.1:8001
+
+# Or default MkDocs bind
+mkdocs serve
+# Open http://127.0.0.1:8000
+
+# Static build only (writes site/; does not start a server)
+make docs
+# Optional: python -m http.server 8000 --directory site
+```
+
 ### Code Quality
 
 Before submitting:

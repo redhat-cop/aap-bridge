@@ -11,13 +11,21 @@ AAP Bridge supports two workflows:
 The containerized workflow is optional. The original local host setup remains fully supported.
 
 ## Prerequisites
-- **Python 3.12** or higher
-- **PostgreSQL** database (for state management)
-- **uv** package manager (recommended) or pip
-- Network access to source and target AAP instances
+
+- **Python 3.12** or higher (local host install)
+- **PostgreSQL** database for state management (local host install; bundled in
+  container workflows)
+- **uv** package manager (recommended) or pip (local host install)
+- Network access to source and target AAP instances, and to the state database
 - **API tokens**: read-only scope for the source AAP (with permission to read
   all resources being migrated); read/write scope with admin-level access for
-  the target AAP
+  the target AAP. See [Configuration](configuration.md#api-token-permissions).
+- **HashiCorp Vault** (optional but recommended): for migrating encrypted
+  credentials securely
+- **Instance groups**: any instance groups referenced by RBAC role assignments
+  or assigned as capacity to organizations, inventories, or job templates on
+  the source must already exist on the target with the same name. Instance
+  group objects are not migrated; they are resolved by name on the target.
 
 ### Software
 
@@ -74,10 +82,30 @@ All other `make` targets (`test`, `lint`, `docs-serve`, etc.) run tools from
 
 ### Database Setup
 
-Create a PostgreSQL database for migration state:
+The tool requires a PostgreSQL database to track migration state. Create it
+before the first run; tables are created automatically on first use.
+
+If PostgreSQL is not already installed (RHEL / Fedora example):
+
+```bash
+sudo yum install postgresql-server
+sudo postgresql-setup --initdb
+
+# If you use Kerberos or need password auth over TCP, set the IPv4/IPv6
+# local connection METHOD (for example scram-sha-256) in pg_hba.conf:
+#   sudo vi /var/lib/pgsql/data/pg_hba.conf
+#   host    all    all    127.0.0.1/32    scram-sha-256
+#   host    all    all    ::1/128         scram-sha-256
+
+sudo systemctl enable postgresql --now
+```
+
+Create the database and user (as the `postgres` OS user, or via `sudo -u postgres`):
 
 ```bash
 psql -c "CREATE DATABASE aap_migration;"
+# If you changed password encryption, set it before assigning the password:
+# psql -c "SET password_encryption = 'scram-sha-256';"
 psql -c "CREATE USER aap_migration_user WITH PASSWORD 'your_secure_password';"
 psql -c "GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;"
 
@@ -85,19 +113,30 @@ psql -c "GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;"
 psql -d aap_migration -c "GRANT ALL ON SCHEMA public TO aap_migration_user;"
 ```
 
+Test connectivity as a normal user:
+
+```bash
+psql -h localhost -U aap_migration_user -W aap_migration
+```
+
 ### Configure `.env`
 
 `make setup` creates `.env` from `.env.example` if one does not already exist.
-The local and containerized workflows share the same `.env` file and `config/config.yaml`.
-Edit `.env` and fill in your AAP details.
+The local and containerized workflows share the same `.env` file and
+`config/config.yaml`. Edit `.env` and fill in your AAP details.
 
-At minimum, set:
+At minimum, set host-only URLs and versions (see
+[Configuration](configuration.md)):
 
 ```bash
-SOURCE__URL=https://source-aap.example.com/api/v2
-SOURCE__TOKEN=your_source_token
-TARGET__URL=https://target-aap.example.com/api/controller/v2
-TARGET__TOKEN=your_target_token
+SOURCE__URL=https://source-aap.example.com
+SOURCE__VERSION=2.4
+SOURCE__TOKEN=your_source_read_token
+
+TARGET__URL=https://target-aap.example.com
+TARGET__VERSION=2.6
+TARGET__TOKEN=your_target_write_token
+
 MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:your_secure_password@localhost:5432/aap_migration
 ```
 
@@ -107,7 +146,8 @@ MIGRATION_STATE_DB_PATH=postgresql://aap_migration_user:your_secure_password@loc
 ## Container CLI
 
 Run the CLI inside a container while using a bundled PostgreSQL service from `registry.redhat.io`.
-This mode keeps the same host-side `.env` and config files, but you do not need to provision PostgreSQL yourself.
+This mode keeps the same host-side `.env` and config files, but you do not need to provision
+PostgreSQL yourself.
 
 ### Requirements
 
@@ -146,7 +186,9 @@ make shell
   host and starts the db + bridge services.
 - The bridge container bind-mounts those directories (and `./src`, `./tests/unit`) so migration
   artifacts and your working tree are visible on the host without rebuilding the image.
-- The container workflow is intended for the CLI/TUI path; the browser workflow uses the same `.env` from `make init-env` with the dedicated engine and UI services described below.
+- The container workflow is intended for the CLI/TUI path; the browser workflow
+  uses the same `.env` from `make init-env` with the dedicated engine and UI
+  services described below.
 
 ## Web UI
 
@@ -187,7 +229,8 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 - `make up` uses the same self-preparing PostgreSQL container setup as the CLI workflow.
 - The UI proxies `/api` and `/ws` traffic to the FastAPI engine running on port `8000`.
-- For frontend-only development, run `aap-bridge serve --reload` in one terminal and `make web-dev` in another.
+- For frontend-only development, run `aap-bridge serve --reload` in one terminal
+  and `make web-dev` in another.
 
 ## Verify Installation
 

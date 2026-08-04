@@ -46,6 +46,10 @@ in the repository.
 - Export and transform phase order now matches the import dependency order (credential
   types and credentials before projects; users and teams after all content objects).
   Export progress display reflects this order even with parallel export enabled.
+- Documentation overhaul (#108): README is a front door into MkDocs; PostgreSQL and
+  install detail live in Installation; Quick Start defers to Installation/Configuration;
+  canonical resource order is only in Migration Workflow; `migrate full` examples
+  corrected; Resource Support Matrix added to MkDocs nav
 
 **Added:**
 

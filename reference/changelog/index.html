@@ -1232,6 +1232,9 @@ in the repository.</p>
 </ul>
 <p><strong>Bug Fixes:</strong></p>
 <ul>
+<li>Inventory source sync wait no longer hangs after a 405 on <code>update/</code> (removed GET
+  launch fallback that used the source id as the expected job id); wait matches
+  current/last update job fields and recovers from expected-job mismatches</li>
 <li>Cleanup clears export/transform contents without removing mount points; export/transform
   overwrite prompts only when directories contain data</li>
 <li>Phase 2 project sync wait uses <code>project_sync_timeout</code> (not batch interval); ignores

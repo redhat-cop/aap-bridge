@@ -84,9 +84,7 @@ def is_builtin_credential_type(credential_type: dict) -> bool:
     return bool(credential_type.get("namespace"))
 
 
-async def seed_skipped_execution_environments(
-    ctx: MigrationContext, state: MigrationState
-) -> int:
+async def seed_skipped_execution_environments(ctx: MigrationContext, state: MigrationState) -> int:
     """Seed id_mappings for execution environments that are skipped during export.
 
     Built-in EEs (Control Plane, Default, Hub, etc.) are omitted from the
@@ -1100,9 +1098,9 @@ def transform(
                     }
                     for rtype, stats in transform_stats.items()
                 },
-                "schema_comparison_file": str(schema_file)
-                if schema_file and Path(schema_file).exists()
-                else None,
+                "schema_comparison_file": (
+                    str(schema_file) if schema_file and Path(schema_file).exists() else None
+                ),
             }
 
             with open(output_dir / "metadata.json", "w") as f:

@@ -312,7 +312,9 @@ class MigrationService:
                 return value
         return None
 
-    def _validate_preview_job(self, preview_job_id: str, source_id: str, destination_id: str) -> dict:
+    def _validate_preview_job(
+        self, preview_job_id: str, source_id: str, destination_id: str
+    ) -> dict:
         preview_job = self._get_job(preview_job_id)
         if not preview_job or preview_job.type != "migration-preview":
             raise ValueError("Preview job not found")
@@ -371,7 +373,11 @@ class MigrationService:
                         metadata={"status": result.status, "skipped": result.skipped},
                     )
                 else:
-                    summary = "Prep skipped (schemas already exist)" if result.skipped else "Prep completed"
+                    summary = (
+                        "Prep skipped (schemas already exist)"
+                        if result.skipped
+                        else "Prep completed"
+                    )
                     self.job_service.append_log(job_id, summary)
                     self.job_service.mark_completed(job_id)
                     self._finish_job(
@@ -651,7 +657,9 @@ class MigrationService:
                     error_msg = result.message or "Phased migration failed"
                     self.job_service.append_log(job_id, error_msg)
                     self.job_service.mark_failed(job_id, error_msg)
-                    self._finish_job(job_id, "failed", error_msg, metadata={"status": result.status})
+                    self._finish_job(
+                        job_id, "failed", error_msg, metadata={"status": result.status}
+                    )
                 else:
                     self.job_service.append_log(job_id, "Migration completed successfully")
                     self.job_service.mark_completed(job_id)

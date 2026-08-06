@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createJobLogSocket, api } from '../api/client';
 import type { Job } from '../types/resources';
-
-const EVENT_WS_PREFIX = '\t';
+import { isEventMessage, parseEventMessage } from './jobLogEvents';
 
 export interface MigrationEvent {
   _event: string;
@@ -70,18 +69,6 @@ export interface MigrationCompleteEvent extends MigrationEvent {
   total_failed: number;
 }
 
-function isEventMessage(line: string): boolean {
-  return line.charAt(0) === EVENT_WS_PREFIX;
-}
-
-function parseEventMessage(line: string): MigrationEvent | null {
-  try {
-    return JSON.parse(line.slice(1)) as MigrationEvent;
-  } catch {
-    return null;
-  }
-}
-
 export function useJobLogs(jobId: string) {
   const [textLines, setTextLines] = useState<string[]>([]);
   const [events, setEvents] = useState<MigrationEvent[]>([]);
@@ -106,9 +93,9 @@ export function useJobLogs(jobId: string) {
         wsReceivedRef.current = true;
         if (isEventMessage(line)) {
           const evt = parseEventMessage(line);
-          if (evt) setEvents(prev => [...prev, evt]);
+          if (evt) setEvents((prev) => [...prev, evt]);
         } else {
-          setTextLines(prev => [...prev, line]);
+          setTextLines((prev) => [...prev, line]);
         }
         setStatus('streaming');
       },

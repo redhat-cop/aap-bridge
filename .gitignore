@@ -231,6 +231,9 @@ GEMINI.md
 # Workflow / Plane / Outline staging artifacts (local-only)
 workflow/
 
+# ansible-lint / ansible local cache
+.ansible/
+
 # Integration testing infrastructure (ephemeral AAP containers)
 tests/integration/files/aap-installer-bundles/
 tests/integration/generated/
@@ -247,3 +250,4 @@ project.yaml
 # Web UI
 web/node_modules/
 web/dist/
+web/coverage/

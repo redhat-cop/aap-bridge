@@ -57,10 +57,12 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
     "pytest-xdist>=3.5.0",
-    "black>=23.12.0",
+    "black>=24.8.0",
     "ruff>=0.1.8",
     "mypy>=1.7.1",
     "pre-commit>=3.6.0",
+    "ansible-lint>=26.1.0",
+    "ansible-core>=2.16.14",
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "websockets>=13.0",
@@ -119,6 +121,8 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
+known_first_party = ["aap_migration"]
+src_paths = ["src", "tests"]
 
 [tool.ruff]
 line-length = 100
@@ -142,6 +146,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aap_migration"]
 
 [tool.mypy]
 python_version = "3.12"

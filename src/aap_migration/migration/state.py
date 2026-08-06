@@ -18,10 +18,7 @@ from sqlalchemy import func
 from aap_migration.client.exceptions import StateError
 from aap_migration.config import StateConfig
 from aap_migration.migration.database import get_session, init_database
-from aap_migration.migration.models import (
-    IDMapping,
-    MigrationProgress,
-)
+from aap_migration.migration.models import IDMapping, MigrationProgress
 from aap_migration.utils.logging import get_logger, redact_database_url
 
 logger = get_logger(__name__)

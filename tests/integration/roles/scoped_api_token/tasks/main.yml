@@ -108,7 +108,12 @@
 
     - name: Resolve oauth2 token result
       ansible.builtin.set_fact:
-        scoped_api_token: "{{ (_token_oauth2.stdout | default('') | trim | split('\n') | last | trim) if (_token_oauth2.stdout | default('') | trim | length > 0) else '' }}"
+        scoped_api_token: >-
+          {{
+            (_token_oauth2.stdout | default('') | trim | split('\n') | last | trim)
+            if (_token_oauth2.stdout | default('') | trim | length > 0)
+            else ''
+          }}
 
 - name: Require scoped API token
   ansible.builtin.fail:

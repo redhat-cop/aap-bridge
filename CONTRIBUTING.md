@@ -1,72 +1,46 @@
 # Contributing to AAP Bridge
 
-First off, thanks for taking the time to contribute!
+Thanks for contributing!
 
-The following is a set of guidelines for contributing to AAP Bridge. These are
-mostly guidelines, not rules. Use your best judgment, and feel free to propose
-changes to this document in a pull request.
+This project follows the [AAP Bridge Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Code of Conduct
+## Full developer guide
 
-This project and everyone participating in it is governed by the [AAP Bridge
-Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to
-uphold this code.
+The complete contributing guide — setup, tests, style, resource types, and
+release process — lives in the docs:
 
-## How Can I Contribute?
+- **In this repo:** [docs/developer-guide/contributing.md](docs/developer-guide/contributing.md)
+- **Published:** https://redhat-cop.github.io/aap-bridge/developer-guide/contributing/
 
-### Reporting Bugs
+Please read that guide before opening a PR. The notes below are a short
+checklist only.
 
-This section guides you through submitting a bug report for AAP Bridge.
-Following these guidelines helps maintainers and the community understand your
-report, reproduce the behavior, and find related reports.
-
-- **Use the Issue Search** to see if the problem has already been reported.
-- **Check if the issue has been fixed** by trying to reproduce it using the
-  latest `main` branch.
-- **Open a new Issue** and provide as much detail as possible:
-  - **Use a clear and descriptive title.**
-  - **Describe the exact steps which reproduce the problem.**
-  - **Provide specific examples to demonstrate the steps.**
-  - **Describe the behavior you observed after following the steps.**
-  - **Explain which behavior you expected to see instead and why.**
-  - **Include logs** (scrubbed of secrets!).
-
-### Pull Requests
-
-1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. If you've changed APIs, update the documentation.
-4. Ensure the test suite passes.
-5. Make sure your code lints.
-
-## Development Setup
-
-`make setup` creates `.venv` and installs dev dependencies. It uses **uv** when
-available, otherwise **stdlib venv + pip**. Pass `USE_UV=0` to force the pip path.
+## Quick start
 
 ```bash
-make setup
+make setup                 # creates .venv, installs deps, installs git hooks
 source .venv/bin/activate  # only needed for interactive aap-bridge usage
+make check                 # format + lint + typecheck + tests
 ```
 
-## Styleguides
+`make setup` runs `pre-commit install`. Hooks run on commit (format, lint, unit
+tests, gitleaks, and ansible-lint for integration Ansible). CI enforces the same
+checks even if you skipped hook install — see the developer guide.
 
-### Git Commit Messages
+## Pull requests
 
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
+1. Fork and branch from `main`.
+2. Add tests for new behavior; update docs for API/CLI changes.
+3. Run `make check` (and `make web-build` / `make web-test` / `make ansible-lint`
+   when those areas change).
+4. Open a PR with a clear description.
 
-### Python Style
+## Reporting bugs
 
-- We use `black` for formatting.
-- We use `ruff` for linting.
-- We use `mypy` for type checking.
-
-Run `make check` before submitting your PR to run all these tools.
+Search existing issues first, then open a new one with a clear title, steps to
+reproduce, expected vs actual behavior, and scrubbed logs.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under its
-MIT License.
+By contributing, you agree that your contributions will be licensed under the
+GPL-3.0 License.

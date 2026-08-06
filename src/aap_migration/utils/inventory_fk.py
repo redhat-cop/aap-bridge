@@ -15,7 +15,7 @@ def normalize_input_inventories_to_source_ids(value: Any) -> list[int]:
     Accepts a list of integers, dicts with ``id``, or inventory URL strings.
     Order is preserved; duplicates are dropped.
     """
-    if not value or not isinstance(value, (list, tuple)):
+    if not value or not isinstance(value, list | tuple):
         return []
     seen: set[int] = set()
     out: list[int] = []

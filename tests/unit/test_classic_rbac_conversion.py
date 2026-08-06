@@ -20,9 +20,7 @@ class TestClassicRoleDefinitionName:
             ("credentials", "Use", "Credential Use"),
         ],
     )
-    def test_maps_managed_roles(
-        self, resource_type: str, role_name: str, expected: str
-    ) -> None:
+    def test_maps_managed_roles(self, resource_type: str, role_name: str, expected: str) -> None:
         assert classic_role_definition_name(resource_type, role_name) == expected
 
 
@@ -33,9 +31,7 @@ class TestClassicGrantConversion:
             "content_resource_type": "job_templates",
             "content_source_id": 7,
         }
-        row = classic_user_grant_to_assignment(
-            grant, user_source_id=4, assignment_source_id=1
-        )
+        row = classic_user_grant_to_assignment(grant, user_source_id=4, assignment_source_id=1)
         assert row == {
             "_source_id": 1,
             "content_type": "awx.jobtemplate",
@@ -50,9 +46,7 @@ class TestClassicGrantConversion:
             "content_resource_type": "projects",
             "content_source_id": 6,
         }
-        row = classic_team_grant_to_assignment(
-            grant, team_source_id=2, assignment_source_id=9
-        )
+        row = classic_team_grant_to_assignment(grant, team_source_id=2, assignment_source_id=9)
         assert row == {
             "_source_id": 9,
             "content_type": "awx.project",
@@ -67,9 +61,7 @@ class TestClassicGrantConversion:
             "content_resource_type": "organizations",
             "content_source_id": 1,
         }
-        row = classic_user_grant_to_assignment(
-            grant, user_source_id=3, assignment_source_id=2
-        )
+        row = classic_user_grant_to_assignment(grant, user_source_id=3, assignment_source_id=2)
         assert row is not None
         assert row["role_definition_name"] == "Organization Member"
         assert row["content_type"] == "awx.organization"

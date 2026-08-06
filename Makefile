@@ -1,10 +1,10 @@
 .PHONY: help install install-dev clean format lint typecheck test test-unit test-integration \
-       test-performance test-cov check docs docs-serve \
+       test-performance test-cov check docs docs-serve ansible-lint \
        init-env setup version venv install-editable all \
        build build-api build-ui build-all up up-dev down down-all shell shell-engine logs \
        ensure-bridge-dev-image ensure-api-ui-images \
        c-test c-test-all c-lint c-format c-typecheck c-check \
-       web-install web-dev web-build serve \
+       web-install web-dev web-build web-test serve \
        build-builder build-aap-bases build-aap build-aap-all ensure-podman-socket \
        push-aap pull-aap list-golden \
        run-pair down-pair stop-pair reset-pair destroy-pair destroy-all \
@@ -170,6 +170,14 @@ pre-commit: venv ## Run pre-commit hooks on all files
 	$(require_venv)
 	$(PYTHON) -m pre_commit run --all-files
 
+.PHONY: ansible-lint
+ansible-lint: ## Lint integration Ansible playbooks/roles (offline)
+	@command -v ansible-lint >/dev/null 2>&1 || { \
+		echo "ansible-lint not found. Install via: make setup  (needs ansible-lint>=26.1 and ansible-core>=2.16.14)"; \
+		exit 1; \
+	}
+	cd tests/integration && ansible-lint --offline
+
 docs: venv ## Build documentation
 	$(require_venv)
 	$(PIP) install -e ".[docs]"
@@ -319,6 +327,9 @@ web-dev: ## Start Vite dev server (proxies API to localhost:8000)
 
 web-build: ## Build frontend for production
 	cd web && npm run build
+
+web-test: ## Run frontend unit tests (vitest)
+	cd web && npm run test:unit
 
 serve: ## Start FastAPI API server (requires pip install '.[api]')
 	aap-bridge serve --host 0.0.0.0 --port 8000

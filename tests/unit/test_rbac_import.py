@@ -90,9 +90,7 @@ class TestRoleAssignmentDedupeKey:
                 "user": {"id": 47, "username": "jadoe"},
             },
         }
-        key = RoleAssignmentListExporter._assignment_dedupe_key(
-            resource, "role_user_assignments"
-        )
+        key = RoleAssignmentListExporter._assignment_dedupe_key(resource, "role_user_assignments")
         assert key == ("awx.organization", "1", "Organization Member", "jadoe")
 
     def test_seen_ids_are_scoped_per_api_base(self) -> None:
@@ -124,9 +122,7 @@ class TestResolveAssignmentUserId:
         )
         client = MagicMock()
         client.api_layout = layout
-        client.get_on_base = AsyncMock(
-            return_value={"results": [{"id": 25, "username": "jdoe"}]}
-        )
+        client.get_on_base = AsyncMock(return_value={"results": [{"id": 25, "username": "jdoe"}]})
         state = MagicMock()
 
         resolved = await _resolve_assignment_user_id(

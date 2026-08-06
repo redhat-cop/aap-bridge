@@ -104,9 +104,7 @@ class PhaseProgressState:
         if time_delta > 0:
             # Calculate items processed since last update (includes skipped and failed)
             items_delta = (
-                (completed - self.completed)
-                + (skipped - self.skipped)
-                + (failed - self.failed)
+                (completed - self.completed) + (skipped - self.skipped) + (failed - self.failed)
             )
             rate = items_delta / time_delta
             self.rate_history.append(rate)
@@ -613,10 +611,10 @@ class MigrationProgressDisplay:
 
             # complete_phase is an explicit end-of-phase signal: always force ✓ 100%.
             # We cannot rely on state.status_text here because concurrent callbacks
-            # from delete_resources_parallel may have left total_processed < total_items
-            # (e.g. the rendering thread captures a mid-progress frame), causing
-            # status_text to return "running" and the spinner to persist.
-            total_processed = state.completed + state.skipped + state.failed
+            # from delete_resources_parallel may have left completed+skipped+failed
+            # below total_items (e.g. the rendering thread captures a mid-progress
+            # frame), causing status_text to return "running" and the spinner to
+            # persist.
 
             # Warn only on real failures. Zero processed with non-zero total_items
             # is not a warning — it means all resources were already gone (e.g.

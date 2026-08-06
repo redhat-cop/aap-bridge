@@ -1,7 +1,8 @@
 """Tests for target bulk settings helpers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from aap_migration.client.bulk_settings import (
     BULK_HOST_MAX_CREATE_DEFAULT,

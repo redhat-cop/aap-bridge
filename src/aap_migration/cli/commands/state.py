@@ -8,11 +8,7 @@ including viewing mappings, resetting state, and inspecting progress.
 import click
 
 from aap_migration.cli.context import MigrationContext
-from aap_migration.cli.decorators import (
-    handle_errors,
-    pass_context,
-    requires_config,
-)
+from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
 from aap_migration.cli.utils import (
     echo_error,
     echo_info,

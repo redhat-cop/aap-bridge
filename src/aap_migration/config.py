@@ -8,11 +8,11 @@ import os
 from pathlib import Path
 
 import yaml
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aap_migration.client.api_layout import normalize_host_url, parse_aap_major_minor
 from aap_migration.utils.logging import get_logger
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def normalize_aap_version(version: str) -> str:

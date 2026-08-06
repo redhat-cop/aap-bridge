@@ -1,9 +1,7 @@
 """Unit tests for web connection AAP client helpers."""
 
 from aap_migration.api.models import Connection
-from aap_migration.api.services.connection_client import (
-    create_connection_client,
-)
+from aap_migration.api.services.connection_client import create_connection_client
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.api_layout import CONTROLLER_API_PREFIX, GATEWAY_API_PREFIX
@@ -39,5 +37,3 @@ def test_create_connection_client_uses_source_for_source_role() -> None:
 
     assert isinstance(client, AAPSourceClient)
     assert client._build_url("organizations/").endswith("/api/v2/organizations/")
-
-

@@ -10,10 +10,7 @@ from typing import Any
 import hvac
 from hvac.exceptions import VaultError as HvacVaultError
 
-from aap_migration.client.exceptions import (
-    VaultAuthenticationError,
-    VaultError,
-)
+from aap_migration.client.exceptions import VaultAuthenticationError, VaultError
 from aap_migration.config import VaultConfig
 from aap_migration.utils.logging import get_logger
 

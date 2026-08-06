@@ -15,13 +15,7 @@ import click
 
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
-from aap_migration.cli.utils import (
-    echo_error,
-    echo_info,
-    echo_success,
-    echo_warning,
-    step_progress,
-)
+from aap_migration.cli.utils import echo_error, echo_info, echo_success, echo_warning, step_progress
 from aap_migration.migration.importer import wait_for_project_sync
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.utils.logging import get_logger
@@ -358,9 +352,7 @@ async def patch_project_scm_details(
 
         # Abort if any projects permanently failed and fail_on_failure is set
         if permanently_failed_ids and fail_on_failure:
-            failed_names = [
-                target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
-            ]
+            failed_names = [target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids]
             # Only echo_error when running standalone (no Live display active).
             # When called from run_import(), the Live display is active and a raw
             # stderr write here races with the auto-refresh cycle, leaving an orphan
@@ -375,9 +367,7 @@ async def patch_project_scm_details(
                 )
             raise ProjectSyncFailedError(failed_names)
         elif permanently_failed_ids:
-            failed_names = [
-                target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids
-            ]
+            failed_names = [target_id_to_name.get(pid, str(pid)) for pid in permanently_failed_ids]
             if not progress_display:
                 echo_warning(
                     f"{len(permanently_failed_ids)} project(s) failed to sync after "

@@ -11,18 +11,9 @@ The prep phase produces:
 - schema_comparison.json: Diff and transformation rules
 """
 
-from aap_migration.prep.endpoint_discovery import (
-    discover_endpoints,
-    save_endpoints,
-)
-from aap_migration.prep.schema_comparison import (
-    compare_schemas,
-    save_comparison,
-)
-from aap_migration.prep.schema_generator import (
-    generate_schema,
-    save_schema,
-)
+from aap_migration.prep.endpoint_discovery import discover_endpoints, save_endpoints
+from aap_migration.prep.schema_comparison import compare_schemas, save_comparison
+from aap_migration.prep.schema_generator import generate_schema, save_schema
 
 __all__ = [
     "discover_endpoints",

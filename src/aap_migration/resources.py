@@ -237,10 +237,16 @@ COMPATIBILITY_MATRIX: list[VersionPath] = [
 ]
 
 SUPPORTED_SOURCE_VERSIONS: tuple[str, ...] = tuple(
-    sorted({path.source for path in COMPATIBILITY_MATRIX}, key=lambda v: tuple(int(p) for p in v.split(".")))
+    sorted(
+        {path.source for path in COMPATIBILITY_MATRIX},
+        key=lambda v: tuple(int(p) for p in v.split(".")),
+    )
 )
 SUPPORTED_TARGET_VERSIONS: tuple[str, ...] = tuple(
-    sorted({path.target for path in COMPATIBILITY_MATRIX}, key=lambda v: tuple(int(p) for p in v.split(".")))
+    sorted(
+        {path.target for path in COMPATIBILITY_MATRIX},
+        key=lambda v: tuple(int(p) for p in v.split(".")),
+    )
 )
 
 

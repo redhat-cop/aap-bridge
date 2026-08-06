@@ -20,10 +20,7 @@ from aap_migration.migration.transformer import SkipResourceError, create_transf
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.reporting.progress import ProgressTracker
 from aap_migration.reporting.report import generate_migration_report
-from aap_migration.resources import (
-    ORGANIZATION_SCOPED_RESOURCES,
-    PARENT_SCOPED_RESOURCES,
-)
+from aap_migration.resources import ORGANIZATION_SCOPED_RESOURCES, PARENT_SCOPED_RESOURCES
 from aap_migration.schema.comparator import SchemaComparator
 from aap_migration.schema.models import ComparisonResult
 from aap_migration.utils.logging import get_logger
@@ -1328,12 +1325,12 @@ class MigrationCoordinator:
 
         summary = {
             "migration_id": self.state.migration_id,
-            "status": "completed"
-            if self.metrics["phases_failed"] == 0
-            else "completed_with_errors",
-            "start_time": self.metrics["start_time"].isoformat()
-            if self.metrics["start_time"]
-            else None,
+            "status": (
+                "completed" if self.metrics["phases_failed"] == 0 else "completed_with_errors"
+            ),
+            "start_time": (
+                self.metrics["start_time"].isoformat() if self.metrics["start_time"] else None
+            ),
             "end_time": self.metrics["end_time"].isoformat() if self.metrics["end_time"] else None,
             "duration_seconds": duration,
             "phases_completed": self.metrics["phases_completed"],

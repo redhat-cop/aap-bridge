@@ -9,7 +9,9 @@ router = APIRouter(tags=["jobs"])
 
 
 @router.get("/jobs", response_model=list[JobResponse])
-def list_jobs(limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)) -> list[JobResponse]:
+def list_jobs(
+    limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)
+) -> list[JobResponse]:
     jobs = db.query(Job).order_by(Job.started_at.desc()).limit(limit).all()
     return [JobResponse.model_validate(j) for j in jobs]
 

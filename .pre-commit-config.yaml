@@ -1,0 +1,90 @@
+# See https://pre-commit.com for usage.
+# Installed by `make setup` / `make install-dev` via `pre-commit install`.
+# CI runs the same hooks with: pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # MkDocs uses custom YAML tags; Ansible Jinja is covered by ansible-lint.
+        exclude: ^(tests/integration/|mkdocs\.yml$)
+        args: [--unsafe]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  - repo: https://gitlab.com/schmieder.matthias/python-kacl
+    rev: v0.7.3
+    hooks:
+      - id: kacl-verify
+
+  - repo: local
+    hooks:
+      - id: changelog-periods
+        name: CHANGELOG trailing periods (Keep a Changelog)
+        # Prefer local .venv; fall back to PATH python for CI.
+        entry: bash -c 'if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python; fi; exec "$PY" tools/check_changelog_periods.py'
+        language: system
+        pass_filenames: false
+        files: ^(CHANGELOG\.md|docs/reference/changelog\.md)$
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3.12
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=100, -p=aap_migration]
+        files: ^(src|tests)/.*\.py$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src|tests)/.*\.py$
+
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest unit tests
+        # Prefer local .venv (make setup); fall back to PATH python for CI.
+        entry: bash -c 'if [ -x .venv/bin/python ]; then exec .venv/bin/python -m pytest tests/unit -q --no-cov; else exec python -m pytest tests/unit -q --no-cov; fi'
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^(src|tests)/.*\.py$
+
+      - id: ansible-lint
+        name: ansible-lint (tests/integration)
+        entry: bash -c 'cd tests/integration && ansible-lint --offline'
+        language: system
+        pass_filenames: false
+        files: ^tests/integration/.*\.(yml|yaml)$
+
+      - id: web-build
+        name: web typecheck and build
+        entry: bash -c 'cd web && test -d node_modules || { echo "Run make web-install first"; exit 1; }; npm run build'
+        language: system
+        pass_filenames: false
+        files: ^web/
+
+      - id: web-vitest
+        name: vitest unit tests (web)
+        entry: bash -c 'cd web && test -d node_modules || { echo "Run make web-install first"; exit 1; }; npm run test:unit'
+        language: system
+        pass_filenames: false
+        files: ^web/

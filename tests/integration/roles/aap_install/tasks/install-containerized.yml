@@ -49,19 +49,27 @@
 
     - name: Run containerized installer playbook as aap user
       ansible.builtin.command:
-        cmd: >
+        cmd: >-
           podman exec --user aap
-            -e XDG_RUNTIME_DIR=/run/user/1000
-            -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-            {{ container_name }}
-            bash -c "cd {{ installer_dir }} && ansible-playbook -i inventory ansible.containerized_installer.install -e bundle_install=true -e bundle_dir={{ installer_dir }}/bundle -e tune_host_limits=false --become"
+          -e XDG_RUNTIME_DIR=/run/user/1000
+          -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+          {{ container_name }}
+          bash -c
+          "cd {{ installer_dir }}
+          && ansible-playbook -i inventory ansible.containerized_installer.install
+          -e bundle_install=true
+          -e bundle_dir={{ installer_dir }}/bundle
+          -e tune_host_limits=false
+          --become"
       register: install_result
       timeout: 5400
 
     - name: Recover crashed nested containers (stale overlay state after install)
       ansible.builtin.shell:
         cmd: |
+          set -o pipefail
           podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} bash -c '
+            set -o pipefail
             for ctr in postgresql receptor; do
               STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null)
               if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ]; then

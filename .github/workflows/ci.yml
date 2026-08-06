@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install pre-commit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pre-commit
+
+      - name: Run gitleaks
+        run: pre-commit run gitleaks --all-files --show-diff-on-failure
+
+  python:
+    name: Python (pre-commit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      # gitleaks, ansible-lint, and web hooks run in their own jobs for visibility.
+      - name: Run pre-commit
+        env:
+          SKIP: gitleaks,ansible-lint,web-build,web-vitest
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  ansible:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ansible:
+              - 'tests/integration/**'
+              - '.github/workflows/ci.yml'
+              - '.pre-commit-config.yaml'
+
+      - name: Skip when Ansible unchanged
+        if: steps.filter.outputs.ansible != 'true'
+        run: echo "No tests/integration/ changes; skipping ansible-lint."
+
+      - uses: actions/setup-python@v6
+        if: steps.filter.outputs.ansible == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ansible-lint
+        if: steps.filter.outputs.ansible == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-lint>=26.1.0" "ansible-core>=2.16.14"
+
+      - name: ansible-lint --offline
+        if: steps.filter.outputs.ansible == 'true'
+        working-directory: tests/integration
+        run: ansible-lint --offline
+
+  web:
+    name: Web build and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'web/**'
+              - '.github/workflows/ci.yml'
+              - '.pre-commit-config.yaml'
+
+      - name: Skip when web unchanged
+        if: steps.filter.outputs.web != 'true'
+        run: echo "No web/ changes; skipping build and tests."
+
+      - uses: actions/setup-node@v4
+        if: steps.filter.outputs.web == 'true'
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install, build, and test
+        if: steps.filter.outputs.web == 'true'
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          npm run test:unit

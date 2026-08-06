@@ -42,5 +42,3 @@ async def fetch_resources_with_client(
         return await client.list_resources(resource_type, page_size=200)
     endpoint = get_endpoint(resource_type)
     return await client.get_paginated(endpoint, page_size=200)
-
-

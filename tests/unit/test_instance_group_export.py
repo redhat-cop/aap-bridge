@@ -14,7 +14,12 @@ from aap_migration.migration.exporter import (
 @pytest.mark.asyncio
 async def test_fetch_instance_group_names_preserves_order():
     client = MagicMock()
-    client.api_layout = ApiLayout(host_url="https://aap", mode=ApiMode.LEGACY, aap_version="2.4", legacy_base="https://aap/api/v2")
+    client.api_layout = ApiLayout(
+        host_url="https://aap",
+        mode=ApiMode.LEGACY,
+        aap_version="2.4",
+        legacy_base="https://aap/api/v2",
+    )
     client.get_paginated = AsyncMock(
         return_value=[
             {"id": 3, "name": "Custom Instance Group 1"},
@@ -30,15 +35,18 @@ async def test_fetch_instance_group_names_preserves_order():
         "Custom Instance Group 2",
         "Container Group 1",
     ]
-    client.get_paginated.assert_called_once_with(
-        "organizations/2/instance_groups/", page_size=200
-    )
+    client.get_paginated.assert_called_once_with("organizations/2/instance_groups/", page_size=200)
 
 
 @pytest.mark.asyncio
 async def test_fetch_instance_group_names_on_error_returns_empty():
     client = MagicMock()
-    client.api_layout = ApiLayout(host_url="https://aap", mode=ApiMode.LEGACY, aap_version="2.4", legacy_base="https://aap/api/v2")
+    client.api_layout = ApiLayout(
+        host_url="https://aap",
+        mode=ApiMode.LEGACY,
+        aap_version="2.4",
+        legacy_base="https://aap/api/v2",
+    )
     client.get_paginated = AsyncMock(side_effect=RuntimeError("boom"))
 
     names = await _fetch_instance_group_names(client, "inventory", 23)
@@ -49,10 +57,13 @@ async def test_fetch_instance_group_names_on_error_returns_empty():
 @pytest.mark.asyncio
 async def test_attach_instance_group_names():
     client = MagicMock()
-    client.api_layout = ApiLayout(host_url="https://aap", mode=ApiMode.LEGACY, aap_version="2.4", legacy_base="https://aap/api/v2")
-    client.get_paginated = AsyncMock(
-        return_value=[{"id": 3, "name": "Custom Instance Group 1"}]
+    client.api_layout = ApiLayout(
+        host_url="https://aap",
+        mode=ApiMode.LEGACY,
+        aap_version="2.4",
+        legacy_base="https://aap/api/v2",
     )
+    client.get_paginated = AsyncMock(return_value=[{"id": 3, "name": "Custom Instance Group 1"}])
     resource = {"id": 38, "name": "Demo JT"}
 
     await _attach_instance_group_names(client, resource, "job_templates")

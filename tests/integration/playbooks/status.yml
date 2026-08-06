@@ -12,10 +12,13 @@
   tasks:
     - name: List running containers
       ansible.builtin.command:
-        cmd: >
+        cmd: >-
           podman ps -a
-            --filter label=io.aap-bridge.role=aap-instance
-            --format 'table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}\t{{ "{{" }}index .Labels "io.aap-bridge.version"{{ "}}" }}\t{{ "{{" }}index .Labels "io.aap-bridge.suffix"{{ "}}" }}'
+          --filter label=io.aap-bridge.role=aap-instance
+          --format 'table
+          {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Status{{ "}}" }}\t{{ "{{" }}.Ports{{ "}}" }}
+          \t{{ "{{" }}index .Labels "io.aap-bridge.version"{{ "}}" }}
+          \t{{ "{{" }}index .Labels "io.aap-bridge.suffix"{{ "}}" }}'
       register: containers
       changed_when: false
       failed_when: false

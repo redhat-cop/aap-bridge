@@ -4,10 +4,7 @@ import pytest
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.connection_layout import resolve_connection_version
-from aap_migration.client.api_layout import (
-    CONTROLLER_API_PREFIX,
-    GATEWAY_API_PREFIX,
-)
+from aap_migration.client.api_layout import CONTROLLER_API_PREFIX
 
 
 @pytest.mark.parametrize(

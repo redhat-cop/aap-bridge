@@ -5,10 +5,10 @@ from aap_migration.api.dependencies import get_app_state, get_db
 from aap_migration.api.models import Connection, Job
 from aap_migration.api.schemas import (
     JobCreatedResponse,
+    MigrateImportRequest,
+    MigratePairRequest,
     MigratePrepRequest,
     MigratePreviewRequest,
-    MigratePairRequest,
-    MigrateImportRequest,
     MigrateRunRequest,
     MigrationPreviewResponse,
 )
@@ -28,7 +28,9 @@ def _validate_migration_connections(source: Connection, dest: Connection) -> Non
     if source.role != "source":
         raise HTTPException(status_code=400, detail="Source connection must have source role")
     if dest.role != "destination":
-        raise HTTPException(status_code=400, detail="Destination connection must have destination role")
+        raise HTTPException(
+            status_code=400, detail="Destination connection must have destination role"
+        )
 
 
 ACTIVE_JOB_TYPES = (
@@ -44,9 +46,7 @@ ACTIVE_JOB_TYPES = (
 
 def _has_active_jobs(db: Session, job_types: tuple[str, ...]) -> bool:
     return (
-        db.query(Job)
-        .filter(Job.status.in_(ACTIVE_JOB_STATUSES), Job.type.in_(job_types))
-        .first()
+        db.query(Job).filter(Job.status.in_(ACTIVE_JOB_STATUSES), Job.type.in_(job_types)).first()
         is not None
     )
 
@@ -133,7 +133,9 @@ def start_cleanup(data: MigratePreviewRequest, db: Session = Depends(get_db)) ->
         raise HTTPException(status_code=404, detail="Connection not found")
     _validate_migration_connections(source, dest)
     if _has_active_jobs(db, ACTIVE_JOB_TYPES):
-        raise HTTPException(status_code=409, detail="Cannot start cleanup while another migration job is active")
+        raise HTTPException(
+            status_code=409, detail="Cannot start cleanup while another migration job is active"
+        )
     state = get_app_state()
     from aap_migration.api.services.migration_service import MigrationService
 
@@ -151,7 +153,9 @@ def start_export(data: MigratePairRequest, db: Session = Depends(get_db)) -> Job
         raise HTTPException(status_code=404, detail="Connection not found")
     _validate_migration_connections(source, dest)
     if _has_active_jobs(db, ACTIVE_JOB_TYPES):
-        raise HTTPException(status_code=409, detail="Cannot start export while another migration job is active")
+        raise HTTPException(
+            status_code=409, detail="Cannot start export while another migration job is active"
+        )
     state = get_app_state()
     from aap_migration.api.services.migration_service import MigrationService
 
@@ -169,7 +173,9 @@ def start_transform(data: MigratePairRequest, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=404, detail="Connection not found")
     _validate_migration_connections(source, dest)
     if _has_active_jobs(db, ACTIVE_JOB_TYPES):
-        raise HTTPException(status_code=409, detail="Cannot start transform while another migration job is active")
+        raise HTTPException(
+            status_code=409, detail="Cannot start transform while another migration job is active"
+        )
     state = get_app_state()
     from aap_migration.api.services.migration_service import MigrationService
 
@@ -187,7 +193,9 @@ def start_import(data: MigrateImportRequest, db: Session = Depends(get_db)) -> J
         raise HTTPException(status_code=404, detail="Connection not found")
     _validate_migration_connections(source, dest)
     if _has_active_jobs(db, ACTIVE_JOB_TYPES):
-        raise HTTPException(status_code=409, detail="Cannot start import while another migration job is active")
+        raise HTTPException(
+            status_code=409, detail="Cannot start import while another migration job is active"
+        )
     state = get_app_state()
     from aap_migration.api.services.migration_service import MigrationService
 
@@ -205,11 +213,7 @@ def clear_state(db: Session = Depends(get_db)) -> dict:
 
     from aap_migration.api.services.cli_workflows import clear_migration_state_only
 
-    active_jobs = (
-        db.query(Job)
-        .filter(Job.status.in_(ACTIVE_JOB_STATUSES))
-        .count()
-    )
+    active_jobs = db.query(Job).filter(Job.status.in_(ACTIVE_JOB_STATUSES)).count()
     if active_jobs:
         raise HTTPException(
             status_code=409,

@@ -219,8 +219,16 @@
 - name: Recreate nested containers to fix stale overlay state (golden image startup)
   ansible.builtin.shell:
     cmd: |
+      set -o pipefail
       podman exec --user aap -e XDG_RUNTIME_DIR=/run/user/1000 {{ container_name }} bash -c '
-        for ctr in postgresql redis-unix redis-tcp automation-gateway automation-gateway-proxy receptor automation-controller-web automation-controller-task automation-controller-rsyslog automation-metrics-web automation-metrics-tasks automation-metrics-scheduler; do
+        set -o pipefail
+        for ctr in \
+          postgresql redis-unix redis-tcp automation-gateway \
+          automation-gateway-proxy receptor automation-controller-web \
+          automation-controller-task automation-controller-rsyslog \
+          automation-metrics-web automation-metrics-tasks \
+          automation-metrics-scheduler
+        do
           STATUS=$(podman inspect "$ctr" --format "{{ '{{' }}.State.Status{{ '}}' }}" 2>/dev/null) || continue
           if [ "$STATUS" = "exited" ] || [ "$STATUS" = "dead" ] || [ "$STATUS" = "configured" ]; then
             CREATE_CMD=$(podman inspect "$ctr" --format "{{ '{{' }}json .Config.CreateCommand{{ '}}' }}")
@@ -239,8 +247,10 @@
 
 - name: Report container created
   ansible.builtin.debug:
-    msg: >
+    msg: >-
       Container '{{ container_name }}' running AAP {{ aap_version }}
       ({{ 'from golden image' if use_golden_image else 'from base image - AAP not yet installed' }}).
-      {{ 'Envoy port: ' + ((port_base | int + port_offset_envoy) | string) + ' (UI + API)' if ver_config.installer.method | default('rpm') == 'containerized' else '' }}
+      {% if ver_config.installer.method | default('rpm') == 'containerized' %}
+      Envoy port: {{ (port_base | int + port_offset_envoy) | string }} (UI + API)
+      {% endif %}
       Controller port: {{ port_base | int + port_offset_controller }}

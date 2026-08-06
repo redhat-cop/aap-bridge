@@ -1344,7 +1344,9 @@ class CredentialTypeImporter(ResourceImporter):
 
                     # Precheck can miss edge-cases on reruns; if CREATE says it already
                     # exists, map by name and mark completed to keep phase1 idempotent.
-                    existing_results = await self.client.get("credential_types/", params={"name": name})
+                    existing_results = await self.client.get(
+                        "credential_types/", params={"name": name}
+                    )
                     existing_resources = existing_results.get("results", [])
                     if not existing_resources:
                         raise
@@ -1507,9 +1509,7 @@ class UserImporter(ResourceImporter):
             skipped_unmapped=skipped_unmapped,
         )
 
-    async def sync_team_memberships_for_existing_users(
-        self, users: list[dict[str, Any]]
-    ) -> None:
+    async def sync_team_memberships_for_existing_users(self, users: list[dict[str, Any]]) -> None:
         """Sync memberships for users skipped by create/update import path.
 
         Import pre-check may detect users already existing in target and skip
@@ -1586,7 +1586,9 @@ class UserImporter(ResourceImporter):
             # Team memberships are exported separately from user fields.
             # Keep them for post-create association calls, but do not include in create payload.
             team_source_ids = [
-                int(team_id) for team_id in (data.pop("_team_source_ids", []) or []) if team_id is not None
+                int(team_id)
+                for team_id in (data.pop("_team_source_ids", []) or [])
+                if team_id is not None
             ]
 
             # Remove password-related fields (cannot be migrated)
@@ -1642,7 +1644,7 @@ class UserImporter(ResourceImporter):
 
             return result
 
-        except ConflictError as e:
+        except ConflictError:
             # Handle conflict (user already exists)
             result = await self._handle_conflict(resource_type, source_id, data)
             if result:
@@ -1719,9 +1721,7 @@ class UserImporter(ResourceImporter):
         converts grants to ``role_user_assignments`` rows for the modern RBAC API.
         """
         from aap_migration.client.api_layout import uses_gateway_topology
-        from aap_migration.migration.classic_rbac_conversion import (
-            classic_user_grant_to_assignment,
-        )
+        from aap_migration.migration.classic_rbac_conversion import classic_user_grant_to_assignment
 
         users_dir = input_dir / "users"
         if not users_dir.is_dir():
@@ -1898,9 +1898,7 @@ class TeamImporter(ResourceImporter):
             skipped_unmapped=skipped_unmapped,
         )
 
-    async def sync_team_members_for_existing_teams(
-        self, teams: list[dict[str, Any]]
-    ) -> None:
+    async def sync_team_members_for_existing_teams(self, teams: list[dict[str, Any]]) -> None:
         """Sync members for teams skipped by create/update import path."""
         for team in teams:
             source_team_id = team.get("_source_id")
@@ -1986,9 +1984,7 @@ class TeamImporter(ResourceImporter):
         converts grants to ``role_team_assignments`` rows for the modern RBAC API.
         """
         from aap_migration.client.api_layout import uses_gateway_topology
-        from aap_migration.migration.classic_rbac_conversion import (
-            classic_team_grant_to_assignment,
-        )
+        from aap_migration.migration.classic_rbac_conversion import classic_team_grant_to_assignment
 
         teams_dir = input_dir / "teams"
         if not teams_dir.is_dir():
@@ -3584,9 +3580,7 @@ class HostImporter(ResourceImporter):
                         source_group_ids = source_group_ids_by_source_id.get(source_id, [])
 
                         for source_group_id in source_group_ids:
-                            target_group_id = self.state.get_mapped_id(
-                                "groups", source_group_id
-                            )
+                            target_group_id = self.state.get_mapped_id("groups", source_group_id)
                             if not target_group_id:
                                 logger.debug(
                                     "host_group_association_skipped_unmapped",
@@ -3840,9 +3834,7 @@ class CredentialImporter(ResourceImporter):
                         f"organization, and type (source id: {source_id})."
                     )
                     data["name"] = renamed
-                    data["description"] = (
-                        f"{original_description}\n{rename_note}".strip()
-                    )
+                    data["description"] = f"{original_description}\n{rename_note}".strip()
                     logger.warning(
                         "credential_duplicate_renamed",
                         original_name=original_name,
@@ -4453,7 +4445,6 @@ class JobTemplateImporter(ResourceImporter):
                     template_name=template_name,
                     error=str(e),
                 )
-
 
 
 class WorkflowImporter(ResourceImporter):
@@ -5318,9 +5309,9 @@ def _resource_type_for_rbac_content_type(content_type: str | None) -> str | None
     """Map RBAC content_type to migrated resource_type, including gateway aliases."""
     if not content_type:
         return None
-    return _CONTENT_TYPE_TO_RESOURCE_TYPE.get(
-        content_type
-    ) or _CONTENT_TYPE_TO_RESOURCE_TYPE.get(normalize_rbac_content_type(content_type) or "")
+    return _CONTENT_TYPE_TO_RESOURCE_TYPE.get(content_type) or _CONTENT_TYPE_TO_RESOURCE_TYPE.get(
+        normalize_rbac_content_type(content_type) or ""
+    )
 
 
 async def _resolve_content_object_target_id(
@@ -5426,18 +5417,14 @@ async def _resolve_organization_id_for_controller(
     org_name = state.get_mapping_source_name("organizations", source_id)
 
     if org_name:
-        resolved = await _lookup_organization_id_on_base(
-            client, controller_api_base, org_name
-        )
+        resolved = await _lookup_organization_id_on_base(client, controller_api_base, org_name)
         if resolved is not None:
             return resolved
 
     mapped_id = state.get_mapped_id("organizations", source_id)
     if mapped_id is not None:
         try:
-            await client.get_on_base(
-                controller_api_base, f"organizations/{mapped_id}/"
-            )
+            await client.get_on_base(controller_api_base, f"organizations/{mapped_id}/")
             return mapped_id
         except Exception:
             pass
@@ -5499,9 +5486,7 @@ async def _resolve_rbac_principal_id_for_assignment(
 
     if mapped_id is not None:
         try:
-            await client.get_on_base(
-                assignment_api_base, f"{principal_type}/{mapped_id}/"
-            )
+            await client.get_on_base(assignment_api_base, f"{principal_type}/{mapped_id}/")
             return mapped_id
         except Exception:
             pass
@@ -5608,15 +5593,11 @@ async def _resolve_assignment_user_id(
 
     username = assignment.get("user_username")
     if username and client.api_layout.mode is ApiMode.GATEWAY:
-        resolved = await _lookup_principal_id_on_base(
-            client, api_base, "users", str(username)
-        )
+        resolved = await _lookup_principal_id_on_base(client, api_base, "users", str(username))
         if resolved is not None:
             return resolved
 
-    target_user_id = _resolve_user_target_id_for_assignment(
-        state, assignment, user_source_id
-    )
+    target_user_id = _resolve_user_target_id_for_assignment(state, assignment, user_source_id)
     if user_source_id is not None:
         resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
             state, client, "users", int(user_source_id), api_base
@@ -5638,15 +5619,11 @@ async def _resolve_assignment_team_id(
 
     team_name = assignment.get("team_name")
     if team_name and client.api_layout.mode is ApiMode.GATEWAY:
-        resolved = await _lookup_principal_id_on_base(
-            client, api_base, "teams", str(team_name)
-        )
+        resolved = await _lookup_principal_id_on_base(client, api_base, "teams", str(team_name))
         if resolved is not None:
             return resolved
 
-    target_team_id = _resolve_team_target_id_for_assignment(
-        state, assignment, team_source_id
-    )
+    target_team_id = _resolve_team_target_id_for_assignment(state, assignment, team_source_id)
     if team_source_id is not None:
         resolved_on_base = await _resolve_rbac_principal_id_for_assignment(
             state, client, "teams", int(team_source_id), api_base
@@ -5743,8 +5720,12 @@ class RoleUserAssignmentImporter(ResourceImporter):
                 continue
 
             target_resource_id = await _resolve_content_object_target_id(
-                self.state, self.client, resource_type, int(object_source_id),
-                content_object_name, source_id,
+                self.state,
+                self.client,
+                resource_type,
+                int(object_source_id),
+                content_object_name,
+                source_id,
             )
             if not target_resource_id:
                 logger.warning(
@@ -5861,8 +5842,12 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                 continue
 
             target_resource_id = await _resolve_content_object_target_id(
-                self.state, self.client, resource_type, int(object_source_id),
-                content_object_name, source_id,
+                self.state,
+                self.client,
+                resource_type,
+                int(object_source_id),
+                content_object_name,
+                source_id,
             )
             if not target_resource_id:
                 logger.warning(

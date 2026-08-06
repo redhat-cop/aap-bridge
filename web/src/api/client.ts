@@ -1,14 +1,6 @@
-const BASE = '';
+import { formatErrorValue } from './formatError';
 
-function formatErrorValue(value: unknown, fallback: string): string {
-  if (typeof value === 'string' && value) return value;
-  if (value === null || value === undefined) return fallback;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return fallback;
-  }
-}
+const BASE = '';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const opts: RequestInit = {

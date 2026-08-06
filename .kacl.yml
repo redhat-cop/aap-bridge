@@ -1,0 +1,18 @@
+# python-kacl config — https://pypi.org/project/python-kacl/
+# Used by `kacl-cli verify` and the pre-commit `kacl-verify` hook.
+kacl:
+  file: CHANGELOG.md
+  allowed_header_titles:
+    - Changelog
+  allowed_version_sections:
+    - Added
+    - Changed
+    - Deprecated
+    - Removed
+    - Fixed
+    - Security
+  # Matched as substrings of the header body (newlines collapsed to spaces).
+  default_content:
+    - All notable changes to this project will be documented in this file.
+    - The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+    - Change bullets under version sections must end with a period (enforced by pre-commit / CI via `tools/check_changelog_periods.py` on this file and `docs/reference/changelog.md`).

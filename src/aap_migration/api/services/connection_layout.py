@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 from aap_migration.api.models import Connection
-from aap_migration.config import normalize_aap_version
-from aap_migration.resources import SUPPORTED_SOURCE_VERSIONS, SUPPORTED_TARGET_VERSIONS
 from aap_migration.client.api_layout import (
+    API_VERSIONED_PREFIXES,
     CONTROLLER_API_PREFIX,
     GATEWAY_API_PREFIX,
     LEGACY_API_PREFIX,
-    API_VERSIONED_PREFIXES,
     ApiLayout,
     build_api_layout,
     join_api_base,
     normalize_host_url,
     parse_aap_major_minor,
 )
+from aap_migration.config import normalize_aap_version
+from aap_migration.resources import SUPPORTED_SOURCE_VERSIONS, SUPPORTED_TARGET_VERSIONS
 
 
 def split_connection_url(url: str) -> tuple[str, str | None]:

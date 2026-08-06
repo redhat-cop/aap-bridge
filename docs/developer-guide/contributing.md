@@ -42,9 +42,12 @@ Open an issue with:
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes
 4. Run tests and checks: `make check`
-5. Commit your changes
+5. Commit your changes (pre-commit hooks run automatically after `make setup`)
 6. Push to your fork: `git push origin feature/amazing-feature`
 7. Open a Pull Request
+
+CI also runs the quality gates on every PR (see [Pre-commit and CI](#pre-commit-and-ci)
+below). Do not rely on skipping hooks locally — CI will still fail.
 
 ## Development Setup
 
@@ -53,10 +56,16 @@ Open an issue with:
 - Python 3.12 (required)
 - **uv** (recommended) or **pip** with the stdlib `venv` module (`python3.12-venv` on Debian/Ubuntu)
 - PostgreSQL (for integration tests)
+- For Ansible lint / ephemeral AAP work: **ansible-core >= 2.16.14** and
+  **ansible-lint >= 26.1** (installed via `make setup` / `requirements-dev.txt`).
+  Collections in `tests/integration/requirements.yml` are for running the
+  harness (`make run-pair`, etc.), not required for `ansible-lint --offline`.
+- For the Web UI: Node.js 20+ (optional unless you change `web/`)
 
 ### Setup
 
-`make setup` creates `.venv`, installs dev dependencies, and seeds `.env`.
+`make setup` creates `.venv`, installs dev dependencies, seeds `.env`, and
+**installs git pre-commit hooks**.
 It prefers **uv** when installed; pass `USE_UV=0` to use **pip** instead.
 
 ```bash
@@ -70,6 +79,48 @@ make setup
 source .venv/bin/activate
 
 ```
+
+### Pre-commit and CI
+
+After `make setup`, hooks run on every `git commit`. They cover:
+
+| Hook | What it does |
+|------|----------------|
+| Hygiene | trailing whitespace, EOF, YAML, merge conflicts, large files |
+| CHANGELOG periods | each bullet in `CHANGELOG.md` and `docs/reference/changelog.md` ends with `.` (`tools/check_changelog_periods.py`) |
+| kacl-verify | Keep a Changelog structure on `CHANGELOG.md` (`python-kacl`; see `.kacl.yml`) |
+| gitleaks | secret scanning (dedicated CI job + local pre-commit) |
+| black / isort / ruff | format and lint Python under `src/` and `tests/` |
+| pytest unit | `pytest tests/unit` (fast; no AAP containers) |
+| ansible-lint | offline lint of `tests/integration/` when those YAML files change |
+| web-build / web-vitest | `npm run build` + `vitest run` when `web/` changes (needs `make web-install`) |
+
+Run all hooks manually:
+
+```bash
+make pre-commit
+# or: .venv/bin/pre-commit run --all-files
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs four jobs on every PR/push to
+`main`:
+
+- **Secrets** — `pre-commit run gitleaks --all-files` (dedicated status check)
+- **Python** — remaining pre-commit hooks with
+  `SKIP=gitleaks,ansible-lint,web-build,web-vitest` (includes changelog
+  trailing-period checks and `kacl-verify`)
+- **Ansible** — path-filtered `ansible-lint --offline` when
+  `tests/integration/` changes
+- **Web** — path-filtered `npm ci`, `npm run build`, and `npm run test:unit`
+  when `web/` changes
+
+**mypy** is still part of `make check` / `make typecheck` but is **not** in
+pre-commit or CI yet (tracked in
+[issue #158](https://github.com/redhat-cop/aap-bridge/issues/158)).
+Prefer fixing type errors before merge when you touch typed code.
+
+Escape hatches (`SKIP=... git commit` or `--no-verify`) are discouraged; CI
+still blocks the PR.
 
 ### Running Tests
 
@@ -95,6 +146,27 @@ pairs, `make test-bridge`), see [Testing with Ephemeral AAP Instances](testing.m
 That workflow uses podman on the host and does not require a local Python install for the
 AAP side of the stack.
 
+Lint the integration Ansible harness:
+
+```bash
+make ansible-lint
+# cd tests/integration && ansible-lint --offline
+```
+
+### Web UI
+
+```bash
+make web-install   # npm ci in web/ (required once before web hooks/tests)
+make web-dev       # Vite dev server
+make web-build     # tsc + production build (same as pre-commit web-build)
+make web-test      # vitest unit tests (same as pre-commit web-vitest)
+```
+
+Frontend unit tests live next to source (`*.test.ts` / `*.test.tsx`), using the
+Vitest + Testing Library setup already wired in `web/vitest.config.ts`. Commit
+hooks for web only run when `web/` files are staged; CI enforces build + unit
+tests on web path changes.
+
 ### Code Quality
 
 Before submitting:
@@ -106,11 +178,18 @@ make format
 # Run linter
 make lint
 
-# Type checking
+# Type checking (local; not yet in CI — see issue #158)
 make typecheck
 
-# All checks
+# All checks (format + lint + typecheck + test)
 make check
+
+# Integration Ansible (when changing tests/integration/)
+make ansible-lint
+
+# Web build (when changing web/)
+make web-build
+make web-test
 
 ```
 

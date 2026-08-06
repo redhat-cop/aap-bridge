@@ -3,47 +3,45 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 import click
 
 from aap_migration.api.models import Connection
 from aap_migration.api.services.engine_adapter import load_runtime_config
-from aap_migration.config import (
-    DEFAULT_SKIP_EXECUTION_ENVIRONMENT_NAMES,
-    PathConfig,
-    load_config_tuning_from_yaml,
-    resolve_config_path,
-)
 from aap_migration.cli.commands.cleanup import (
     cancel_all_jobs,
     clear_database,
     delete_resources,
     get_cleanup_resource_types,
 )
+from aap_migration.cli.commands.migrate import DEFAULT_MIGRATION_EXCLUDED_TYPES
 from aap_migration.cli.context import MigrationContext
 from aap_migration.client.aap_target_client import AAPTargetClient
-from aap_migration.cli.commands.migrate import DEFAULT_MIGRATION_EXCLUDED_TYPES
-from aap_migration.utils.directories import clear_export_transform_directories
+from aap_migration.config import (
+    DEFAULT_SKIP_EXECUTION_ENVIRONMENT_NAMES,
+    PathConfig,
+    load_config_tuning_from_yaml,
+    resolve_config_path,
+)
 from aap_migration.resources import (
+    FULLY_SUPPORTED_TYPES,
     ORGANIZATION_SCOPED_RESOURCES,
     PARENT_SCOPED_RESOURCES,
     RESOURCE_REGISTRY,
     ResourceCategory,
-    FULLY_SUPPORTED_TYPES,
     get_endpoint,
     get_exportable_types,
     get_importable_types,
     get_resource_category,
     normalize_resource_type,
 )
+from aap_migration.utils.directories import clear_export_transform_directories
 
 LogFn = Callable[[str], None]
 
@@ -229,20 +227,22 @@ class MigrationPreviewResult:
 
 
 # Built-in maintenance schedules — same list as ScheduleExporter.SYSTEM_SCHEDULES.
-_SYSTEM_SCHEDULE_NAMES = frozenset({
-    "Cleanup Job Schedule",
-    "Cleanup Activity Schedule",
-    "Cleanup Expired Sessions",
-    "Cleanup Expired OAuth 2 Tokens",
-    "Cleanup Orphaned OAuth 2 Tokens",
-})
+_SYSTEM_SCHEDULE_NAMES = frozenset(
+    {
+        "Cleanup Job Schedule",
+        "Cleanup Activity Schedule",
+        "Cleanup Expired Sessions",
+        "Cleanup Expired OAuth 2 Tokens",
+        "Cleanup Orphaned OAuth 2 Tokens",
+    }
+)
 
 
 def _is_exportable_schedule(schedule_item: dict) -> bool:
     """Return True if preview should include this schedule.
 
-    Mirrors ScheduleExporter._process_resource: system-job schedules and the
-  built-in cleanup schedule names are never exported.
+      Mirrors ScheduleExporter._process_resource: system-job schedules and the
+    built-in cleanup schedule names are never exported.
     """
     name = str(schedule_item.get("name", "")).strip()
     if name in _SYSTEM_SCHEDULE_NAMES:
@@ -357,8 +357,7 @@ async def run_migration_preview(
             n_excluded = original_count - len(src_items)
             if n_excluded:
                 warnings.append(
-                    f"Excluded {n_excluded} system/maintenance schedules "
-                    "(same rules as export)."
+                    f"Excluded {n_excluded} system/maintenance schedules " "(same rules as export)."
                 )
 
         if not src_items:
@@ -392,9 +391,11 @@ async def run_migration_preview(
             action = (
                 "create"
                 if canonical_type == "credentials"
-                else "skip_exists"
-                if item_key in dst_keys or item_name in dst_names_fallback
-                else "create"
+                else (
+                    "skip_exists"
+                    if item_key in dst_keys or item_name in dst_names_fallback
+                    else "create"
+                )
             )
             total_count += 1
             if action == "create":
@@ -443,8 +444,12 @@ async def run_migration_preview(
         await src_client.close()
         await dst_client.close()
 
-    total_create = sum(1 for items in resources.values() for item in items if item["action"] == "create")
-    total_skip = sum(1 for items in resources.values() for item in items if item["action"] != "create")
+    total_create = sum(
+        1 for items in resources.values() for item in items if item["action"] == "create"
+    )
+    total_skip = sum(
+        1 for items in resources.values() for item in items if item["action"] != "create"
+    )
     if log:
         log(f"Preview complete: {total_create} to create, {total_skip} to skip")
 
@@ -726,7 +731,6 @@ def _web_progress_display(log: LogFn | None) -> Iterator[None]:
     patching only the source module has no effect on already-bound names.
     """
     from aap_migration.api.services import web_progress
-    from aap_migration.reporting import live_progress
 
     def _factory(**kwargs) -> web_progress.LogMigrationProgressDisplay:
         return web_progress.LogMigrationProgressDisplay(
@@ -738,6 +742,7 @@ def _web_progress_display(log: LogFn | None) -> Iterator[None]:
 
     # All modules that bind MigrationProgressDisplay at import time.
     import importlib
+
     _target_modules = [
         "aap_migration.reporting.live_progress",
         "aap_migration.reporting.progress_orchestrator",

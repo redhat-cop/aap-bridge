@@ -42,18 +42,20 @@
 
     - name: Detect installed controller systemd unit
       ansible.builtin.shell:
-        cmd: >
-          podman exec {{ container_name }} bash -c "
+        cmd: |
+          set -o pipefail
+          podman exec {{ container_name }} bash -c '
+            set -o pipefail
             for svc in automation-controller ansible-tower supervisord; do
-              if systemctl list-unit-files \"\${svc}.service\" 2>/dev/null | grep -q \"\${svc}.service\"; then
-                echo \"\${svc}\"
-                systemctl is-active \"\${svc}.service\"
+              if systemctl list-unit-files "${svc}.service" 2>/dev/null | grep -q "${svc}.service"; then
+                echo "${svc}"
+                systemctl is-active "${svc}.service"
                 exit 0
               fi
             done
             echo none
             echo not-installed
-          "
+          '
       register: controller_detect
       changed_when: false
 

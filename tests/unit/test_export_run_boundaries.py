@@ -144,9 +144,7 @@ async def test_resume_export_uses_mappings(tmp_path: Path) -> None:
     assert resources[0]["id"] == 2
 
 
-def test_resume_context_mismatch_aborts(
-    tmp_path: Path, run_context: ExportRunContext
-) -> None:
+def test_resume_context_mismatch_aborts(tmp_path: Path, run_context: ExportRunContext) -> None:
     """REQ-008: proves mismatched fingerprint blocks resume."""
     from aap_migration.cli.commands.export_import import export
 

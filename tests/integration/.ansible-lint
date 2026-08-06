@@ -1,0 +1,15 @@
+---
+# Ansible lint config for the ephemeral AAP integration harness.
+# Shared vars (aap_version, role_suffix, …) cross role boundaries by design.
+# Podman/shell lifecycle tasks are intentionally non-idempotent.
+skip_list:
+  - var-naming[no-role-prefix]
+  - no-changed-when
+
+exclude_paths:
+  - generated/
+  - files/aap-installer-bundles/
+  - files/manifest/
+  - inventory/group_vars/vault.yml
+
+offline: true

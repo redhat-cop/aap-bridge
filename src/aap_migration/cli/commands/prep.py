@@ -10,11 +10,7 @@ from pathlib import Path
 import click
 
 from aap_migration.cli.context import MigrationContext
-from aap_migration.cli.decorators import (
-    handle_errors,
-    pass_context,
-    requires_config,
-)
+from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
 from aap_migration.cli.utils import echo_info, echo_success
 from aap_migration.prep.workflow import run_prep_workflow_sync, suppress_verbose_prep_logging
 

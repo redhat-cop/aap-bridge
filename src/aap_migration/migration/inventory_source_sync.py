@@ -172,9 +172,7 @@ def collect_inventory_source_target_ids_for_sync(
     return list(dict.fromkeys(ids))
 
 
-async def trigger_inventory_source_update(
-    client: BaseAPIClient, inventory_source_id: int
-) -> int:
+async def trigger_inventory_source_update(client: BaseAPIClient, inventory_source_id: int) -> int:
     """Launch ``inventory_sources/<id>/update/`` and return inventory_update job id.
 
     AAP returns 405 when the source cannot be updated (``can_update`` is false).
@@ -200,9 +198,7 @@ async def trigger_inventory_source_update(
             inventory_source_id=inventory_source_id,
             response_keys=list(data.keys()) if isinstance(data, dict) else None,
         )
-        raise ValueError(
-            f"inventory_sources/{inventory_source_id}/update/ did not return a job id"
-        )
+        raise ValueError(f"inventory_sources/{inventory_source_id}/update/ did not return a job id")
     return job_id
 
 

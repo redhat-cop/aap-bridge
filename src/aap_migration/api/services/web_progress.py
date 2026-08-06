@@ -86,7 +86,9 @@ class LogMigrationProgressDisplay:
             )
         return phase_name
 
-    def update_phase(self, phase_id: str, completed: int, failed: int = 0, skipped: int = 0) -> None:
+    def update_phase(
+        self, phase_id: str, completed: int, failed: int = 0, skipped: int = 0
+    ) -> None:
         if not self.enabled or phase_id not in self.phase_states:
             return
         self.phase_states[phase_id].update(completed, failed, skipped)

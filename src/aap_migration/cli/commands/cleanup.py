@@ -13,23 +13,16 @@ from collections.abc import Callable
 import click
 
 from aap_migration.cli.context import MigrationContext
-from aap_migration.cli.decorators import (
-    handle_errors,
-    pass_context,
-    requires_config,
-)
-from aap_migration.cli.utils import (
-    echo_info,
-    echo_warning,
-    format_count,
-)
-from aap_migration.utils.directories import (
-    clear_export_transform_directories,
-    directory_has_contents,
-)
+from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
+from aap_migration.cli.utils import echo_info, echo_warning, format_count
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.bulk_operations import BulkOperations
-from aap_migration.client.exceptions import APIError, NotFoundError, PendingDeletionError, ResourceInUseError
+from aap_migration.client.exceptions import (
+    APIError,
+    NotFoundError,
+    PendingDeletionError,
+    ResourceInUseError,
+)
 from aap_migration.config import (
     MigrationConfig,
     normalized_credential_skip_names,
@@ -39,6 +32,10 @@ from aap_migration.migration.database import get_session, normalize_database_url
 from aap_migration.migration.models import IDMapping, MigrationProgress
 from aap_migration.reporting.live_progress import MigrationProgressDisplay
 from aap_migration.resources import CLEANUP_ORDER, get_endpoint
+from aap_migration.utils.directories import (
+    clear_export_transform_directories,
+    directory_has_contents,
+)
 from aap_migration.utils.logging import get_logger
 from aap_migration.utils.retry import retry_on_gateway_error
 
@@ -116,10 +113,7 @@ def filter_cleanup_resources(discovered_types: list[str]) -> list[str]:
     Returns:
         Filtered list of resource types suitable for cleanup
     """
-    from aap_migration.resources import (
-        ResourceCategory,
-        get_resource_category,
-    )
+    from aap_migration.resources import ResourceCategory, get_resource_category
 
     filtered = []
 
@@ -397,7 +391,11 @@ async def cancel_all_jobs(
         Tuple of (jobs, workflow_jobs, project_updates, inventory_updates, system_jobs) canceled counts
     """
     from aap_migration.client.exceptions import APIError
-    from aap_migration.resources import JOB_ACTIVE_STATUSES, JOB_TERMINAL_STATUSES, JOB_TRANSIENT_STATUSES
+    from aap_migration.resources import (
+        JOB_ACTIVE_STATUSES,
+        JOB_TERMINAL_STATUSES,
+        JOB_TRANSIENT_STATUSES,
+    )
 
     logger.info("Querying active jobs (will cancel running/pending)...")
 
@@ -1155,9 +1153,7 @@ async def delete_resources(
         ee_skip_names = normalized_execution_environment_skip_names(
             config.export.skip_execution_environment_names
         )
-        cred_skip_names = normalized_credential_skip_names(
-            config.export.skip_credential_names
-        )
+        cred_skip_names = normalized_credential_skip_names(config.export.skip_credential_names)
 
         # Filter resources to determine what to skip vs delete
         resources_to_delete = []
@@ -1486,7 +1482,6 @@ def cleanup(
 
     # Note: We'll determine resource_types dynamically inside run_cleanup()
     # because discovery requires async API calls
-
     # Use defaults from config if not provided
     if exports_dir is None:
         exports_dir = str(ctx.config.paths.export_dir)

@@ -4,11 +4,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from aap_migration.schema.models import (
-    ChangeType,
-    ComparisonResult,
-    Severity,
-)
+from aap_migration.schema.models import ChangeType, ComparisonResult, Severity
 
 
 def display_schema_comparison_summary(

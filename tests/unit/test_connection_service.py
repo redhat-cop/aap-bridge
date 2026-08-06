@@ -3,6 +3,10 @@
 from datetime import UTC, datetime
 
 import pytest
+from cryptography.fernet import Fernet
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from aap_migration.api.models import Connection
 from aap_migration.api.schemas import ConnectionCreate, ConnectionUpdate
 from aap_migration.api.services.connection_service import (
@@ -19,9 +23,6 @@ from aap_migration.api.services.token_crypto import (
     encrypt_token,
 )
 from aap_migration.migration.models import Base
-from cryptography.fernet import Fernet
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 
 class TestNormalizeConnectionUrl:
@@ -256,7 +257,8 @@ def test_engine_adapter_decrypts_encrypted_token(monkeypatch: pytest.MonkeyPatch
 
 
 def test_load_runtime_config_builds_from_connections_without_env_injection(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ):
     config_file = tmp_path / "config.yaml"
     config_file.write_text(

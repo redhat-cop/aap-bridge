@@ -56,6 +56,7 @@ class ConnectionUpdate(BaseModel):
             return None
         return normalize_aap_version(value)
 
+
 class ConnectionResponse(BaseModel):
     id: str
     name: str

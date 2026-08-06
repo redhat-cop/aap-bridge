@@ -33,7 +33,11 @@
 
     - name: List built images
       ansible.builtin.command:
-        cmd: "podman images --filter 'reference=localhost/aap-bridge-base-*' --format 'table {{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}  {{ '{{' }}.Size{{ '}}' }}  {{ '{{' }}.Created{{ '}}' }}'"
+        cmd: >-
+          podman images
+          --filter 'reference=localhost/aap-bridge-base-*'
+          --format 'table {{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}
+          {{ '{{' }}.Size{{ '}}' }}  {{ '{{' }}.Created{{ '}}' }}'
       register: images_list
       changed_when: false
 

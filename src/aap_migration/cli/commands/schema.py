@@ -9,11 +9,7 @@ from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.decorators import handle_errors, pass_context, requires_config
 from aap_migration.cli.utils import echo_info, echo_success
 from aap_migration.schema.comparator import SchemaComparator
-from aap_migration.schema.persistence import (
-    get_schema_info,
-    save_schemas,
-    schema_files_exist,
-)
+from aap_migration.schema.persistence import get_schema_info, save_schemas, schema_files_exist
 
 
 @click.group(name="schema")

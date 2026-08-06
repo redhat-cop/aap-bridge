@@ -73,7 +73,9 @@ def test_sync_status_from_inventory_source_payload_nested() -> None:
         )
         == "successful"
     )
-    assert _sync_status_from_inventory_source_payload({"status": "never updated"}) == "never updated"
+    assert (
+        _sync_status_from_inventory_source_payload({"status": "never updated"}) == "never updated"
+    )
 
 
 def test_extract_run_markers_ignores_modified_churn() -> None:

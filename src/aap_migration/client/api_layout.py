@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+
 from aap_migration.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -173,6 +174,7 @@ def role_definition_api_base(
     if not layout.legacy_base:
         raise ValueError("legacy_base is required for legacy API mode")
     return layout.legacy_base
+
 
 # AAP 2.5 introduced the platform gateway API layout.
 _GATEWAY_TOPOLOGY_MIN_VERSION = (2, 5)

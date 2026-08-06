@@ -5,9 +5,8 @@ from __future__ import annotations
 import shutil
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeAlias
 
-OnDirectoryError: TypeAlias = Callable[[str, Path, OSError], None]
+type OnDirectoryError = Callable[[str, Path, OSError], None]
 
 
 def directory_has_contents(path: Path) -> bool:

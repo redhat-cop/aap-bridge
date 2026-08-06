@@ -122,7 +122,9 @@ class TestApiLayoutRouting:
             gateway_base="https://aap.example.com/api/gateway/v1",
             controller_base="https://aap.example.com/api/controller/v2",
         )
-        assert layout.base_for_endpoint("organizations/") == "https://aap.example.com/api/gateway/v1"
+        assert (
+            layout.base_for_endpoint("organizations/") == "https://aap.example.com/api/gateway/v1"
+        )
         assert layout.base_for_endpoint("users/42/") == "https://aap.example.com/api/gateway/v1"
         assert layout.base_for_endpoint("role_definitions/") == (
             "https://aap.example.com/api/gateway/v1"

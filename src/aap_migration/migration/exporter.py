@@ -984,7 +984,9 @@ class InventoryExporter(ResourceExporter):
         )
         self._cache_loaded = True
 
-    async def _fetch_constructed_input_inventory_ids(self, constructed_inventory_id: int) -> list[int]:
+    async def _fetch_constructed_input_inventory_ids(
+        self, constructed_inventory_id: int
+    ) -> list[int]:
         """GET ``inventories/<id>/input_inventories/`` and return input inventory PKs in order.
 
         The inventory list/detail response does not include a top-level ``input_inventories``
@@ -2122,9 +2124,7 @@ class RoleDefinitionExporter(ResourceExporter):
         controller total.
         """
         logger.info("exporting_role_definitions_parallel", endpoint=endpoint)
-        effective_page_size = self.performance_config.batch_sizes.get(
-            resource_type, page_size
-        )
+        effective_page_size = self.performance_config.batch_sizes.get(resource_type, page_size)
         async for role_def in self._iter_custom_role_definitions(
             endpoint=endpoint,
             page_size=effective_page_size,
@@ -2150,9 +2150,9 @@ class RoleAssignmentListExporter(ResourceExporter):
         """Logical identity for a role assignment (ignores per-API surrogate ids)."""
         from aap_migration.client.api_layout import normalize_rbac_content_type
 
-        content_type = normalize_rbac_content_type(
-            resource.get("content_type")
-        ) or resource.get("content_type")
+        content_type = normalize_rbac_content_type(resource.get("content_type")) or resource.get(
+            "content_type"
+        )
         object_id = resource.get("object_id")
         summary = resource.get("summary_fields") or {}
         role_def_name = (summary.get("role_definition") or {}).get("name")
@@ -2227,9 +2227,7 @@ class RoleAssignmentListExporter(ResourceExporter):
                         id_only_resources.append(resource)
                         continue
 
-                    preferred_base = layout.base_for_role_assignment(
-                        resource.get("content_type")
-                    )
+                    preferred_base = layout.base_for_role_assignment(resource.get("content_type"))
                     existing = logical_assignments.get(dedupe_key)
                     if existing is None:
                         logical_assignments[dedupe_key] = (base, resource)

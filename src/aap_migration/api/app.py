@@ -45,11 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state.loop = asyncio.get_running_loop()
     db = state.db_session_factory()
     try:
-        stale_jobs = (
-            db.query(Job)
-            .filter(Job.status.in_(("running", "cancelling")))
-            .all()
-        )
+        stale_jobs = db.query(Job).filter(Job.status.in_(("running", "cancelling"))).all()
         if stale_jobs:
             finished_at = datetime.now(UTC)
             for job in stale_jobs:

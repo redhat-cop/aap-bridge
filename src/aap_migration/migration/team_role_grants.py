@@ -115,7 +115,9 @@ def _parse_role_grant(
         canonical = normalize_resource_type(rtype)
         if canonical in _SKIP_GRANT_RESOURCE_TYPES:
             return None
-        if _is_self_team_role(canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id):
+        if _is_self_team_role(
+            canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id
+        ):
             return None
         return {
             "role_name": str(name).strip(),
@@ -124,7 +126,7 @@ def _parse_role_grant(
         }
 
     # 3) Flat resource_type + resource_id (AAP 2.3 GET /{principal}/{id}/roles/ format)
-    rtype_str = (summary.get("resource_type") or summary.get("resource_type_display_name") or "")
+    rtype_str = summary.get("resource_type") or summary.get("resource_type_display_name") or ""
     if isinstance(rtype_str, dict):
         rtype_str = rtype_str.get("name", "") or rtype_str.get("type", "")
     rtype_str = str(rtype_str).strip().lower()
@@ -151,7 +153,9 @@ def _parse_role_grant(
             rid = int(flat_rid)
             if canonical in _SKIP_GRANT_RESOURCE_TYPES:
                 return None
-            if _is_self_team_role(canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id):
+            if _is_self_team_role(
+                canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id
+            ):
                 return None
             return {
                 "role_name": str(name).strip(),
@@ -168,7 +172,9 @@ def _parse_role_grant(
             canonical = normalize_resource_type(canonical_raw)
             if canonical in _SKIP_GRANT_RESOURCE_TYPES:
                 return None
-            if _is_self_team_role(canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id):
+            if _is_self_team_role(
+                canonical, rid, str(name), skip_self_type=skip_self_type, skip_self_id=skip_self_id
+            ):
                 return None
             return {
                 "role_name": str(name).strip(),

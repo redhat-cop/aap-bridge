@@ -220,9 +220,7 @@ def log_api_request(
         logger.info("api_request_started", **log_data)
     elif 200 <= status_code < 300:
         logger.info("api_request_success", **log_data)
-    elif (
-        method.upper() == "OPTIONS" and status_code in (404, 405)
-    ):
+    elif method.upper() == "OPTIONS" and status_code in (404, 405):
         # Expected during prep schema probing when an endpoint has no OPTIONS schema
         logger.debug("api_request_options_unsupported", **log_data)
     elif 400 <= status_code < 500:

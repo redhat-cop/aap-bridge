@@ -26,10 +26,7 @@ from aap_migration.cli.utils import (
     print_table,
 )
 from aap_migration.migration.coordinator import MigrationCoordinator
-from aap_migration.resources import (
-    ALL_RESOURCE_TYPES,
-    FULLY_SUPPORTED_TYPES,
-)
+from aap_migration.resources import ALL_RESOURCE_TYPES, FULLY_SUPPORTED_TYPES
 from aap_migration.utils.logging import get_logger
 
 logger = get_logger(__name__)

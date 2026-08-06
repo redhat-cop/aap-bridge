@@ -33,7 +33,7 @@ classification, and any caveats associated with their migration to AAP 2.6 or 2.
 | `job_templates` | `job_templates/` | Migrate | - | - |
 | `workflow_job_templates` | `workflow_job_templates/` | Migrate | - | Nodes handled as embedded sub-resources |
 | `system_job_templates` | `system_job_templates/` | Migrate | - | Target-side mapping only, not created |
-| `schedules` | `schedules/` | Migrate | - | - |
+| `schedules` | `schedules/` | Migrate | - | System-job schedules excluded; imported with `enabled=false` |
 | `users` | `users/` | Migrate | - | Passwords are not migrated |
 | `teams` | `teams/` | Migrate | - | - |
 | `role_definitions` | `role_definitions/` | Migrate | - | Custom roles on 2.5+ sources; legacy sources use classic grants on users/teams |

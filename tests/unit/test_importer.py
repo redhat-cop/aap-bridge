@@ -21,6 +21,7 @@ from aap_migration.migration.importer import (
     OrganizationImporter,
     ProjectImporter,
     ResourceImporter,
+    ScheduleImporter,
     WorkflowImporter,
     _fetch_target_inventory_has_inventory_sources,
     create_importer,
@@ -1055,9 +1056,51 @@ class TestCreateImporter:
         )
         assert isinstance(importer, WorkflowImporter)
 
+    def test_create_schedule_importer(self, mock_client, mock_state, performance_config):
+        """Test creating ScheduleImporter."""
+        importer = create_importer("schedules", mock_client, mock_state, performance_config)
+        assert isinstance(importer, ScheduleImporter)
+
     def test_create_importer_invalid_type(self, mock_client, mock_state, performance_config):
         """Test creating importer with invalid resource type."""
         with pytest.raises(NotImplementedError) as excinfo:
             create_importer("invalid_type", mock_client, mock_state, performance_config)
 
         assert "No importer implemented" in str(excinfo.value)
+
+
+class TestScheduleImporter:
+    """Tests for ScheduleImporter enabled policy."""
+
+    @pytest.fixture
+    def schedule_importer(self, mock_client, mock_state, performance_config):
+        return ScheduleImporter(mock_client, mock_state, performance_config)
+
+    @pytest.mark.asyncio
+    async def test_import_forces_enabled_false(self, schedule_importer, mock_client, mock_state):
+        """Schedules are created disabled even when the source was enabled."""
+        mock_state.get_mapped_id = MagicMock(return_value=55)
+        mock_client.create_resource = AsyncMock(
+            return_value={"id": 900, "name": "Nightly Job", "enabled": False}
+        )
+
+        result = await schedule_importer.import_resource(
+            resource_type="schedules",
+            source_id=10,
+            data={
+                "_source_id": 10,
+                "name": "Nightly Job",
+                "enabled": True,
+                "rrule": "DTSTART:20240101T000000Z RRULE:FREQ=DAILY;INTERVAL=1",
+                "unified_job_template": 7,
+                "_ujt_resource_type": "job_templates",
+            },
+        )
+
+        assert result is not None
+        assert result["id"] == 900
+        mock_client.create_resource.assert_awaited_once()
+        create_kwargs = mock_client.create_resource.await_args.kwargs
+        assert create_kwargs["data"]["enabled"] is False
+        assert create_kwargs["data"]["unified_job_template"] == 55
+        assert "_ujt_resource_type" not in create_kwargs["data"]

@@ -75,7 +75,7 @@ def test_is_exportable_schedule_excludes_system_job_schedules() -> None:
 
     assert not _is_exportable_schedule(cleanup)
     assert _is_exportable_schedule(demo)
-    assert not _is_exportable_schedule(disabled)
+    assert _is_exportable_schedule(disabled)
 
 
 @pytest.mark.asyncio

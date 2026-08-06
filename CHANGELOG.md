@@ -74,6 +74,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Schedules – Export All Non-System, Import Disabled**: Enabled and disabled
+  non-system schedules are both exported. System-job (built-in maintenance)
+  schedules remain excluded. Import always creates schedules with `enabled=false`
+  so they do not fire on the target until operators re-enable them
 - **Local Host Setup**: `make setup` auto-detects **uv** when installed and falls
   back to stdlib `venv` + **pip** when it is not
 - **Export and Transform Order Aligned with Import**: Resource types are now exported

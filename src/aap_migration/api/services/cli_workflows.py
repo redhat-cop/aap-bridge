@@ -241,8 +241,9 @@ _SYSTEM_SCHEDULE_NAMES = frozenset({
 def _is_exportable_schedule(schedule_item: dict) -> bool:
     """Return True if preview should include this schedule.
 
-    Mirrors ScheduleExporter._process_resource: system-job schedules and the
-  built-in cleanup schedule names are never exported.
+    Mirrors ScheduleExporter: system-job schedules and the built-in cleanup
+    schedule names are never exported. Enabled and disabled non-system
+    schedules are included (import forces enabled=false on the target).
     """
     name = str(schedule_item.get("name", "")).strip()
     if name in _SYSTEM_SCHEDULE_NAMES:
@@ -250,10 +251,6 @@ def _is_exportable_schedule(schedule_item: dict) -> bool:
 
     ujt_summary = (schedule_item.get("summary_fields") or {}).get("unified_job_template") or {}
     if ujt_summary.get("unified_job_type") == "system_job":
-        return False
-
-    # Export only requests enabled schedules.
-    if schedule_item.get("enabled") is False:
         return False
 
     return True

@@ -2435,21 +2435,17 @@ class ScheduleExporter(ResourceExporter):
 
         Schedules use RRULE format for recurrence patterns.
         They reference unified_job_template which can be any schedulable resource.
+        Both enabled and disabled non-system schedules are exported; system-job
+        schedules are skipped in ``_process_resource``. Import forces
+        ``enabled=false`` on the target so schedules do not fire until operators
+        re-enable them.
 
         Args:
             filters: Optional query parameters for filtering.
-                     Can include 'enabled': True to filter enabled schedules only.
 
         Yields:
             Schedule dictionaries
         """
-        # Filter enabled schedules by default
-        if filters is None:
-            filters = {}
-
-        # Force enabled=true to filter out disabled schedules
-        filters["enabled"] = "true"
-
         logger.info("exporting_schedules", filters=filters)
         async for schedule in self.export_resources(
             resource_type="schedules",

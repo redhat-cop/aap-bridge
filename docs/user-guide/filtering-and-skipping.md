@@ -9,7 +9,7 @@ ensure a clean, consistent migration.
 Resources can be filtered or skipped for several reasons:
 
 - **Intentional exclusion**: Dynamic hosts, smart inventories, installer-created default
-  credentials, and disabled schedules are excluded by design
+  credentials, and system-job schedules are excluded by design
 - **Dependency validation**: Resources with missing dependencies cannot be migrated
 - **Idempotency**: Already-migrated resources are skipped to prevent duplicates
 - **System constraints**: Some resources are read-only or non-deletable
@@ -57,7 +57,7 @@ export:
 
 | Resource Type | Filter | Reason |
 |---------------|--------|--------|
-| Schedules | `enabled=true` | Only enabled schedules are exported. Disabled schedules are excluded at the API level. |
+| Schedules | `unified_job_type=system_job` | Built-in maintenance schedules (cleanup jobs, session/token expiry, etc.) are excluded. Enabled and disabled non-system schedules are both exported. |
 | Credential Types | All exported | Both managed (built-in) and custom types are exported for mapping purposes. |
 
 !!! note "Dynamic Hosts"
@@ -128,6 +128,13 @@ When a resource with the same name already exists on the target:
 1. **Identical resource**: Skip (already migrated)
 2. **Different resource**: Update existing resource with source data
 
+### Schedules Forced Disabled
+
+Non-system schedules are imported with `enabled=false` regardless of the source
+enabled state. Operators should re-enable schedules on the target after validating
+templates, credentials, inventories, and RRULEs. This prevents unintended job runs
+immediately after migration.
+
 ---
 
 ## Cleanup Phase Filters
@@ -161,7 +168,8 @@ The cleanup command excludes certain resources that cannot be deleted.
 | Export | Smart/pending deletion inventories | Yes | Check `skip_smart_inventories` setting |
 | Export | Installer-created default credentials | Yes | Check `skip_credential_names` setting |
 | Export | Platform-managed execution environments | Yes | Check `skip_execution_environment_names` setting |
-| Export | Disabled schedules | No | Only enabled schedules are exported |
+| Export | System-job schedules | No | `unified_job_type=system_job` (built-in maintenance) |
+| Import | Schedules forced disabled | No | Created with `enabled=false`; re-enable manually after validation |
 | Transform | Missing organization | No | Check export logs for organization |
 | Transform | Missing credential type | No | Ensure credential types exported first |
 | Transform | Unmapped external credential type | No | Custom credential types need manual setup |
@@ -181,7 +189,7 @@ When comparing source and target counts, consider:
 
 1. **Hosts**: If `skip_dynamic_hosts=true` (default), dynamic hosts won't be counted
 2. **Inventories**: Smart inventories and pending deletion inventories are excluded
-3. **Schedules**: Disabled schedules are not exported
+3. **Schedules**: System-job schedules are not exported; imported schedules are disabled
 4. **Credentials**: Installer-created defaults (`Ansible Galaxy`,
    `Default Execution Environment Registry Credential`) are skipped by default; others may be
    skipped due to unmapped external types

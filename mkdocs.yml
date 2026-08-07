@@ -1,6 +1,7 @@
 site_name: AAP Bridge
 site_description: Production-grade migration tool for Ansible Automation Platform
 site_author: Antony Sallas
+site_url: https://redhat-cop.github.io/aap-bridge/
 repo_url: https://github.com/redhat-cop/aap-bridge
 repo_name: redhat-cop/aap-bridge
 

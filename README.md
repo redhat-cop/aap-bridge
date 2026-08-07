@@ -394,6 +394,8 @@ The tool migrates resources in the correct dependency order:
 
 ## Documentation
 
+Published docs: [https://redhat-cop.github.io/aap-bridge/](https://redhat-cop.github.io/aap-bridge/)
+
 Full documentation is available via MkDocs with the Material theme.
 
 ### Viewing Documentation Locally

@@ -3,6 +3,8 @@ on:
   push:
     branches: [ main ]
     paths: [ "docs/**", "mkdocs.yml", ".github/workflows/docs.yml" ]
+  pull_request:
+    paths: [ "docs/**", "mkdocs.yml", ".github/workflows/docs.yml" ]
 
 permissions:
   contents: write
@@ -18,5 +20,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install mkdocs-material # add your other plugins
-      - run: mkdocs gh-deploy --force
+      - run: pip install ".[docs]"
+      - run: mkdocs build --strict
+      - if: github.event_name == 'push'
+        run: mkdocs gh-deploy --force

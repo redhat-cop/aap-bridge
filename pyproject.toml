@@ -83,7 +83,7 @@ aap-bridge = "aap_migration.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/redhat-cop/aap-bridge"
-Documentation = "https://github.com/redhat-cop/aap-bridge/tree/main/docs"
+Documentation = "https://redhat-cop.github.io/aap-bridge/"
 Repository = "https://github.com/redhat-cop/aap-bridge"
 "Bug Tracker" = "https://github.com/redhat-cop/aap-bridge/issues"
 

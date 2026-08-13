@@ -880,6 +880,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#schedules-forced-disabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schedules Forced Disabled
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1399,7 +1410,7 @@ ensure a clean, consistent migration.</p>
 <p>Resources can be filtered or skipped for several reasons:</p>
 <ul>
 <li><strong>Intentional exclusion</strong>: Dynamic hosts, smart inventories, installer-created default
-  credentials, and disabled schedules are excluded by design</li>
+  credentials, and system-job schedules are excluded by design</li>
 <li><strong>Dependency validation</strong>: Resources with missing dependencies cannot be migrated</li>
 <li><strong>Idempotency</strong>: Already-migrated resources are skipped to prevent duplicates</li>
 <li><strong>System constraints</strong>: Some resources are read-only or non-deletable</li>
@@ -1486,8 +1497,8 @@ ensure a clean, consistent migration.</p>
 <tbody>
 <tr>
 <td>Schedules</td>
-<td><code>enabled=true</code></td>
-<td>Only enabled schedules are exported. Disabled schedules are excluded at the API level.</td>
+<td><code>unified_job_type=system_job</code></td>
+<td>Built-in maintenance schedules (cleanup jobs, session/token expiry, etc.) are excluded. Enabled and disabled non-system schedules are both exported.</td>
 </tr>
 <tr>
 <td>Credential Types</td>
@@ -1618,6 +1629,11 @@ credential type cannot be mapped to the target environment.</p>
 <li><strong>Identical resource</strong>: Skip (already migrated)</li>
 <li><strong>Different resource</strong>: Update existing resource with source data</li>
 </ol>
+<h3 id="schedules-forced-disabled">Schedules Forced Disabled<a class="headerlink" href="#schedules-forced-disabled" title="Permanent link">&para;</a></h3>
+<p>Non-system schedules are imported with <code>enabled=false</code> regardless of the source
+enabled state. Operators should re-enable schedules on the target after validating
+templates, credentials, inventories, and RRULEs. This prevents unintended job runs
+immediately after migration.</p>
 <hr />
 <h2 id="cleanup-phase-filters">Cleanup Phase Filters<a class="headerlink" href="#cleanup-phase-filters" title="Permanent link">&para;</a></h2>
 <p>The cleanup command excludes certain resources that cannot be deleted.</p>
@@ -1713,9 +1729,15 @@ credential type cannot be mapped to the target environment.</p>
 </tr>
 <tr>
 <td>Export</td>
-<td>Disabled schedules</td>
+<td>System-job schedules</td>
 <td>No</td>
-<td>Only enabled schedules are exported</td>
+<td><code>unified_job_type=system_job</code> (built-in maintenance)</td>
+</tr>
+<tr>
+<td>Import</td>
+<td>Schedules forced disabled</td>
+<td>No</td>
+<td>Created with <code>enabled=false</code>; re-enable manually after validation</td>
 </tr>
 <tr>
 <td>Transform</td>
@@ -1774,7 +1796,7 @@ credential type cannot be mapped to the target environment.</p>
 <ol>
 <li><strong>Hosts</strong>: If <code>skip_dynamic_hosts=true</code> (default), dynamic hosts won't be counted</li>
 <li><strong>Inventories</strong>: Smart inventories and pending deletion inventories are excluded</li>
-<li><strong>Schedules</strong>: Disabled schedules are not exported</li>
+<li><strong>Schedules</strong>: System-job schedules are not exported; imported schedules are disabled</li>
 <li><strong>Credentials</strong>: Installer-created defaults (<code>Ansible Galaxy</code>,
    <code>Default Execution Environment Registry Credential</code>) are skipped by default; others may be
    skipped due to unmapped external types</li>

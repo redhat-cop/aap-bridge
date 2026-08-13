@@ -1252,6 +1252,8 @@ in the repository.</p>
 </ul>
 <p><strong>Improvements:</strong></p>
 <ul>
+<li>Schedules: export enabled and disabled non-system schedules; import with
+  <code>enabled=false</code> (system-job schedules still excluded).</li>
 <li><code>make setup</code> auto-detects uv or falls back to stdlib venv + pip.</li>
 <li>Export and transform phase order now matches the import dependency order (credential
   types and credentials before projects; users and teams after all content objects).

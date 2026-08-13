@@ -955,6 +955,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pre-commit-and-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-commit and CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#running-tests" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -970,6 +981,17 @@
     <span class="md-ellipsis">
       
         Ephemeral AAP integration testing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web UI
       
     </span>
   </a>
@@ -1503,19 +1525,27 @@ By participating, you are expected to uphold this code.</p>
 <li>Create a feature branch: <code>git checkout -b feature/amazing-feature</code></li>
 <li>Make your changes</li>
 <li>Run tests and checks: <code>make check</code></li>
-<li>Commit your changes</li>
+<li>Commit your changes (pre-commit hooks run automatically after <code>make setup</code>)</li>
 <li>Push to your fork: <code>git push origin feature/amazing-feature</code></li>
 <li>Open a Pull Request</li>
 </ol>
+<p>CI also runs the quality gates on every PR (see <a href="#pre-commit-and-ci">Pre-commit and CI</a>
+below). Do not rely on skipping hooks locally — CI will still fail.</p>
 <h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Python 3.12 (required)</li>
 <li><strong>uv</strong> (recommended) or <strong>pip</strong> with the stdlib <code>venv</code> module (<code>python3.12-venv</code> on Debian/Ubuntu)</li>
 <li>PostgreSQL (for integration tests)</li>
+<li>For Ansible lint / ephemeral AAP work: <strong>ansible-core &gt;= 2.16.14</strong> and
+  <strong>ansible-lint &gt;= 26.1</strong> (installed via <code>make setup</code> / <code>requirements-dev.txt</code>).
+  Collections in <code>tests/integration/requirements.yml</code> are for running the
+  harness (<code>make run-pair</code>, etc.), not required for <code>ansible-lint --offline</code>.</li>
+<li>For the Web UI: Node.js 20+ (optional unless you change <code>web/</code>)</li>
 </ul>
 <h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
-<p><code>make setup</code> creates <code>.venv</code>, installs dev dependencies, and seeds <code>.env</code>.
+<p><code>make setup</code> creates <code>.venv</code>, installs dev dependencies, seeds <code>.env</code>, and
+<strong>installs git pre-commit hooks</strong>.
 It prefers <strong>uv</strong> when installed; pass <code>USE_UV=0</code> to use <strong>pip</strong> instead.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Clone your fork</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/YOUR_USERNAME/aap-bridge.git
@@ -1526,37 +1556,124 @@ It prefers <strong>uv</strong> when installed; pass <code>USE_UV=0</code> to use
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Interactive CLI usage only — make test/lint/etc. use .venv/bin directly</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
 </code></pre></div>
+<h3 id="pre-commit-and-ci">Pre-commit and CI<a class="headerlink" href="#pre-commit-and-ci" title="Permanent link">&para;</a></h3>
+<p>After <code>make setup</code>, hooks run on every <code>git commit</code>. They cover:</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hygiene</td>
+<td>trailing whitespace, EOF, YAML, merge conflicts, large files</td>
+</tr>
+<tr>
+<td>CHANGELOG periods</td>
+<td>each bullet in <code>CHANGELOG.md</code> and <code>docs/reference/changelog.md</code> ends with <code>.</code> (<code>tools/check_changelog_periods.py</code>)</td>
+</tr>
+<tr>
+<td>kacl-verify</td>
+<td>Keep a Changelog structure on <code>CHANGELOG.md</code> (<code>python-kacl</code>; see <code>.kacl.yml</code>)</td>
+</tr>
+<tr>
+<td>gitleaks</td>
+<td>secret scanning (dedicated CI job + local pre-commit)</td>
+</tr>
+<tr>
+<td>black / isort / ruff</td>
+<td>format and lint Python under <code>src/</code> and <code>tests/</code></td>
+</tr>
+<tr>
+<td>pytest unit</td>
+<td><code>pytest tests/unit</code> (fast; no AAP containers)</td>
+</tr>
+<tr>
+<td>ansible-lint</td>
+<td>offline lint of <code>tests/integration/</code> when those YAML files change</td>
+</tr>
+<tr>
+<td>web-build / web-vitest</td>
+<td><code>npm run build</code> + <code>vitest run</code> when <code>web/</code> changes (needs <code>make web-install</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Run all hooks manually:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>pre-commit
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># or: .venv/bin/pre-commit run --all-files</span>
+</code></pre></div>
+<p>GitHub Actions (<code>.github/workflows/ci.yml</code>) runs four jobs on every PR/push to
+<code>main</code>:</p>
+<ul>
+<li><strong>Secrets</strong> — <code>pre-commit run gitleaks --all-files</code> (dedicated status check)</li>
+<li><strong>Python</strong> — remaining pre-commit hooks with
+  <code>SKIP=gitleaks,ansible-lint,web-build,web-vitest</code> (includes changelog
+  trailing-period checks and <code>kacl-verify</code>)</li>
+<li><strong>Ansible</strong> — path-filtered <code>ansible-lint --offline</code> when
+  <code>tests/integration/</code> changes</li>
+<li><strong>Web</strong> — path-filtered <code>npm ci</code>, <code>npm run build</code>, and <code>npm run test:unit</code>
+  when <code>web/</code> changes</li>
+</ul>
+<p><strong>mypy</strong> is still part of <code>make check</code> / <code>make typecheck</code> but is <strong>not</strong> in
+pre-commit or CI yet (tracked in
+<a href="https://github.com/redhat-cop/aap-bridge/issues/158">issue #158</a>).
+Prefer fixing type errors before merge when you touch typed code.</p>
+<p>Escape hatches (<code>SKIP=... git commit</code> or <code>--no-verify</code>) are discouraged; CI
+still blocks the PR.</p>
 <h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># All tests</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>make<span class="w"> </span><span class="nb">test</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Unit tests only (fast)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>make<span class="w"> </span>test-unit
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># With coverage</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>make<span class="w"> </span>test-cov
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Specific test file</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>.venv/bin/pytest<span class="w"> </span>tests/unit/test_exporter.py<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># All tests</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make<span class="w"> </span><span class="nb">test</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Unit tests only (fast)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make<span class="w"> </span>test-unit
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># With coverage</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>make<span class="w"> </span>test-cov
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Specific test file</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>.venv/bin/pytest<span class="w"> </span>tests/unit/test_exporter.py<span class="w"> </span>-v
 </code></pre></div>
 <h3 id="ephemeral-aap-integration-testing">Ephemeral AAP integration testing<a class="headerlink" href="#ephemeral-aap-integration-testing" title="Permanent link">&para;</a></h3>
 <p>For end-to-end migration testing against real AAP instances (golden images, source/target
 pairs, <code>make test-bridge</code>), see <a href="../testing/">Testing with Ephemeral AAP Instances</a>.
 That workflow uses podman on the host and does not require a local Python install for the
 AAP side of the stack.</p>
+<p>Lint the integration Ansible harness:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span>ansible-lint
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># cd tests/integration &amp;&amp; ansible-lint --offline</span>
+</code></pre></div>
+<h3 id="web-ui">Web UI<a class="headerlink" href="#web-ui" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>web-install<span class="w">   </span><span class="c1"># npm ci in web/ (required once before web hooks/tests)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span>web-dev<span class="w">       </span><span class="c1"># Vite dev server</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>make<span class="w"> </span>web-build<span class="w">     </span><span class="c1"># tsc + production build (same as pre-commit web-build)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>make<span class="w"> </span>web-test<span class="w">      </span><span class="c1"># vitest unit tests (same as pre-commit web-vitest)</span>
+</code></pre></div>
+<p>Frontend unit tests live next to source (<code>*.test.ts</code> / <code>*.test.tsx</code>), using the
+Vitest + Testing Library setup already wired in <code>web/vitest.config.ts</code>. Commit
+hooks for web only run when <code>web/</code> files are staged; CI enforces build + unit
+tests on web path changes.</p>
 <h3 id="code-quality">Code Quality<a class="headerlink" href="#code-quality" title="Permanent link">&para;</a></h3>
 <p>Before submitting:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Format code</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make<span class="w"> </span>format
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Run linter</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make<span class="w"> </span>lint
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Type checking</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>make<span class="w"> </span>typecheck
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># All checks</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>make<span class="w"> </span>check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Format code</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>make<span class="w"> </span>format
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Run linter</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>make<span class="w"> </span>lint
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Type checking (local; not yet in CI — see issue #158)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>make<span class="w"> </span>typecheck
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># All checks (format + lint + typecheck + test)</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>make<span class="w"> </span>check
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Integration Ansible (when changing tests/integration/)</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>make<span class="w"> </span>ansible-lint
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="c1"># Web build (when changing web/)</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>make<span class="w"> </span>web-build
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>make<span class="w"> </span>web-test
 </code></pre></div>
 <h2 id="code-style">Code Style<a class="headerlink" href="#code-style" title="Permanent link">&para;</a></h2>
 <h3 id="python-style">Python Style<a class="headerlink" href="#python-style" title="Permanent link">&para;</a></h3>
@@ -1579,24 +1696,24 @@ AAP side of the stack.</p>
 <li>Comments for complex logic</li>
 </ul>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">import_resources</span><span class="p">(</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">resources</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Import resources to target AAP.</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    Args:</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="sd">        resources: List of resource dictionaries to import</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="sd">        progress_callback: Optional callback for progress updates</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="sd">        List of successfully imported resources</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="sd">        APIError: If API request fails</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="o">...</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">import_resources</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">resources</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Import resources to target AAP.</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sd">    Args:</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="sd">        resources: List of resource dictionaries to import</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="sd">        progress_callback: Optional callback for progress updates</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="sd">        List of successfully imported resources</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="sd">        APIError: If API request fails</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>    <span class="o">...</span>
 </code></pre></div>
 <h2 id="git-commit-messages">Git Commit Messages<a class="headerlink" href="#git-commit-messages" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1606,18 +1723,18 @@ AAP side of the stack.</p>
 <li>Reference issues: "Fix #123: Handle edge case"</li>
 </ul>
 <h3 id="good-examples">Good Examples<a class="headerlink" href="#good-examples" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Add bulk import support for hosts
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Implement bulk host creation using AAP&#39;s /bulk/host_create endpoint.
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>This improves import performance by ~10x for large inventories.
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>Fixes #45
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>Fix rate limiting during export
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>- Add exponential backoff on 429 responses
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>- Respect Retry-After header
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>- Add configurable rate limit settings
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Add bulk import support for hosts
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>Implement bulk host creation using AAP&#39;s /bulk/host_create endpoint.
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>This improves import performance by ~10x for large inventories.
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>Fixes #45
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>Fix rate limiting during export
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>- Add exponential backoff on 429 responses
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>- Respect Retry-After header
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>- Add configurable rate limit settings
 </code></pre></div>
 <h2 id="adding-new-features">Adding New Features<a class="headerlink" href="#adding-new-features" title="Permanent link">&para;</a></h2>
 <h3 id="adding-a-new-resource-type">Adding a New Resource Type<a class="headerlink" href="#adding-a-new-resource-type" title="Permanent link">&para;</a></h3>
@@ -1644,11 +1761,11 @@ AAP side of the stack.</p>
 </ul>
 <h3 id="test-coverage">Test Coverage<a class="headerlink" href="#test-coverage" title="Permanent link">&para;</a></h3>
 <p>Aim for high coverage but prioritize meaningful tests:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Check coverage</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>make<span class="w"> </span>test-cov
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># View HTML report</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>open<span class="w"> </span>htmlcov/index.html
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Check coverage</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>make<span class="w"> </span>test-cov
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># View HTML report</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>open<span class="w"> </span>htmlcov/index.html
 </code></pre></div>
 <h2 id="release-process">Release Process<a class="headerlink" href="#release-process" title="Permanent link">&para;</a></h2>
 <ol>

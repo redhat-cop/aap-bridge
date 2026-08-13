@@ -548,10 +548,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-set-up-environment" class="md-nav__link">
+  <a href="#1-configure-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Set Up Environment
+        1. Configure Environment
       
     </span>
   </a>
@@ -625,10 +625,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#one-command-migration" class="md-nav__link">
+  <a href="#interactive-mode-recommended" class="md-nav__link">
     <span class="md-ellipsis">
       
-        One-Command Migration
+        Interactive Mode (recommended)
       
     </span>
   </a>
@@ -636,10 +636,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#interactive-mode" class="md-nav__link">
+  <a href="#unattended-full-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Interactive Mode
+        Unattended full pipeline
       
     </span>
   </a>
@@ -1158,6 +1158,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource Support Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/awx-migration/" class="md-nav__link">
         
   
@@ -1235,47 +1263,38 @@
 
 
 <h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
-<p>Get AAP Bridge running in 5 minutes.</p>
-<h2 id="1-set-up-environment">1. Set Up Environment<a class="headerlink" href="#1-set-up-environment" title="Permanent link">&para;</a></h2>
-<p>Copy the example environment file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<p>Get AAP Bridge running in a few minutes after installation.</p>
+<div class="admonition tip">
+<p class="admonition-title">Install first</p>
+<p>Complete <a href="../installation/">Installation</a> (local host, container CLI, or
+Web UI) before continuing. That guide covers PostgreSQL, <code>make setup</code> /
+compose, and seeding <code>.env</code>.</p>
+</div>
+<h2 id="1-configure-environment">1. Configure Environment<a class="headerlink" href="#1-configure-environment" title="Permanent link">&para;</a></h2>
+<p>Edit <code>.env</code> with your AAP credentials and database URL (created by
+<code>make setup</code> or <code>make init-env</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Source AAP instance (read-only token)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">SOURCE__URL</span><span class="o">=</span>https://source-aap.example.com
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">SOURCE__VERSION</span><span class="o">=</span><span class="m">2</span>.4
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">SOURCE__TOKEN</span><span class="o">=</span>your_source_read_token
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Target AAP instance (read/write token)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nv">TARGET__VERSION</span><span class="o">=</span><span class="m">2</span>.6
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nv">TARGET__TOKEN</span><span class="o">=</span>your_target_write_token
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># PostgreSQL state database</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>postgresql://user:password@localhost:5432/aap_migration
 </code></pre></div>
-<p>Edit <code>.env</code> with your AAP credentials:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Source AAP instance (read-only token)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">SOURCE__URL</span><span class="o">=</span>https://source-aap.example.com
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">SOURCE__VERSION</span><span class="o">=</span><span class="m">2</span>.4
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nv">SOURCE__TOKEN</span><span class="o">=</span>your_source_read_token
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Target AAP instance (read/write token)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nv">TARGET__URL</span><span class="o">=</span>https://target-aap.example.com
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nv">TARGET__VERSION</span><span class="o">=</span><span class="m">2</span>.6
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nv">TARGET__TOKEN</span><span class="o">=</span>your_target_write_token
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># PostgreSQL state database</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>postgresql://user:password@localhost:5432/aap_migration
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Version-driven API routing</p>
-<p>Set <code>SOURCE__VERSION</code> and <code>TARGET__VERSION</code> (e.g. <code>2.4</code>, <code>2.6</code>, <code>2.7</code>). The tool
-uses these to select <code>/api/v2</code> (2.4 and earlier) or <code>/api/gateway/v1</code> plus
-<code>/api/controller/v2</code> (2.5+). Host URLs should be <code>https://fqdn</code> only. The
-source may be upstream AWX — set <code>SOURCE__VERSION</code> to the equivalent AAP
-version (e.g. AWX 24.6.1 → <code>2.4</code>). Only AWX 24.6.1 has been tested; see
+<p>For version-driven API routing, token scopes, Vault, and full settings, see
+<a href="../configuration/">Configuration</a>. For AWX sources, see
 <a href="../../reference/awx-migration/">AWX Migration</a>.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">API token scope</p>
-<p>The source token needs read-only scope (export/prep only read data). The
-target token needs read/write scope with admin-level access for import and
-cleanup. See <a href="../configuration/#api-token-permissions">Configuration</a> for
-details and <code>curl</code> examples.</p>
-</div>
 <h2 id="2-validate-configuration">2. Validate Configuration<a class="headerlink" href="#2-validate-configuration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>aap-bridge<span class="w"> </span>config<span class="w"> </span>validate
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>aap-bridge<span class="w"> </span>config<span class="w"> </span>validate
 </code></pre></div>
 <p>This checks connectivity to both AAP instances and the database.</p>
 <h2 id="3-run-preparation-phase">3. Run Preparation Phase<a class="headerlink" href="#3-run-preparation-phase" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>aap-bridge<span class="w"> </span>prep
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>aap-bridge<span class="w"> </span>prep
 </code></pre></div>
 <p>This:</p>
 <ul>
@@ -1284,30 +1303,39 @@ details and <code>curl</code> examples.</p>
 <li>Generates transformation rules</li>
 </ul>
 <h2 id="4-export-from-source">4. Export from Source<a class="headerlink" href="#4-export-from-source" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>aap-bridge<span class="w"> </span><span class="nb">export</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>aap-bridge<span class="w"> </span><span class="nb">export</span>
 </code></pre></div>
 <p>Exports all resources from the source AAP to the <code>exports/</code> directory.</p>
 <h2 id="5-transform-data">5. Transform Data<a class="headerlink" href="#5-transform-data" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>transform
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>aap-bridge<span class="w"> </span>transform
 </code></pre></div>
 <p>Applies schema transformations for the target AAP version.</p>
 <h2 id="6-import-to-target">6. Import to Target<a class="headerlink" href="#6-import-to-target" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>aap-bridge<span class="w"> </span>import
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>import
 </code></pre></div>
 <p>Imports transformed data to the target AAP.</p>
 <h2 id="7-validate-migration">7. Validate Migration<a class="headerlink" href="#7-validate-migration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aap-bridge<span class="w"> </span>validate
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>aap-bridge<span class="w"> </span>validate
 </code></pre></div>
 <p>Compares source and target to verify migration success.</p>
-<h2 id="one-command-migration">One-Command Migration<a class="headerlink" href="#one-command-migration" title="Permanent link">&para;</a></h2>
-<p>For a complete migration in one command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>full
+<h2 id="interactive-mode-recommended">Interactive Mode (recommended)<a class="headerlink" href="#interactive-mode-recommended" title="Permanent link">&para;</a></h2>
+<p>Run without arguments for the interactive menu:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aap-bridge
 </code></pre></div>
-<p>This runs all phases sequentially with progress tracking.</p>
-<h2 id="interactive-mode">Interactive Mode<a class="headerlink" href="#interactive-mode" title="Permanent link">&para;</a></h2>
-<p>Run without arguments for an interactive menu:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>aap-bridge
+<p>Use this for most migrations. The menu runs prep, export, transform, and
+import in separate steps so you can pause after export/transform to load
+credential secrets into Vault (or recreate them on the target) before import.
+Encrypted fields appear as <code>$encrypted$</code> on the source API and cannot be
+migrated without that step — see
+<a href="../../reference/compatibility-matrix/">Compatibility Matrix</a> and
+<a href="../configuration/#optional-variables">Configuration</a>.</p>
+<h2 id="unattended-full-pipeline">Unattended full pipeline<a class="headerlink" href="#unattended-full-pipeline" title="Permanent link">&para;</a></h2>
+<p>When Vault (or manual secrets) is already in place and you want a single
+unattended run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>aap-bridge<span class="w"> </span>migrate
 </code></pre></div>
+<p>This runs prep → export → transform → import sequentially. Prefer the TUI
+until that secret path is ready.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../configuration/">Configuration</a> - Fine-tune settings for your environment</li>

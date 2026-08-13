@@ -1236,6 +1236,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource Support Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/awx-migration/" class="md-nav__link">
         
   
@@ -1353,7 +1381,8 @@ When using AWX, configure <code>SOURCE__VERSION</code> to the equivalent AAP rel
 <li>Splits large datasets into multiple files</li>
 <li>Tracks export progress in state database</li>
 </ol>
-<p><strong>Export Order:</strong></p>
+<p><strong>Export / import order</strong> (canonical — keep this table in sync with the
+implementation; other docs should link here rather than duplicate it):</p>
 <table>
 <thead>
 <tr>
@@ -1475,6 +1504,9 @@ When using AWX, configure <code>SOURCE__VERSION</code> to the equivalent AAP rel
 </tr>
 </tbody>
 </table>
+<p>Instance group <em>objects</em> are not migrated. Ensure matching instance groups
+already exist on the target before import (RBAC and capacity associations
+resolve by name).</p>
 <p><strong>Output Structure:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>exports/
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── metadata.json
@@ -1521,7 +1553,8 @@ When using AWX, configure <code>SOURCE__VERSION</code> to the equivalent AAP rel
 </ol>
 <p><strong>Import Features:</strong></p>
 <ul>
-<li><strong>Bulk Operations</strong>: Hosts imported in batches sized to the target's <code>BULK_HOST_MAX_CREATE</code> (stock default: 100; API max: 200)</li>
+<li><strong>Bulk Operations</strong>: Hosts imported in batches sized to the target's
+  <code>BULK_HOST_MAX_CREATE</code> (stock default: 100; API max: 200)</li>
 <li><strong>Host-Group Associations</strong>: Hosts are associated with their groups after bulk import</li>
 <li><strong>Inventory Source Sync</strong>: After importing inventory sources, the tool triggers a sync and
   waits for completion before moving to constructed and smart inventories</li>
@@ -1618,6 +1651,10 @@ When using AWX, configure <code>SOURCE__VERSION</code> to the equivalent AAP rel
 <li><strong>Verify credentials</strong> - Source API token has read-only scope with
    permission to read all resources being migrated; target API token has
    read/write scope with admin-level access to create and modify resources</li>
+<li><strong>Instance groups on target</strong> - Create any referenced instance groups on
+   the target (same names as source) before import</li>
+<li><strong>Encrypted secrets</strong> - Plan Vault or manual re-entry for credential secret
+   fields (<code>$encrypted$</code> cannot be read via the API)</li>
 </ol>
 <h3 id="during-migration">During Migration<a class="headerlink" href="#during-migration" title="Permanent link">&para;</a></h3>
 <ol>

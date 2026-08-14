@@ -6,7 +6,14 @@ interface with real-time log streaming.
 
 ## Starting the Web UI
 
+Prerequisites and full install context are in
+[Installation](../getting-started/installation.md). Container deployment and local
+frontend development are different workflows — do not mix their make targets.
+
 ### Container Deployment (Recommended)
+
+Builds and runs the prebuilt FastAPI engine and nginx-served UI images
+(`make build-all` / `make up`). Access the UI at port `8080`.
 
 ```bash
 # Create .env, then build and start all 3 containers
@@ -27,7 +34,10 @@ This starts:
 
 ### Local Development
 
-For frontend development with hot-reload:
+Runs the API on the host and the Vite frontend with hot-reload
+(`make web-install` / `make web-dev`). Access the UI at port `5173`.
+Run `make web-install` once (or after `web/package-lock.json` changes) before
+`make web-dev`.
 
 ```bash
 # Terminal 1: Start the API server

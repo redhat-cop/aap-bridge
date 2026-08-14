@@ -196,13 +196,23 @@ Run the browser-based interface with a FastAPI engine and nginx-served frontend.
 This workflow builds on the same local/container foundation as the CLI flow, but
 adds API and UI services on top of the bundled PostgreSQL database.
 
+There are two distinct paths:
+
+| Path | What you run | Best for |
+| --- | --- | --- |
+| **Container deployment** | `make build-all` then `make up` | Running the full UI at port `8080` |
+| **Local frontend development** | `make web-install` / `make web-dev` plus `aap-bridge serve` | Hot-reload Vite UI at port `5173` |
+
+For pages, connections, and API details, see the [Web UI](../user-guide/web-ui.md) guide.
+
 ### Requirements
 
-- **podman** with compose support
+- **podman** with compose support (container deployment)
 - **make**
-- Access to `registry.redhat.io` to pull the Red Hat PostgreSQL image
+- Access to `registry.redhat.io` to pull the Red Hat PostgreSQL image (container deployment)
+- **Node.js / npm** (local frontend development only; not required for `make build-all`)
 
-### Setup
+### Container deployment
 
 ```bash
 git clone https://github.com/redhat-cop/aap-bridge.git
@@ -221,16 +231,30 @@ make build-all
 make up
 ```
 
-### Verify
-
 Open [http://localhost:8080](http://localhost:8080) in your browser.
-
-### Notes
 
 - `make up` uses the same self-preparing PostgreSQL container setup as the CLI workflow.
 - The UI proxies `/api` and `/ws` traffic to the FastAPI engine running on port `8000`.
-- For frontend-only development, run `aap-bridge serve --reload` in one terminal
-  and `make web-dev` in another.
+
+### Local frontend development
+
+For host-side API plus Vite hot-reload (not a substitute for `make build-all`):
+
+```bash
+# Terminal 1: Start the API server
+make init-env   # Or reuse an existing .env from make setup
+pip install -e '.[api]'
+aap-bridge serve --reload
+
+# Terminal 2: Start the Vite dev server
+make web-install
+make web-dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+Run `make web-install` once (or again after `web/package-lock.json` changes) before
+`make web-dev`.
 
 ## Verify Installation
 
@@ -264,7 +288,7 @@ aap-bridge --help
 | `make setup` | Complete local host setup (auto-detects uv or pip) |
 | `make setup USE_UV=0` | Local host setup using stdlib venv + pip |
 | `make build` | Build the container images used by the CLI workflow |
-| `make build-all` | Build the API and UI images for the browser workflow |
+| `make build-all` | Build the API and UI container images for the browser workflow (`make up`) |
 | `make up` | Start the PostgreSQL + engine + UI services |
 | `make up-dev` | Start the PostgreSQL + bridge containers |
 | `make shell` | Open a shell in the running bridge container |
@@ -272,7 +296,8 @@ aap-bridge --help
 | `make c-test-all` | Full unit test suite inside the bridge container |
 | `make c-check` | Run lint, typecheck, and tests inside the bridge container |
 | `make shell-engine` | Open a shell in the engine container |
-| `make web-dev` | Start the Vite frontend dev server |
+| `make web-install` | Install frontend npm dependencies (`web/`; for local Vite, not `build-all`) |
+| `make web-dev` | Start the Vite frontend dev server on port `5173` |
 | `make logs` | Tail compose service logs |
 | `make down` | Stop the db + bridge compose stack |
 | `make down-all` | Stop compose stack and all running AAP test/build containers |

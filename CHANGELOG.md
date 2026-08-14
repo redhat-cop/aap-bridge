@@ -111,6 +111,10 @@ pre-commit / CI via `tools/check_changelog_periods.py` on this file and
 - **Documentation – Token and URL Guidance**: Clarified read-only source vs
   read/write target API tokens, version-driven API routing, and corrected
   `SECURITY.md` to use `SOURCE__TOKEN`/`TARGET__TOKEN`.
+- **Documentation – Web UI Build Paths (#162)**: Clarified container deployment
+  (`make build-all` / `make up` at port 8080) versus local frontend development
+  (`make web-install` / `make web-dev` with `aap-bridge serve` at port 5173) in
+  Installation and Web UI docs.
 - **Testing – Host-Visible Migration Artifacts**: Bridge dev container bind-mounts
   `exports`, `xformed`, `reports`, `logs`, and `schemas` from the repo root (matching
   the engine service) so prep/export/transform output is visible on the host.

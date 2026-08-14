@@ -57,6 +57,8 @@ in the repository.
   install detail live in Installation; Quick Start defers to Installation/Configuration;
   canonical resource order is only in Migration Workflow; `migrate full` examples
   corrected; Resource Support Matrix added to MkDocs nav.
+- Clarified Web UI container (`make build-all` / `make up`) versus local frontend
+  (`make web-install` / `make web-dev`) setup paths in Installation and Web UI docs (#162).
 
 **Added:**
 

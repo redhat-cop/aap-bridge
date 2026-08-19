@@ -654,6 +654,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1662,17 +1690,17 @@ support for any new resource.</p>
 <h4 id="a-remove-from-read_only_endpoints-if-present">A. Remove from READ_ONLY_ENDPOINTS (if present)<a class="headerlink" href="#a-remove-from-read_only_endpoints-if-present" title="Permanent link">&para;</a></h4>
 <p>If the resource type is currently in <code>READ_ONLY_ENDPOINTS</code>, remove it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">READ_ONLY_ENDPOINTS</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">&quot;ping&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">&quot;config&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="s2">"ping"</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="s2">"config"</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="c1"># ... remove your resource type from here</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">}</span>
 </code></pre></div>
 <h4 id="b-add-to-resource_registry">B. Add to RESOURCE_REGISTRY<a class="headerlink" href="#b-add-to-resource_registry" title="Permanent link">&para;</a></h4>
 <p>Add the new resource type with appropriate migration/cleanup order:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="s2">&quot;your_resource&quot;</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;your_resource&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;your_resource/&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Your Resource Description&quot;</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="s2">"your_resource"</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"your_resource"</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">endpoint</span><span class="o">=</span><span class="s2">"your_resource/"</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Your Resource Description"</span><span class="p">,</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">migration_order</span><span class="o">=</span><span class="n">XXX</span><span class="p">,</span>  <span class="c1"># See Migration Order section below</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">cleanup_order</span><span class="o">=</span><span class="n">YYY</span><span class="p">,</span>    <span class="c1"># See Cleanup Order section below</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">has_exporter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -1698,27 +1726,27 @@ support for any new resource.</p>
 <h3 id="step-2-srcaap_migrationmigrationexporterpy">Step 2: <code>src/aap_migration/migration/exporter.py</code><a class="headerlink" href="#step-2-srcaap_migrationmigrationexporterpy" title="Permanent link">&para;</a></h3>
 <h4 id="a-add-exporter-class">A. Add Exporter Class<a class="headerlink" href="#a-add-exporter-class" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">YourResourceExporter</span><span class="p">(</span><span class="n">ResourceExporter</span><span class="p">):</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Exporter for your_resource resources.</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="sd">"""Exporter for your_resource resources.</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="sd">    Add description of what this resource is and any special considerations.</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="sd">    """</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export</span><span class="p">(</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Export your_resource items.</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="sd">"""Export your_resource items.</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="sd">        Args:</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="sd">            filters: Optional query parameters for filtering</span>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="sd">        Yields:</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="sd">            Resource dictionaries</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;exporting_your_resource&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="sd">        """</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"exporting_your_resource"</span><span class="p">)</span>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="k">async</span> <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">export_resources</span><span class="p">(</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="n">resource_type</span><span class="o">=</span><span class="s2">&quot;your_resource&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>            <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;your_resource/&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>            <span class="n">page_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_config</span><span class="o">.</span><span class="n">batch_sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;your_resource&quot;</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="n">resource_type</span><span class="o">=</span><span class="s2">"your_resource"</span><span class="p">,</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>            <span class="n">endpoint</span><span class="o">=</span><span class="s2">"your_resource/"</span><span class="p">,</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>            <span class="n">page_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_config</span><span class="o">.</span><span class="n">batch_sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"your_resource"</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
 <a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>            <span class="n">filters</span><span class="o">=</span><span class="n">filters</span><span class="p">,</span>
 <a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="p">):</span>
 <a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>            <span class="k">yield</span> <span class="n">resource</span>
@@ -1727,18 +1755,18 @@ support for any new resource.</p>
 <p>Add to the <code>exporters</code> dict in <code>create_exporter()</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">exporters</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="c1"># ... existing exporters</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">&quot;your_resource&quot;</span><span class="p">:</span> <span class="n">YourResourceExporter</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">"your_resource"</span><span class="p">:</span> <span class="n">YourResourceExporter</span><span class="p">,</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h3 id="step-3-srcaap_migrationmigrationimporterpy">Step 3: <code>src/aap_migration/migration/importer.py</code><a class="headerlink" href="#step-3-srcaap_migrationmigrationimporterpy" title="Permanent link">&para;</a></h3>
 <h4 id="a-add-importer-class">A. Add Importer Class<a class="headerlink" href="#a-add-importer-class" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">YourResourceImporter</span><span class="p">(</span><span class="n">ResourceImporter</span><span class="p">):</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Importer for your_resource resources.&quot;&quot;&quot;</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="sd">"""Importer for your_resource resources."""</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="c1"># Define foreign key dependencies (field_name -&gt; resource_type)</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">&quot;organization&quot;</span><span class="p">:</span> <span class="s2">&quot;organizations&quot;</span><span class="p">,</span>  <span class="c1"># Example</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">"organization"</span><span class="p">:</span> <span class="s2">"organizations"</span><span class="p">,</span>  <span class="c1"># Example</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="c1"># Add other FK dependencies</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">}</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
@@ -1747,7 +1775,7 @@ support for any new resource.</p>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="n">resources</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Import multiple resources concurrently with live progress updates.</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="sd">"""Import multiple resources concurrently with live progress updates.</span>
 <a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
 <a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">        Args:</span>
 <a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">            resources: List of resource data</span>
@@ -1755,8 +1783,8 @@ support for any new resource.</p>
 <a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
 <a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="sd">        Returns:</span>
 <a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="sd">            List of created resource data</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_import_parallel</span><span class="p">(</span><span class="s2">&quot;your_resource&quot;</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="sd">        """</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_import_parallel</span><span class="p">(</span><span class="s2">"your_resource"</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Important:</strong> The method name MUST follow the pattern <code>import_{resource_type}</code>
  (e.g., <code>import_instances</code>, <code>import_organizations</code>).</p>
@@ -1764,7 +1792,7 @@ support for any new resource.</p>
 <p>Add to the <code>importers</code> dict in <code>create_importer()</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">importers</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="c1"># ... existing importers</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;your_resource&quot;</span><span class="p">:</span> <span class="n">YourResourceImporter</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">"your_resource"</span><span class="p">:</span> <span class="n">YourResourceImporter</span><span class="p">,</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
 </code></pre></div>
 <hr />
@@ -1772,19 +1800,19 @@ support for any new resource.</p>
 <p>Add to <code>TRANSFORMER_CLASSES</code> dict:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">TRANSFORMER_CLASSES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">DataTransformer</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="c1"># ... existing transformers</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="s2">&quot;your_resource&quot;</span><span class="p">:</span> <span class="n">DataTransformer</span><span class="p">,</span>  <span class="c1"># Use base class if no special transformation</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="s2">"your_resource"</span><span class="p">:</span> <span class="n">DataTransformer</span><span class="p">,</span>  <span class="c1"># Use base class if no special transformation</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="c1"># OR create a custom transformer class if needed:</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="c1"># &quot;your_resource&quot;: YourResourceTransformer,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="c1"># "your_resource": YourResourceTransformer,</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
 </code></pre></div>
 <p>If custom transformation is needed, create a transformer class:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">YourResourceTransformer</span><span class="p">(</span><span class="n">DataTransformer</span><span class="p">):</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Transformer for your_resource resources.&quot;&quot;&quot;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="sd">"""Transformer for your_resource resources."""</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="s2">&quot;organization&quot;</span><span class="p">:</span> <span class="s2">&quot;organizations&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="s2">"organization"</span><span class="p">:</span> <span class="s2">"organizations"</span><span class="p">,</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="p">}</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">REQUIRED_DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;organization&quot;</span><span class="p">}</span>  <span class="c1"># Dependencies that must exist</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">REQUIRED_DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"organization"</span><span class="p">}</span>  <span class="c1"># Dependencies that must exist</span>
 </code></pre></div>
 <hr />
 <h3 id="step-5-srcaap_migrationmigrationcoordinatorpy">Step 5: <code>src/aap_migration/migration/coordinator.py</code><a class="headerlink" href="#step-5-srcaap_migrationmigrationcoordinatorpy" title="Permanent link">&para;</a></h3>
@@ -1792,10 +1820,10 @@ support for any new resource.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">MIGRATION_PHASES</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="c1"># ... earlier phases</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="p">{</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;your_resource&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Your Resource Description&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="s2">&quot;resource_types&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;your_resource&quot;</span><span class="p">],</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"your_resource"</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"Your Resource Description"</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="s2">"resource_types"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"your_resource"</span><span class="p">],</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="s2">"batch_size"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="p">},</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="c1"># ... later phases</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">]</span>
@@ -1806,7 +1834,7 @@ support for any new resource.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Phase 1: Infrastructure &amp; Projects</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">PHASE1_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="c1"># ... existing types</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">&quot;your_resource&quot;</span><span class="p">,</span>  <span class="c1"># Add in correct dependency order</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">"your_resource"</span><span class="p">,</span>  <span class="c1"># Add in correct dependency order</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">]</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Phase 3: Automation Definitions (if applicable)</span>
@@ -1820,8 +1848,8 @@ support for any new resource.</p>
  function:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">method_map</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="c1"># Foundation resources</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">&quot;organizations&quot;</span><span class="p">:</span> <span class="s2">&quot;import_organizations&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="s2">&quot;your_resource&quot;</span><span class="p">:</span> <span class="s2">&quot;import_your_resource&quot;</span><span class="p">,</span>  <span class="c1"># ADD THIS</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="s2">"organizations"</span><span class="p">:</span> <span class="s2">"import_organizations"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="s2">"your_resource"</span><span class="p">:</span> <span class="s2">"import_your_resource"</span><span class="p">,</span>  <span class="c1"># ADD THIS</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="c1"># ... other mappings</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="p">}</span>
 </code></pre></div>
@@ -1833,13 +1861,13 @@ support for any new resource.</p>
 <h3 id="step-8-srcaap_migrationclicommandscleanuppy">Step 8: <code>src/aap_migration/cli/commands/cleanup.py</code><a class="headerlink" href="#step-8-srcaap_migrationclicommandscleanuppy" title="Permanent link">&para;</a></h3>
 <p>Add skip logic for system/managed resources (if applicable):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Skip managed/system resources</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">elif</span> <span class="n">resource_type</span> <span class="o">==</span> <span class="s2">&quot;your_resource&quot;</span> <span class="ow">and</span> <span class="p">(</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">elif</span> <span class="n">resource_type</span> <span class="o">==</span> <span class="s2">"your_resource"</span> <span class="ow">and</span> <span class="p">(</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">is_managed</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="ow">or</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;system_name_1&quot;</span><span class="p">,</span> <span class="s2">&quot;system_name_2&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="ow">or</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"system_name_1"</span><span class="p">,</span> <span class="s2">"system_name_2"</span><span class="p">)</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="ow">or</span> <span class="n">resource_id</span> <span class="o">==</span> <span class="mi">1</span>
 <a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">):</span>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">skip_resource</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">skip_reason</span> <span class="o">=</span> <span class="s2">&quot;managed/system resource&quot;</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">skip_reason</span> <span class="o">=</span> <span class="s2">"managed/system resource"</span>
 </code></pre></div>
 <hr />
 <h2 id="implementation-checklist">Implementation Checklist<a class="headerlink" href="#implementation-checklist" title="Permanent link">&para;</a></h2>
@@ -1901,10 +1929,10 @@ migrated BEFORE instance_groups since groups can reference instances.</p>
 </table>
 <h3 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h3>
 <h4 id="resourcespy">resources.py<a class="headerlink" href="#resourcespy" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="s2">&quot;instances&quot;</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;instances&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;instances/&quot;</span><span class="p">,</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Instances (AAP Controller Nodes)&quot;</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="s2">"instances"</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"instances"</span><span class="p">,</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">endpoint</span><span class="o">=</span><span class="s2">"instances/"</span><span class="p">,</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Instances (AAP Controller Nodes)"</span><span class="p">,</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">migration_order</span><span class="o">=</span><span class="mi">116</span><span class="p">,</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">cleanup_order</span><span class="o">=</span><span class="mi">88</span><span class="p">,</span>
 <a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">has_exporter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -1915,26 +1943,26 @@ migrated BEFORE instance_groups since groups can reference instances.</p>
 </code></pre></div>
 <h4 id="exporterpy">exporter.py<a class="headerlink" href="#exporterpy" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">InstanceExporter</span><span class="p">(</span><span class="n">ResourceExporter</span><span class="p">):</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Exporter for instance (AAP controller node) resources.&quot;&quot;&quot;</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="sd">"""Exporter for instance (AAP controller node) resources."""</span>
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export</span><span class="p">(</span>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 <a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;exporting_instances&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"exporting_instances"</span><span class="p">)</span>
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="k">async</span> <span class="k">for</span> <span class="n">instance</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">export_resources</span><span class="p">(</span>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>            <span class="n">resource_type</span><span class="o">=</span><span class="s2">&quot;instances&quot;</span><span class="p">,</span>
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>            <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;instances/&quot;</span><span class="p">,</span>
-<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>            <span class="n">page_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_config</span><span class="o">.</span><span class="n">batch_sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;instances&quot;</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>            <span class="n">resource_type</span><span class="o">=</span><span class="s2">"instances"</span><span class="p">,</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>            <span class="n">endpoint</span><span class="o">=</span><span class="s2">"instances/"</span><span class="p">,</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>            <span class="n">page_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_config</span><span class="o">.</span><span class="n">batch_sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"instances"</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
 <a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>            <span class="n">filters</span><span class="o">=</span><span class="n">filters</span><span class="p">,</span>
 <a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>        <span class="p">):</span>
 <a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>            <span class="k">yield</span> <span class="n">instance</span>
 <a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>
 <a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="c1"># In create_exporter():</span>
-<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="s2">&quot;instances&quot;</span><span class="p">:</span> <span class="n">InstanceExporter</span><span class="p">,</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="s2">"instances"</span><span class="p">:</span> <span class="n">InstanceExporter</span><span class="p">,</span>
 </code></pre></div>
 <h4 id="importerpy">importer.py<a class="headerlink" href="#importerpy" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">InstanceImporter</span><span class="p">(</span><span class="n">ResourceImporter</span><span class="p">):</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Importer for instance (AAP controller node) resources.&quot;&quot;&quot;</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="sd">"""Importer for instance (AAP controller node) resources."""</span>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># No dependencies - instances are foundational</span>
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
@@ -1943,48 +1971,48 @@ migrated BEFORE instance_groups since groups can reference instances.</p>
 <a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>        <span class="n">instances</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
 <a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_import_parallel</span><span class="p">(</span><span class="s2">&quot;instances&quot;</span><span class="p">,</span> <span class="n">instances</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_import_parallel</span><span class="p">(</span><span class="s2">"instances"</span><span class="p">,</span> <span class="n">instances</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">)</span>
 <a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
 <a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># In create_importer():</span>
-<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="s2">&quot;instances&quot;</span><span class="p">:</span> <span class="n">InstanceImporter</span><span class="p">,</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="s2">"instances"</span><span class="p">:</span> <span class="n">InstanceImporter</span><span class="p">,</span>
 </code></pre></div>
 <h4 id="transformerpy">transformer.py<a class="headerlink" href="#transformerpy" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="s2">&quot;instances&quot;</span><span class="p">:</span> <span class="n">DataTransformer</span><span class="p">,</span>  <span class="c1"># No special transformation needed</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="s2">"instances"</span><span class="p">:</span> <span class="n">DataTransformer</span><span class="p">,</span>  <span class="c1"># No special transformation needed</span>
 </code></pre></div>
 <h4 id="coordinatorpy">coordinator.py<a class="headerlink" href="#coordinatorpy" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;instances&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Instances (AAP Controller Nodes)&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="s2">&quot;resource_types&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;instances&quot;</span><span class="p">],</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"instances"</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"Instances (AAP Controller Nodes)"</span><span class="p">,</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="s2">"resource_types"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"instances"</span><span class="p">],</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="s2">"batch_size"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
 <a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="p">},</span>
 </code></pre></div>
 <h4 id="migratepy">migrate.py<a class="headerlink" href="#migratepy" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">PHASE1_RESOURCE_TYPES</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="c1"># ...</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="s2">&quot;hosts&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="s2">&quot;instances&quot;</span><span class="p">,</span>       <span class="c1"># After hosts, before instance_groups</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="s2">&quot;instance_groups&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="s2">&quot;projects&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="s2">"hosts"</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="s2">"instances"</span><span class="p">,</span>       <span class="c1"># After hosts, before instance_groups</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="s2">"instance_groups"</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="s2">"projects"</span><span class="p">,</span>
 <a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">]</span>
 </code></pre></div>
 <h4 id="export_importpy">export_import.py<a class="headerlink" href="#export_importpy" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">method_map</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="c1"># Foundation resources</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="s2">&quot;organizations&quot;</span><span class="p">:</span> <span class="s2">&quot;import_organizations&quot;</span><span class="p">,</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="s2">&quot;instances&quot;</span><span class="p">:</span> <span class="s2">&quot;import_instances&quot;</span><span class="p">,</span>  <span class="c1"># Must match importer method name!</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="s2">&quot;instance_groups&quot;</span><span class="p">:</span> <span class="s2">&quot;import_instance_groups&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="s2">"organizations"</span><span class="p">:</span> <span class="s2">"import_organizations"</span><span class="p">,</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="s2">"instances"</span><span class="p">:</span> <span class="s2">"import_instances"</span><span class="p">,</span>  <span class="c1"># Must match importer method name!</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="s2">"instance_groups"</span><span class="p">:</span> <span class="s2">"import_instance_groups"</span><span class="p">,</span>
 <a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="c1"># ...</span>
 <a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p">}</span>
 </code></pre></div>
 <h4 id="cleanuppy">cleanup.py<a class="headerlink" href="#cleanuppy" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">elif</span> <span class="n">resource_type</span> <span class="o">==</span> <span class="s2">&quot;instances&quot;</span> <span class="ow">and</span> <span class="p">(</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">elif</span> <span class="n">resource_type</span> <span class="o">==</span> <span class="s2">"instances"</span> <span class="ow">and</span> <span class="p">(</span>
 <a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="n">is_managed</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="ow">or</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="s2">&quot;controlplane&quot;</span><span class="p">)</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="ow">or</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="s2">"controlplane"</span><span class="p">)</span>
 <a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="ow">or</span> <span class="n">resource_id</span> <span class="o">==</span> <span class="mi">1</span>
 <a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">):</span>
 <a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="n">skip_resource</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">skip_reason</span> <span class="o">=</span> <span class="s2">&quot;managed/system instance&quot;</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">skip_reason</span> <span class="o">=</span> <span class="s2">"managed/system instance"</span>
 </code></pre></div>
 <hr />
 <h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>

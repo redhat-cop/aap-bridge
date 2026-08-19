@@ -978,6 +978,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1569,14 +1597,14 @@ before the first run; tables are created automatically on first use.</p>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>postgresql<span class="w"> </span>--now
 </code></pre></div>
 <p>Create the database and user (as the <code>postgres</code> OS user, or via <code>sudo -u postgres</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;CREATE DATABASE aap_migration;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE DATABASE aap_migration;"</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># If you changed password encryption, set it before assigning the password:</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># psql -c &quot;SET password_encryption = &#39;scram-sha-256&#39;;&quot;</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;CREATE USER aap_migration_user WITH PASSWORD &#39;your_secure_password&#39;;&quot;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># psql -c "SET password_encryption = 'scram-sha-256';"</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE USER aap_migration_user WITH PASSWORD 'your_secure_password';"</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>psql<span class="w"> </span>-c<span class="w"> </span><span class="s2">"GRANT ALL PRIVILEGES ON DATABASE aap_migration TO aap_migration_user;"</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># For PostgreSQL 15+, grant schema permissions</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>psql<span class="w"> </span>-d<span class="w"> </span>aap_migration<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;GRANT ALL ON SCHEMA public TO aap_migration_user;&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>psql<span class="w"> </span>-d<span class="w"> </span>aap_migration<span class="w"> </span>-c<span class="w"> </span><span class="s2">"GRANT ALL ON SCHEMA public TO aap_migration_user;"</span>
 </code></pre></div>
 <p>Test connectivity as a normal user:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>psql<span class="w"> </span>-h<span class="w"> </span>localhost<span class="w"> </span>-U<span class="w"> </span>aap_migration_user<span class="w"> </span>-W<span class="w"> </span>aap_migration
@@ -1677,6 +1705,8 @@ adds API and UI services on top of the bundled PostgreSQL database.</p>
 <li>The UI proxies <code>/api</code> and <code>/ws</code> traffic to the FastAPI engine running on port <code>8000</code>.</li>
 <li>For frontend-only development, run <code>aap-bridge serve --reload</code> in one terminal
   and <code>make web-dev</code> in another.</li>
+<li>To build on a connected host and run without registry access, see
+  <a href="../../user-guide/disconnected-environment/">Disconnected Environment</a>.</li>
 </ul>
 <h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
 <h3 id="local-host-install_1">Local host install<a class="headerlink" href="#local-host-install_1" title="Permanent link">&para;</a></h3>
@@ -1767,6 +1797,8 @@ tests). From the host:</p>
 <ul>
 <li><a href="../quickstart/">Quick Start</a> - Get up and running in 5 minutes</li>
 <li><a href="../configuration/">Configuration</a> - Configure your environment</li>
+<li><a href="../../user-guide/disconnected-environment/">Disconnected Environment</a> - Build
+  connected and run the Web UI without registry access</li>
 <li><a href="../../developer-guide/testing/">Testing with Ephemeral AAP Instances</a> - Build golden
   images and run migration test pairs (podman + make; no local Python/AAP required)</li>
 </ul>

@@ -654,6 +654,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1635,7 +1663,7 @@ These workloads consume kernel keyring entries. The default limit on many system
 (<code>kernel.keys.maxkeys=200</code>) is too low and can cause <code>add_key: quota exceeded</code> errors
 mid-build.</p>
 <p>Raise it once on your development host:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;kernel.keys.maxkeys = 5000&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/99-aap-bridge.conf
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">'kernel.keys.maxkeys = 5000'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/sysctl.d/99-aap-bridge.conf
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>sudo<span class="w"> </span>sysctl<span class="w"> </span>--system
 </code></pre></div>
 <p>Verify:</p>
@@ -1900,18 +1928,18 @@ image builds. For ongoing app development, see <a href="#development-workflow">D
 <h2 id="secrets-management">Secrets Management<a class="headerlink" href="#secrets-management" title="Permanent link">&para;</a></h2>
 <h3 id="option-1-ansible-vault-recommended">Option 1: Ansible Vault (recommended)<a class="headerlink" href="#option-1-ansible-vault-recommended" title="Permanent link">&para;</a></h3>
 <p>Create a vault password file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;your-vault-password&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>tests/integration/.vault_pass
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">'your-vault-password'</span><span class="w"> </span>&gt;<span class="w"> </span>tests/integration/.vault_pass
 </code></pre></div>
 <p>Create a vaulted secrets file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ansible-vault<span class="w"> </span>create<span class="w"> </span>tests/integration/inventory/group_vars/vault.yml<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span>--vault-password-file<span class="w"> </span>tests/integration/.vault_pass
 </code></pre></div>
 <p>Add your secrets to <code>vault.yml</code> (use these exact variable names):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">rh_api_offline_token</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;eyJhbG...&quot;</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">rhsm_username</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-user&quot;</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">rhsm_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-pass&quot;</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nt">aap_admin_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-password&quot;</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nt">aap_pg_password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;your-password&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">rh_api_offline_token</span><span class="p">:</span><span class="w"> </span><span class="s">"eyJhbG..."</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">rhsm_username</span><span class="p">:</span><span class="w"> </span><span class="s">"your-user"</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">rhsm_password</span><span class="p">:</span><span class="w"> </span><span class="s">"your-pass"</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nt">aap_admin_password</span><span class="p">:</span><span class="w"> </span><span class="s">"your-password"</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nt">aap_pg_password</span><span class="p">:</span><span class="w"> </span><span class="s">"your-password"</span>
 </code></pre></div>
 <p>The Makefile auto-detects <code>tests/integration/.vault_pass</code> and passes
 <code>--vault-password-file</code> to all <code>ansible-playbook</code> calls. The vault file

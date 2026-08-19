@@ -659,6 +659,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../migration-workflow/" class="md-nav__link">
         
   
@@ -1807,12 +1835,12 @@ immediately after migration.</p>
 <ol>
 <li><strong>Check export logs</strong> for <code>skipped</code> entries:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>grep<span class="w"> </span><span class="s2">&quot;skipped&quot;</span><span class="w"> </span>logs/migration.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.resource_type, .reason&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>grep<span class="w"> </span><span class="s2">"skipped"</span><span class="w"> </span>logs/migration.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.resource_type, .reason'</span>
 </code></pre></div>
 <ol>
 <li><strong>Check transform logs</strong> for dependency failures:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>grep<span class="w"> </span><span class="s2">&quot;required_dependency_missing&quot;</span><span class="w"> </span>logs/migration.log
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>grep<span class="w"> </span><span class="s2">"required_dependency_missing"</span><span class="w"> </span>logs/migration.log
 </code></pre></div>
 <ol>
 <li><strong>Review configuration</strong> in <code>config.yaml</code>:</li>

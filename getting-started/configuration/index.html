@@ -933,6 +933,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1471,22 +1499,22 @@ migrated. The target token user needs admin-level access.</p>
 <p>To create tokens via the API (avoid putting passwords in shell history):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Source — read-only scope</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># AAP 2.4 and earlier</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">&quot;&lt;username&gt;:&lt;password&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;description&quot;: &quot;AAP Bridge Source Token&quot;, &quot;scope&quot;: &quot;read&quot;}&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>https://&lt;source_aap_base_url&gt;/api/v2/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.token&#39;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">"&lt;username&gt;:&lt;password&gt;"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"description": "AAP Bridge Source Token", "scope": "read"}'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>https://&lt;source_aap_base_url&gt;/api/v2/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.token'</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># AAP 2.5+ source (Platform Gateway)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">&quot;&lt;username&gt;:&lt;password&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;description&quot;: &quot;AAP Bridge Source Token&quot;, &quot;scope&quot;: &quot;read&quot;}&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span>https://&lt;source_aap_base_url&gt;/api/gateway/v1/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.token&#39;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">"&lt;username&gt;:&lt;password&gt;"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"description": "AAP Bridge Source Token", "scope": "read"}'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span>https://&lt;source_aap_base_url&gt;/api/gateway/v1/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.token'</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Target (AAP 2.6 or 2.7) — read/write scope via Platform Gateway</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">&quot;&lt;username&gt;:&lt;password&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;description&quot;: &quot;AAP Bridge Target Token&quot;, &quot;scope&quot;: &quot;write&quot;}&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span>https://&lt;target_aap_base_url&gt;/api/gateway/v1/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.token&#39;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-u<span class="w"> </span><span class="s2">"&lt;username&gt;:&lt;password&gt;"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"description": "AAP Bridge Target Token", "scope": "write"}'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span>https://&lt;target_aap_base_url&gt;/api/gateway/v1/tokens/<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.token'</span>
 </code></pre></div>
 <p>The Platform Gateway token API (<code>/api/gateway/v1/tokens/</code>) was introduced in AAP 2.5.
 Use <code>/api/v2/tokens/</code> for AAP 2.4 and earlier.</p>
@@ -1579,8 +1607,8 @@ Use <code>/api/v2/tokens/</code> for AAP 2.4 and earlier.</p>
 <p>The <code>config/mappings.yaml</code> file defines field mappings between AAP versions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">credential_types</span><span class="p">:</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">source_to_target</span><span class="p">:</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="s">&quot;Amazon</span><span class="nv"> </span><span class="s">Web</span><span class="nv"> </span><span class="s">Services&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;Amazon</span><span class="nv"> </span><span class="s">Web</span><span class="nv"> </span><span class="s">Services&quot;</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="s">&quot;VMware</span><span class="nv"> </span><span class="s">vCenter&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;VMware</span><span class="nv"> </span><span class="s">vCenter&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="s">"Amazon</span><span class="nv"> </span><span class="s">Web</span><span class="nv"> </span><span class="s">Services"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">"Amazon</span><span class="nv"> </span><span class="s">Web</span><span class="nv"> </span><span class="s">Services"</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="s">"VMware</span><span class="nv"> </span><span class="s">vCenter"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">"VMware</span><span class="nv"> </span><span class="s">vCenter"</span>
 </code></pre></div>
 <h2 id="ignored-endpoints">Ignored Endpoints<a class="headerlink" href="#ignored-endpoints" title="Permanent link">&para;</a></h2>
 <p>The <code>config/ignored_endpoints.yaml</code> file lists endpoints to skip:</p>

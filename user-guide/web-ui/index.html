@@ -18,7 +18,7 @@
         <link rel="prev" href="../cli-reference/">
       
       
-        <link rel="next" href="../migration-workflow/">
+        <link rel="next" href="../disconnected-environment/">
       
       
         
@@ -806,6 +806,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../migration-workflow/" class="md-nav__link">
         
   
@@ -1265,6 +1293,11 @@ interface with real-time log streaming.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Access at http://localhost:8080</span>
 </code></pre></div>
+<p>From another workstation, use the Bridge host IP (or an SSH tunnel), not
+laptop <code>localhost</code>. If the run host cannot pull from registries, follow
+<a href="../disconnected-environment/">Disconnected Environment</a>. To move ports 8080/8000
+when they are already in use, that page also covers mounting <code>deploy/nginx.conf</code>
+into compose.</p>
 <p>This starts:</p>
 <table>
 <thead>
@@ -1296,7 +1329,7 @@ interface with real-time log streaming.</p>
 <p>For frontend development with hot-reload:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Terminal 1: Start the API server</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>make<span class="w"> </span>init-env<span class="w">   </span><span class="c1"># Or reuse an existing .env from make setup</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[api]&#39;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[api]'</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--reload
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Terminal 2: Start the Vite dev server</span>

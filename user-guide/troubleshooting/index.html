@@ -659,6 +659,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../migration-workflow/" class="md-nav__link">
         
   
@@ -1030,6 +1058,56 @@
     <span class="md-ellipsis">
       
         Rate limiting errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#web-ui-and-container-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web UI and container ports
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Web UI and container ports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#port-8080-returns-301-to-8443-or-engine-fails-with-address-already-in-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port 8080 returns 301 to :8443, or engine fails with address already in use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nginx-permission-denied-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nginx Permission denied (13)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#browser-connection-refused-on-localhost8080" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser connection refused on localhost:8080
       
     </span>
   </a>
@@ -1590,7 +1668,7 @@ stripped but no longer required.</p>
  types.</p>
 <h3 id="resource-already-exists">Resource already exists<a class="headerlink" href="#resource-already-exists" title="Permanent link">&para;</a></h3>
 <p><strong>Symptoms:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Warning: Conflict - organization &#39;MyOrg&#39; already exists
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Warning: Conflict - organization 'MyOrg' already exists
 </code></pre></div>
 <p><strong>Behavior:</strong> AAP Bridge handles this automatically by:</p>
 <ol>
@@ -1675,7 +1753,7 @@ etc.), up to <code>inventory_source_update_job_timeout_seconds</code> (default 3
 <ol>
 <li>Prefer structured sync events over URL-only greps:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;inventory_source_sync_poll_state|inventory_source_update_triggered|inventory_source_sync_timeout|inventory_source_sync_failed|inventory_source_sync_expected_job_mismatch&#39;</span><span class="w"> </span>logs/migration.log
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'inventory_source_sync_poll_state|inventory_source_update_triggered|inventory_source_sync_timeout|inventory_source_sync_failed|inventory_source_sync_expected_job_mismatch'</span><span class="w"> </span>logs/migration.log
 </code></pre></div>
 <ol>
 <li>
@@ -1754,6 +1832,25 @@ etc.), up to <code>inventory_source_update_job_timeout_seconds</code> (default 3
 <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nt">performance</span><span class="p">:</span>
 <a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 </code></pre></div>
+<h2 id="web-ui-and-container-ports">Web UI and container ports<a class="headerlink" href="#web-ui-and-container-ports" title="Permanent link">&para;</a></h2>
+<h3 id="port-8080-returns-301-to-8443-or-engine-fails-with-address-already-in-use">Port 8080 returns 301 to :8443, or engine fails with address already in use<a class="headerlink" href="#port-8080-returns-301-to-8443-or-engine-fails-with-address-already-in-use" title="Permanent link">&para;</a></h3>
+<p>Something else already owns the default UI (8080) or engine (8000) port. A
+healthy AAP Bridge UI answers <strong>200</strong> with an nginx server header, not a
+redirect to <code>:8443</code>.</p>
+<p>The <code>ui</code> and <code>engine</code> services use host networking, so compose <code>ports:</code> lines
+do not move the listen sockets. Change <code>deploy/nginx.conf</code> and mount it, and
+override the engine <code>--port</code>. See
+<a href="../disconnected-environment/#change-ui-and-engine-ports-without-rebuilding">Change UI and engine ports without rebuilding</a>.</p>
+<h3 id="nginx-permission-denied-13">Nginx Permission denied (13)<a class="headerlink" href="#nginx-permission-denied-13" title="Permanent link">&para;</a></h3>
+<p>The UI process cannot read a bind-mounted <code>nginx.conf</code> (file mode or SELinux).
+The UI image runs as a non-root user (UID 1001 in the stock image — inspect
+yours). Use <code>chmod 644</code> on the host file and add <code>security_opt: label=disable</code>
+on the <code>ui</code> service. Full steps:
+<a href="../disconnected-environment/#2-make-the-file-readable-in-the-container">Disconnected Environment</a>.</p>
+<h3 id="browser-connection-refused-on-localhost8080">Browser connection refused on localhost:8080<a class="headerlink" href="#browser-connection-refused-on-localhost8080" title="Permanent link">&para;</a></h3>
+<p>If Bridge runs on a remote host, <code>localhost</code> in the browser is your workstation.
+Open <code>http://&lt;host-ip&gt;:8080</code> or use an SSH tunnel. See
+<a href="../disconnected-environment/#disconnected-host-load-and-start">Disconnected Environment</a>.</p>
 <h2 id="logging-and-debugging">Logging and Debugging<a class="headerlink" href="#logging-and-debugging" title="Permanent link">&para;</a></h2>
 <h3 id="enable-debug-logging">Enable debug logging<a class="headerlink" href="#enable-debug-logging" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>aap-bridge<span class="w"> </span>--log-level<span class="w"> </span>DEBUG<span class="w"> </span>migrate

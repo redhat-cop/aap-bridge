@@ -654,6 +654,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/disconnected-environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Disconnected Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/migration-workflow/" class="md-nav__link">
         
   
@@ -1624,7 +1652,7 @@ management for checkpointing and idempotency.</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">page_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Paginate through all resources.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="sd">"""Paginate through all resources."""</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="o">...</span>
 </code></pre></div>
 <p>Resource-specific exporters inherit from <code>ResourceExporter</code>:</p>
@@ -1637,14 +1665,14 @@ management for checkpointing and idempotency.</p>
 <h4 id="transformer">Transformer<a class="headerlink" href="#transformer" title="Permanent link">&para;</a></h4>
 <p>Transforms data between AAP versions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DataTransformer</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;organization&quot;</span><span class="p">:</span> <span class="s2">&quot;organizations&quot;</span><span class="p">}</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"organization"</span><span class="p">:</span> <span class="s2">"organizations"</span><span class="p">}</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="bp">self</span><span class="p">,</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">state</span><span class="p">:</span> <span class="n">MigrationState</span><span class="p">,</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply transformations.&quot;&quot;&quot;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="sd">"""Apply transformations."""</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="o">...</span>
 </code></pre></div>
 <p>Transformations include:</p>
@@ -1663,7 +1691,7 @@ management for checkpointing and idempotency.</p>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">source_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Import single resource.&quot;&quot;&quot;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="sd">"""Import single resource."""</span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="o">...</span>
 </code></pre></div>
 <p>Special handling for:</p>
@@ -1717,9 +1745,9 @@ management for checkpointing and idempotency.</p>
 <h3 id="resource-registry">Resource Registry<a class="headerlink" href="#resource-registry" title="Permanent link">&para;</a></h3>
 <p>Central registry of all resource types:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">RESOURCE_REGISTRY</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;organizations&quot;</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;organizations&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="n">endpoint</span><span class="o">=</span><span class="s2">&quot;organizations/&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">"organizations"</span><span class="p">:</span> <span class="n">ResourceTypeInfo</span><span class="p">(</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">"organizations"</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="n">endpoint</span><span class="o">=</span><span class="s2">"organizations/"</span><span class="p">,</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="n">migration_order</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">cleanup_order</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="n">has_exporter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -1785,8 +1813,8 @@ management for checkpointing and idempotency.</p>
 <h3 id="custom-transformers">Custom Transformers<a class="headerlink" href="#custom-transformers" title="Permanent link">&para;</a></h3>
 <p>Create a custom transformer for complex transformations:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CustomTransformer</span><span class="p">(</span><span class="n">DataTransformer</span><span class="p">):</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;organization&quot;</span><span class="p">:</span> <span class="s2">&quot;organizations&quot;</span><span class="p">}</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">REQUIRED_DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;organization&quot;</span><span class="p">}</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"organization"</span><span class="p">:</span> <span class="s2">"organizations"</span><span class="p">}</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">REQUIRED_DEPENDENCIES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"organization"</span><span class="p">}</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="bp">self</span><span class="p">,</span>

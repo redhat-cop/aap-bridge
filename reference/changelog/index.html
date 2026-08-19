@@ -1303,6 +1303,8 @@ in the repository.</p>
 </ul>
 <p><strong>Bug Fixes:</strong></p>
 <ul>
+<li>Phase 2 import summary reports patched project count instead of always
+  <code>0 resources processed</code> (#116).</li>
 <li>Inventory source sync wait no longer hangs after a 405 on <code>update/</code> (removed GET
   launch fallback that used the source id as the expected job id); wait matches
   current/last update job fields and recovers from expected-job mismatches.</li>

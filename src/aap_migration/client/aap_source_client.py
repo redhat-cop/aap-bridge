@@ -144,7 +144,8 @@ class AAPSourceClient(BaseAPIClient):
             Total count of resources
         """
         response = await self.get(endpoint, params={"page_size": 1})
-        return response.get("count", 0)
+        count = response.get("count", 0)
+        return count if isinstance(count, int) else 0
 
     async def get_all_resources_parallel(
         self,
@@ -245,7 +246,7 @@ class AAPSourceClient(BaseAPIClient):
 
             # Process results in page order (important for consistent behavior)
             for page_num, result in zip(page_range, results, strict=False):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     logger.error(
                         "parallel_page_failed",
                         page=page_num,

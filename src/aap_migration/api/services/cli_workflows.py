@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -729,7 +730,7 @@ def _web_progress_display(log: LogFn | None) -> Iterator[None]:
     """
     from aap_migration.api.services import web_progress
 
-    def _factory(**kwargs) -> web_progress.LogMigrationProgressDisplay:
+    def _factory(**kwargs: Any) -> web_progress.LogMigrationProgressDisplay:
         return web_progress.LogMigrationProgressDisplay(
             log=log,
             enabled=kwargs.get("enabled", True),
@@ -853,10 +854,10 @@ async def _run_pair_command(
     source: Connection,
     dest: Connection,
     db_url: str,
-    runner,
+    runner: Callable[..., Any],
     *,
     log: LogFn | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> PhasedMigrationResult:
     ctx = build_migration_context_pair(source, dest, db_url)
     try:

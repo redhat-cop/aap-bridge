@@ -12,6 +12,7 @@ The orchestrator uses MigrationProgressDisplay internally, which already handles
 logger suppression during Live display rendering.
 """
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -58,7 +59,7 @@ class OrchestratorResult:
         total: int,
         success: int,
         failed: int,
-    ):
+    ) -> None:
         """Record results for a completed phase."""
         self.phase_stats[phase_id] = PhaseStats(
             phase_id=phase_id,
@@ -195,7 +196,7 @@ class ProgressOrchestrator:
     def progress_context(
         self,
         phases: list[tuple[str, str, int]],
-    ):
+    ) -> Iterator["PhaseTracker"]:
         """Context manager for progress display lifecycle.
 
         Creates a single MigrationProgressDisplay instance and initializes
@@ -279,7 +280,7 @@ class PhaseTracker:
         self.progress.start_phase(phase_id, description, total)
         return phase_id
 
-    def update(self, phase_id: str, completed: int, failed: int = 0):
+    def update(self, phase_id: str, completed: int, failed: int = 0) -> None:
         """Update phase progress.
 
         Args:
@@ -289,7 +290,7 @@ class PhaseTracker:
         """
         self.progress.update_phase(phase_id, completed, failed)
 
-    def complete_phase(self, phase_id: str, success: int = None, failed: int = 0):
+    def complete_phase(self, phase_id: str, success: int | None = None, failed: int = 0) -> None:
         """Complete the phase and record statistics.
 
         Args:
@@ -346,11 +347,11 @@ class DisabledPhaseTracker(PhaseTracker):
         self._phase_info[phase_id] = (description, total)
         return phase_id
 
-    def update(self, phase_id: str, completed: int, failed: int = 0):
+    def update(self, phase_id: str, completed: int, failed: int = 0) -> None:
         """No-op update."""
         pass
 
-    def complete_phase(self, phase_id: str, success: int = None, failed: int = 0):
+    def complete_phase(self, phase_id: str, success: int | None = None, failed: int = 0) -> None:
         """Record statistics without display."""
         if phase_id in self._phase_info:
             description, total = self._phase_info[phase_id]

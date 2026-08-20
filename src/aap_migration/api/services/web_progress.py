@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from datetime import datetime
+from types import TracebackType
 
 from aap_migration.reporting.live_progress import PhaseProgressState
 
@@ -124,6 +125,10 @@ class LogMigrationProgressDisplay:
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.stop()
-        return False

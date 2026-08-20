@@ -131,6 +131,9 @@ def load_comparison(schema_file: Path | str) -> dict[str, Any]:
     with open(schema_path) as f:
         data = json.load(f)
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid schema comparison file: {schema_path}")
+
     logger.info(
         "schema_comparison_loaded",
         file=str(schema_path),
@@ -164,7 +167,12 @@ def load_schemas(schemas_dir: Path | str, version: str) -> dict[str, dict[str, A
     with open(schemas_path) as f:
         data = json.load(f)
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid schema file: {schemas_path}")
+
     schemas = data.get("schemas", {})
+    if not isinstance(schemas, dict):
+        raise ValueError(f"Invalid schema file: {schemas_path}")
 
     logger.info(
         "schemas_loaded",

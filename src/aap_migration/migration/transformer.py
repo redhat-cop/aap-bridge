@@ -110,6 +110,19 @@ class SkipResourceError(Exception):
         self.missing_dependency = missing_dependency
 
 
+def _coerce_source_id(data: dict[str, Any]) -> int:
+    """Return a resource source id, defaulting to 0 when missing or invalid."""
+    raw = data.get("_source_id") or data.get("id") or 0
+    if isinstance(raw, bool):
+        return 0
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 class DataTransformer:
     """Base transformer for converting AAP 2.3 data to AAP 2.6 format.
 
@@ -308,13 +321,13 @@ class DataTransformer:
         target_client: Any,
         state: MigrationState,
         source_id: int,
-    ) -> None:
+    ) -> dict[str, Any] | None:
         """Populate target ID mapping by querying target environment.
 
         Base implementation does nothing. Subclasses should override if they
         support pre-populating mappings based on existing target resources.
         """
-        pass
+        return None
 
     # ==========================================================================
     # Dependency Validation Methods (NEW)
@@ -346,7 +359,7 @@ class DataTransformer:
             # No dependencies defined for this resource type
             return
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         for field, dep_resource_type in self.DEPENDENCIES.items():
             dep_source_id = data.get(field)
@@ -409,7 +422,7 @@ class DataTransformer:
             # No state manager - skip registration
             return
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
         source_name = data.get("name")
 
         if source_id:
@@ -460,7 +473,7 @@ class DataTransformer:
             "fields_renamed", resource_schema.get("field_renames", {})
         )
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
         for old_name, rename_info in field_renames.items():
             # Support two formats:
             # 1. Dict with auto_fixable, new_name, confidence (old format)
@@ -528,7 +541,7 @@ class DataTransformer:
         # Remove duplicates
         deprecated_fields = list(set(deprecated_fields))
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
         for field in deprecated_fields:
             if field in data:
                 logger.debug(
@@ -572,7 +585,7 @@ class DataTransformer:
         if self.schema_comparison:
             required_fields.update(self.schema_comparison.new_required_fields)
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
         for field, default_value in required_fields.items():
             if field not in data:
                 logger.debug(
@@ -629,7 +642,7 @@ class DataTransformer:
         Returns:
             Transformed credential data with encrypted values handled
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract organization ID from summary_fields BEFORE they're removed
         if "summary_fields" in data and "organization" in data["summary_fields"]:
@@ -693,7 +706,7 @@ class DataTransformer:
         Returns:
             Transformed inventory data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Set inventory kind if not specified (default to empty string for regular inventory)
         if "kind" not in data:
@@ -728,7 +741,7 @@ class DataTransformer:
         Returns:
             Transformed inventory group data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract inventory ID from summary_fields BEFORE they're removed
         if "summary_fields" in data and "inventory" in data["summary_fields"]:
@@ -754,7 +767,7 @@ class DataTransformer:
         Returns:
             Transformed job template data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Handle execution environment migration
         if "custom_virtualenv" in data and "execution_environment" not in data:
@@ -780,7 +793,7 @@ class DataTransformer:
         Returns:
             Transformed project data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract organization ID from summary_fields (required)
         if "summary_fields" in data and "organization" in data["summary_fields"]:
@@ -838,7 +851,7 @@ class DataTransformer:
             Transformed inventory source data
         """
         ensure_inventory_id_on_inventory_source(data)
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract inventory ID (required). Treat null/invalid top-level inventory as missing
         # so we still read from summary_fields (raw exports often set "inventory": null).
@@ -918,7 +931,7 @@ class DataTransformer:
         Returns:
             Transformed execution environment data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract organization ID (required)
         if "summary_fields" in data and "organization" in data["summary_fields"]:
@@ -960,7 +973,7 @@ class DataTransformer:
         """
         # Basic validation - ensure required fields exist
         required = self.REQUIRED_FIELDS.get(resource_type, {})
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         for field in required.keys():
             if field not in data:
@@ -1014,7 +1027,7 @@ class InventoryTransformer(DataTransformer):
         Returns:
             Transformed inventory data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Set inventory kind if not specified (default to empty string for regular inventory)
         if "kind" not in data:
@@ -1112,7 +1125,7 @@ class CredentialTransformer(DataTransformer):
         if self.external_credential_type_ids is None:
             self._load_external_credential_types()
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Check if credential depends on an external credential type that is NOT mapped
         cred_type_id = data.get("credential_type")
@@ -1328,7 +1341,7 @@ class JobTemplateTransformer(DataTransformer):
         Returns:
             Transformed job template data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Handle execution environment migration
         if "custom_virtualenv" in data and "execution_environment" not in data:
@@ -1450,7 +1463,7 @@ class ProjectTransformer(DataTransformer):
         Returns:
             Transformed project data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Ensure scm_update_on_launch is boolean
         if "scm_update_on_launch" in data and not isinstance(data["scm_update_on_launch"], bool):
@@ -1711,7 +1724,7 @@ class CredentialTypeTransformer(DataTransformer):
 
             # Map legacy names to new names (e.g. CyberArk)
             name = data.get("name")
-            new_name = self._get_name_mapping(name)
+            new_name = self._get_name_mapping(name if isinstance(name, str) else "")
 
             if name != new_name:
                 logger.info(
@@ -1858,7 +1871,7 @@ class InventoryGroupTransformer(DataTransformer):
         Returns:
             Transformed inventory group data
         """
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
 
         # Extract inventory ID from summary_fields if not already set
         if "inventory" not in data and "summary_fields" in data:
@@ -1947,7 +1960,7 @@ class ScheduleTransformer(DataTransformer):
         if not self.state:
             return
 
-        source_id = data.get("_source_id") or data.get("id")
+        source_id = _coerce_source_id(data)
         ujt_id = data.get("unified_job_template")
 
         if not ujt_id:

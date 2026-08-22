@@ -322,7 +322,7 @@ c-check: c-lint c-typecheck c-test ## Run all checks inside bridge container
 web-install: ## Install frontend dependencies
 	cd web && npm ci
 
-web-dev: ## Start Vite dev server (proxies API to localhost:8000)
+web-dev: ## Start Vite dev server (proxies API to AAP_BRIDGE_API_PORT, default 8000)
 	cd web && npm run dev
 
 web-build: ## Build frontend for production
@@ -331,8 +331,8 @@ web-build: ## Build frontend for production
 web-test: ## Run frontend unit tests (vitest)
 	cd web && npm run test:unit
 
-serve: ## Start FastAPI API server (requires pip install '.[api]')
-	aap-bridge serve --host 0.0.0.0 --port 8000
+serve: ## Start FastAPI API server (port from AAP_BRIDGE_API_PORT, default 8000)
+	aap-bridge serve --host 0.0.0.0
 
 # ===========================================================================
 #  Integration testing - AAP golden images and test pairs (requires podman)

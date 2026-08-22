@@ -1932,6 +1932,45 @@ class MigrationState:
                 logger.error("Failed to get all resource types", error=str(e))
                 raise StateError(f"Failed to get all resource types: {e}") from e
 
+    def get_failures(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Get resources that failed to migrate, with the error recorded for each.
+
+        The status counts say how many failed; this says which ones and why,
+        which is what a report has to show to be worth reading.
+
+        Args:
+            limit: Maximum number of records to return
+
+        Returns:
+            List of failure dictionaries, most recently updated first
+        """
+        with self._lock:
+            try:
+                with get_session(self.database_url) as session:
+                    failures = (
+                        session.query(MigrationProgress)
+                        .filter(MigrationProgress.status == "failed")
+                        .order_by(MigrationProgress.updated_at.desc())
+                        .limit(limit)
+                        .all()
+                    )
+
+                    return [
+                        {
+                            "resource_type": f.resource_type,
+                            "source_id": f.source_id,
+                            "source_name": f.source_name,
+                            "phase": f.phase,
+                            "error": f.error_message or "",
+                            "retry_count": f.retry_count,
+                        }
+                        for f in failures
+                    ]
+
+            except Exception as e:
+                logger.error("Failed to get failures", error=str(e))
+                raise StateError(f"Failed to get failures: {e}") from e
+
     def get_all_mappings(
         self, resource_type: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:

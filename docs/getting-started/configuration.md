@@ -38,11 +38,11 @@ version in API responses.
 
 `SOURCE__URL` and `TARGET__URL` should be the AAP host only (`https://fqdn`):
 
-| Configured version | API topology | Endpoints used |
-|--------------------|--------------|----------------|
-| 2.4 and earlier | Legacy controller | `/api/v2/` for all resources |
-| 2.5+ | Platform gateway | `/api/gateway/v1/` for orgs, users, teams, RBAC, etc. |
-| 2.5+ | Platform gateway | `/api/controller/v2/` for projects, inventories, jobs, etc. |
+| Configured version | API topology      | Endpoints used                                              |
+|:-------------------|:------------------|:------------------------------------------------------------|
+| 2.4 and earlier    | Legacy controller | `/api/v2/` for all resources                                |
+| 2.5+               | Platform gateway  | `/api/gateway/v1/` for orgs, users, teams, RBAC, etc.       |
+| 2.5+               | Platform gateway  | `/api/controller/v2/` for projects, inventories, jobs, etc. |
 
 Legacy paths such as `/api/v2` or `/api/controller/v2` in a configured URL are
 stripped with a log message. EDA and Galaxy APIs are not used by AAP Bridge.
@@ -61,10 +61,10 @@ version number). For example, AWX 24.6.1 maps to `SOURCE__VERSION=2.4`.
 
 ### API Token Permissions
 
-| Instance | Token scope | Why |
-| --- | --- | --- |
-| Source | Read-only | Export and prep only read data from the source AAP |
-| Target | Read/write | Import, cleanup, and validation create and modify resources on the target |
+| Instance | Token scope | Why                                                                       |
+|:---------|:------------|:--------------------------------------------------------------------------|
+| Source   | Read-only   | Export and prep only read data from the source AAP                        |
+| Target   | Read/write  | Import, cleanup, and validation create and modify resources on the target |
 
 The source token user must still have permission to read all resources being
 migrated. The target token user needs admin-level access.
@@ -115,15 +115,36 @@ The main configuration file is `config/config.yaml`:
 
 ### Path Configuration
 
+Every path below is optional; the defaults shown are what you get without a
+`paths:` section at all.
+
 ```yaml
 paths:
-  state_db: ${MIGRATION_STATE_DB_PATH}
-  export_dir: ./exports
-  transform_dir: ./transformed
-  log_dir: ./logs
-  checkpoint_dir: ./checkpoints
-
+  base_dir: .                    # anchor for the entries below
+  export_dir: exports            # aap-bridge export
+  transform_dir: xformed         # aap-bridge transform
+  schema_dir: schemas            # aap-bridge prep / schema generate
+  report_dir: reports            # aap-bridge report
+  backup_dir: backups
+  mappings_file: config/mappings.yaml
+  ignored_endpoints_file: config/ignored_endpoints.yaml
 ```
+
+!!! important "Relative paths are relative to the workspace, not your shell"
+    A relative path is resolved against the workspace root — the directory
+    holding `.env` and `config/config.yaml` — not against the directory you
+    happen to run the command from. `aap-bridge export` from `/tmp` writes into
+    `$HOME/aap-migration/exports`, the same place it writes from anywhere else,
+    so one migration's artifacts stay with the configuration that produced them.
+
+An absolute path is used exactly as given, and an explicit `--output` on any
+command always wins. To anchor a run to the current directory instead, set
+`AAP_BRIDGE_WORKSPACE=$PWD`.
+
+The workspace root is found by looking for `pyproject.toml`, `config/config.yaml`,
+or `.env` in the current directory and its parents, then falling back to
+`$HOME/aap-migration`. `AAP_BRIDGE_WORKSPACE` overrides the search entirely.
+`aap-bridge doctor` prints the root it resolved.
 
 ### Performance Tuning
 

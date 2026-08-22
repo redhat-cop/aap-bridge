@@ -596,6 +596,26 @@ class MigrationProgressDisplay:
             metrics=state.formatted_metrics,
         )
 
+    def set_phase_note(self, phase_id: str, note: str) -> None:
+        """Show a short note in place of a phase's metrics, or clear it.
+
+        A phase that is deliberately waiting - between batches, or on a remote
+        sync - looks exactly like one that has hung: same row, same counts, a
+        spinner going nowhere. Saying what it is waiting for, and for how much
+        longer, is the difference between "working" and "broken" to anyone
+        watching.
+
+        Args:
+            phase_id: Phase ID from start_phase()
+            note: Text to display; empty restores the usual metrics.
+        """
+        if not self.enabled or phase_id not in self.phase_tasks:
+            return
+
+        state = self.phase_states.get(phase_id)
+        metrics = note or (state.formatted_metrics if state else "")
+        self.phase_progress.update(self.phase_tasks[phase_id], metrics=metrics)
+
     def complete_phase(self, phase_id: str):
         """Mark phase as complete.
 

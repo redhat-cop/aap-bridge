@@ -1,0 +1,9 @@
+globs:
+  - "docs/**/*.md"
+  - "CHANGELOG.md"
+  - "README.md"
+  - "CONTRIBUTING.md"
+  - "CODE_OF_CONDUCT.md"
+  - "SECURITY.md"
+noBanner: true
+noProgress: true

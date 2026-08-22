@@ -36,6 +36,12 @@ repos:
     hooks:
       - id: gitleaks
 
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+        files: ^(docs/|CHANGELOG\.md|README\.md|CONTRIBUTING\.md|CODE_OF_CONDUCT\.md|SECURITY\.md)
+
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:
@@ -74,6 +80,13 @@ repos:
         language: system
         pass_filenames: false
         files: ^tests/integration/.*\.(yml|yaml)$
+
+      - id: mkdocs-strict
+        name: mkdocs build --strict
+        entry: bash -c 'if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python; fi; exec "$PY" -m mkdocs build --strict'
+        language: system
+        pass_filenames: false
+        files: ^(docs/|mkdocs\.yml)
 
       - id: web-build
         name: web typecheck and build

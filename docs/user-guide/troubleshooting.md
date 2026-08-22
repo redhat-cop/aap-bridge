@@ -336,7 +336,7 @@ Validation failed: Source has 1000 hosts, target has 998
 
 1. Use bulk APIs (enabled by default for hosts)
 
-2. Check AAP instance capacity - it may be the bottleneck
+1. Check AAP instance capacity - it may be the bottleneck
 
 ### Rate limiting errors
 

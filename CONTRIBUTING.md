@@ -10,7 +10,7 @@ The complete contributing guide — setup, tests, style, resource types, and
 release process — lives in the docs:
 
 - **In this repo:** [docs/developer-guide/contributing.md](docs/developer-guide/contributing.md)
-- **Published:** https://redhat-cop.github.io/aap-bridge/developer-guide/contributing/
+- **Published:** [contributing guide](https://redhat-cop.github.io/aap-bridge/developer-guide/contributing/)
 
 Please read that guide before opening a PR. The notes below are a short
 checklist only.

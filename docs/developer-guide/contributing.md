@@ -89,6 +89,8 @@ After `make setup`, hooks run on every `git commit`. They cover:
 | Hygiene | trailing whitespace, EOF, YAML, merge conflicts, large files |
 | CHANGELOG periods | each bullet in `CHANGELOG.md` and `docs/reference/changelog.md` ends with `.` (`tools/check_changelog_periods.py`) |
 | kacl-verify | Keep a Changelog structure on `CHANGELOG.md` (`python-kacl`; see `.kacl.yml`) |
+| markdownlint | style and consistency on repo markdown (`docs/`, root `*.md`; see `.markdownlint.jsonc`) |
+| mkdocs-strict | `mkdocs build --strict` when `docs/` or `mkdocs.yml` change |
 | gitleaks | secret scanning (dedicated CI job + local pre-commit) |
 | black / isort / ruff | format and lint Python under `src/` and `tests/` |
 | pytest unit | `pytest tests/unit` (fast; no AAP containers) |

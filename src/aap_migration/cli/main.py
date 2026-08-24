@@ -16,8 +16,10 @@ from aap_migration import __version__
 from aap_migration.cli.commands import checkpoint as checkpoint_commands
 from aap_migration.cli.commands import cleanup as cleanup_commands
 from aap_migration.cli.commands import config as config_commands
+from aap_migration.cli.commands import doctor as doctor_commands
 from aap_migration.cli.commands import export_import
 from aap_migration.cli.commands import info as info_commands
+from aap_migration.cli.commands import init as init_commands
 from aap_migration.cli.commands import metadata as metadata_commands
 from aap_migration.cli.commands import migrate as migrate_commands
 from aap_migration.cli.commands import patch_projects as patch_projects_commands
@@ -29,12 +31,16 @@ from aap_migration.cli.commands import transform as transform_commands
 from aap_migration.cli.commands import validate as validate_commands
 from aap_migration.cli.context import MigrationContext
 from aap_migration.cli.menu import interactive_menu
-from aap_migration.config import resolve_config_path
+from aap_migration.config import find_env_file, find_workspace_root, resolve_config_path
 from aap_migration.utils.logging import configure_logging, get_logger
 
-# Load environment variables from the project .env file (not parent directories).
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-load_dotenv(_PROJECT_ROOT / ".env")
+# Load environment variables for the current workspace. This resolves both a
+# source checkout (repo root, matched by pyproject.toml) and a working
+# directory created by `aap-bridge init` for an installed, source-free CLI.
+# Set AAP_BRIDGE_ENV to point at a specific file.
+_ENV_FILE = find_env_file()
+if _ENV_FILE is not None:
+    load_dotenv(_ENV_FILE)
 
 logger = get_logger(__name__)
 
@@ -98,10 +104,12 @@ def cli(
     if ctx.invoked_subcommand == "serve":
         configure_logging(level=log_level, log_file=None)
     else:
-        effective_log_file = str(log_file) if log_file else "logs/migration.log"
-        log_path = Path(effective_log_file)
+        # The default log lives with the migration it describes, not in
+        # whichever directory the command was run from. An explicit --log-file
+        # is used as given.
+        log_path = Path(log_file) if log_file else find_workspace_root() / "logs/migration.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        configure_logging(level=log_level, log_file=effective_log_file)
+        configure_logging(level=log_level, log_file=str(log_path))
 
     resolved_config = resolve_config_path(config)
     if resolved_config is not None and not resolved_config.is_file():
@@ -133,6 +141,8 @@ def cli(
 cli.add_command(checkpoint_commands.checkpoint)
 cli.add_command(config_commands.config)
 cli.add_command(info_commands.info)
+cli.add_command(init_commands.init)
+cli.add_command(doctor_commands.doctor)
 cli.add_command(metadata_commands.metadata)
 cli.add_command(migrate_commands.migrate)
 cli.add_command(schema_commands.schema_group)
@@ -157,6 +167,11 @@ def main() -> int:
         return 0
     except click.ClickException as e:
         return e.exit_code
+    except (click.Abort, KeyboardInterrupt):
+        # Ctrl-C, or a prompt that read EOF because stdin was not a terminal.
+        # Neither is a fault in the program, so neither earns a traceback.
+        click.echo("\nCancelled.", err=True)
+        return 130
     except Exception as e:
         logger.error("Unexpected error", error=str(e), exc_info=True)
         click.echo(f"Error: {e}", err=True)

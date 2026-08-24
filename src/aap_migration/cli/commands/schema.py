@@ -22,8 +22,8 @@ def schema_group():
     "--output",
     "-o",
     type=click.Path(path_type=Path),
-    default="schemas/",
-    help="Output directory for schema files (default: schemas/)",
+    default=None,
+    help="Output directory for schema files (default: the workspace's schemas/)",
 )
 @click.option(
     "--refresh",
@@ -35,7 +35,7 @@ def schema_group():
 @handle_errors
 def generate_schemas(
     ctx: MigrationContext,
-    output: Path,
+    output: Path | None,
     refresh: bool,
 ) -> None:
     """Generate API schemas from AAP 2.3 and 2.6 instances.
@@ -56,7 +56,9 @@ def generate_schemas(
         # Custom output directory
         aap-bridge --config config.yaml schema generate --output /path/to/schemas/
     """
-    output_dir = Path(output)
+    # Unset means the workspace's schema directory, which the configuration has
+    # already resolved to an absolute path. An explicit --output wins.
+    output_dir = Path(output) if output is not None else Path(ctx.config.paths.schema_dir)
 
     # Check if schemas already exist
     if not refresh and schema_files_exist(output_dir):

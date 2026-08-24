@@ -5,7 +5,14 @@ import click
 
 @click.command()
 @click.option("--host", default="0.0.0.0", help="Bind address")
-@click.option("--port", default=8000, type=int, help="Bind port")
+@click.option(
+    "--port",
+    default=8000,
+    type=int,
+    envvar="AAP_BRIDGE_API_PORT",
+    show_envvar=True,
+    help="Bind port",
+)
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload for development")
 @click.pass_context
 def serve(ctx: click.Context, host: str, port: int, reload: bool) -> None:

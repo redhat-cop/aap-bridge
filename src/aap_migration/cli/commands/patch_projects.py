@@ -244,6 +244,29 @@ def _empty_patch_stats() -> dict[str, int]:
     return {"imported": 0, "skipped": 0, "failed": 0, "total": 0}
 
 
+#: How often the inter-batch pause updates its countdown. Short enough that the
+#: display never looks stalled, long enough not to churn the terminal.
+_PAUSE_TICK_SECONDS = 5
+
+
+async def _pause_between_batches(
+    progress: MigrationProgressDisplay, seconds: int, phase_id: str = "patching"
+) -> None:
+    """Wait between batches, counting down on the progress row.
+
+    A bare ``asyncio.sleep`` here leaves the display frozen for minutes with no
+    indication that anything is meant to be happening, which reads as a hang.
+    """
+    logger.info("phase2_batch_pause", seconds=seconds)
+    remaining = seconds
+    while remaining > 0:
+        progress.set_phase_note(phase_id, f"next batch in {remaining}s")
+        tick = min(_PAUSE_TICK_SECONDS, remaining)
+        await asyncio.sleep(tick)
+        remaining -= tick
+    progress.set_phase_note(phase_id, "")
+
+
 async def patch_project_scm_details(
     ctx: MigrationContext,
     input_dir: Path,
@@ -559,7 +582,7 @@ async def patch_project_scm_details(
 
                 # Pause between batches only when another batch remains.
                 if i + batch_size < total_projects:
-                    await asyncio.sleep(interval)
+                    await _pause_between_batches(progress, interval)
 
         progress.complete_phase("patching")
 

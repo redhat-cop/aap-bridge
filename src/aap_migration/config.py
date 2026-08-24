@@ -22,9 +22,24 @@ def normalize_aap_version(version: str) -> str:
 
 
 class PathConfig(BaseModel):
-    """Configuration for file paths."""
+    """Configuration for file paths.
 
-    base_dir: str = Field(default=".", description="Root directory for migration data")
+    Every path here is resolved once, at load time, against the workspace root
+    rather than the working directory. A migration's artifacts belong with the
+    configuration that produced them, and the CLI already finds ``.env`` and
+    ``config.yaml`` from anywhere: writing exports next to whichever directory
+    the user happened to be standing in splits one migration across the disk,
+    and leaves ``doctor`` reporting empty artifact directories while the real
+    ones sit elsewhere.
+
+    An absolute path is left exactly as given, so ``--output /mnt/big/exports``
+    and an absolute ``base_dir`` still mean what they say. To anchor a run to
+    the working directory instead, set ``AAP_BRIDGE_WORKSPACE=$PWD``.
+    """
+
+    base_dir: str = Field(
+        default=".", description="Root for migration data (relative to the workspace)"
+    )
     export_dir: str = Field(default="exports", description="Directory for exported data")
     transform_dir: str = Field(default="xformed", description="Directory for transformed data")
     schema_dir: str = Field(default="schemas", description="Directory for schema files")
@@ -32,12 +47,45 @@ class PathConfig(BaseModel):
     backup_dir: str = Field(default="backups", description="Directory for backups")
     mappings_file: str = Field(
         default="config/mappings.yaml",
-        description="Path to mappings file (relative to project root)",
+        description="Path to mappings file (relative to the workspace root)",
     )
     ignored_endpoints_file: str = Field(
         default="config/ignored_endpoints.yaml",
-        description="Path to ignored endpoints file (relative to project root)",
+        description="Path to ignored endpoints file (relative to the workspace root)",
     )
+
+    #: Fields resolved against ``base_dir``. ``base_dir`` itself is resolved
+    #: against the workspace root first.
+    _ANCHORED = (
+        "export_dir",
+        "transform_dir",
+        "schema_dir",
+        "report_dir",
+        "backup_dir",
+        "mappings_file",
+        "ignored_endpoints_file",
+    )
+
+    @model_validator(mode="after")
+    def resolve_against_workspace(self) -> "PathConfig":
+        """Make every relative path absolute, anchored on the workspace root.
+
+        Resolved here rather than at each use so there is one answer to "where
+        does this migration write?", and so it cannot change underneath a run
+        that changes directory. Assignment does not re-run validation on this
+        model, so this is not recursive.
+        """
+        base = Path(self.base_dir).expanduser()
+        if not base.is_absolute():
+            base = (find_workspace_root() / base).resolve()
+        self.base_dir = str(base)
+
+        for name in self._ANCHORED:
+            value = Path(getattr(self, name)).expanduser()
+            if not value.is_absolute():
+                value = base / value
+            setattr(self, name, str(value))
+        return self
 
 
 class PhasesConfig(BaseModel):
@@ -851,26 +899,111 @@ def find_project_root(start: Path | None = None) -> Path:
     return current
 
 
+#: Files that mark a directory as an AAP Bridge workspace, in priority order.
+#: ``pyproject.toml`` covers a source checkout; the others cover a working
+#: directory created by ``aap-bridge init`` for an installed (source-free) CLI.
+_WORKSPACE_MARKERS = ("pyproject.toml", "config/config.yaml", ".env")
+
+
+#: Workspace created by ``aap-bridge init`` when the user accepts the default.
+#: Checked after the upward walk so the CLI works from any directory without a
+#: ``cd`` first, which is the whole point of having a default location.
+DEFAULT_WORKSPACE_NAME = "aap-migration"
+
+
+def default_workspace() -> Path | None:
+    """Return the default workspace path, if the home directory is known."""
+    home = os.environ.get("HOME")
+    return Path(home) / DEFAULT_WORKSPACE_NAME if home else None
+
+
+def _is_workspace(directory: Path) -> bool:
+    return any((directory / marker).is_file() for marker in _WORKSPACE_MARKERS)
+
+
+def find_workspace_root(start: Path | None = None) -> Path:
+    """Return the directory holding this migration's config and artifacts.
+
+    Resolution order:
+
+    1. ``AAP_BRIDGE_WORKSPACE``, if set (explicit override)
+    2. The nearest ancestor of ``start`` holding a workspace marker:
+       ``pyproject.toml`` for a source checkout, ``config/config.yaml`` or
+       ``.env`` for a directory created by ``aap-bridge init``
+    3. ``$HOME/aap-migration``, when that is a configured workspace
+    4. ``start`` itself, so a fresh empty directory is still usable;
+       ``aap-bridge init`` populates it in place
+
+    Step 3 is what lets ``aap-bridge`` run from anywhere after setup, rather
+    than requiring the user to change directory first.
+
+    Args:
+        start: Directory to search from. Defaults to the current directory.
+
+    Returns:
+        Path: The resolved workspace root.
+    """
+    override = os.environ.get("AAP_BRIDGE_WORKSPACE")
+    if override:
+        return Path(override).expanduser().resolve()
+
+    current = (start or Path.cwd()).resolve()
+    for directory in (current, *current.parents):
+        if _is_workspace(directory):
+            return directory
+
+    fallback = default_workspace()
+    if fallback is not None and _is_workspace(fallback):
+        return fallback
+
+    return current
+
+
+def find_env_file(start: Path | None = None) -> Path | None:
+    """Locate the ``.env`` file for the current workspace.
+
+    Search order:
+
+    1. ``AAP_BRIDGE_ENV``, if set (explicit override; must exist)
+    2. ``.env`` in the workspace root found by :func:`find_workspace_root`
+
+    Args:
+        start: Directory to search from. Defaults to the current directory.
+
+    Returns:
+        Path to the ``.env`` file, or None when there is none to load.
+    """
+    override = os.getenv("AAP_BRIDGE_ENV")
+    if override:
+        candidate = Path(override).expanduser()
+        return candidate if candidate.is_file() else None
+
+    candidate = find_workspace_root(start) / ".env"
+    return candidate if candidate.is_file() else None
+
+
 def resolve_config_path(config: str | Path | None = None) -> Path | None:
-    """Resolve a config file path against the project root when needed.
+    """Resolve a config file path against the workspace root when needed.
 
     ``AAP_BRIDGE_CONFIG`` is typically set to ``config/config.yaml`` relative to
-    the repository root. If the CLI is launched from another working directory
-    (e.g. ``config/``), resolve against the discovered project root.
+    the workspace root. If the CLI is launched from another working directory
+    (e.g. ``config/``), resolve against the discovered workspace root. This
+    covers both a source checkout and a directory created by
+    ``aap-bridge init`` for an installed CLI.
     """
     if config is None:
         env_val = os.getenv("AAP_BRIDGE_CONFIG")
         if env_val:
             config = env_val
         else:
-            default = find_project_root() / "config" / "config.yaml"
+            default = find_workspace_root() / "config" / "config.yaml"
             return default if default.is_file() else None
 
     path = Path(config)
     if path.is_file():
         return path.resolve()
 
-    root = find_project_root()
+    root = find_workspace_root()
     candidate = (root / path).resolve()
     if candidate.is_file():
         return candidate
@@ -909,6 +1042,7 @@ def load_config_from_yaml(config_path: str | Path) -> MigrationConfig:
     # unconfigured (all env-var refs missing), then unwrap the sentinels.
     config_data = _expand_env_vars(config_data)
     config_data = _prune_unconfigured_sections(config_data)
+    config_data = _drop_missing_env_keys(config_data)
     config_data = _unwrap_env_results(config_data)
 
     return MigrationConfig(**config_data)
@@ -944,6 +1078,7 @@ def load_config_tuning_from_yaml(config_path: str | Path) -> dict:
 
     config_data = _expand_env_vars(config_data)
     config_data = _prune_unconfigured_sections(config_data)
+    config_data = _drop_missing_env_keys(config_data)
     config_data = _unwrap_env_results(config_data)
 
     if isinstance(config_data, dict):
@@ -993,6 +1128,40 @@ def _expand_env_vars(data: object) -> object:
         return data
     else:
         return data
+
+
+def _drop_missing_env_keys(data: object) -> object:
+    """Drop mapping keys whose value is an unset ${VAR} reference.
+
+    Runs after _prune_unconfigured_sections, which handles the case where a
+    whole section is unconfigured. This handles the finer-grained case: a
+    section that is partly configured, where individual optional keys have no
+    matching environment variable.
+
+    Removing the key entirely (rather than passing None) lets Pydantic apply
+    the field's own default. Without this, a minimal ``.env`` that sets only
+    ``SOURCE__URL`` and ``SOURCE__VERSION`` would fail validation on
+    ``verify_ssl`` and ``timeout`` with "Input should be a valid boolean /
+    integer", even though both fields declare defaults.
+
+    Required fields with no default still raise, but as a clear
+    "field required" error instead of a type error on None.
+
+    Args:
+        data: Config value after _expand_env_vars (may contain _EnvVarResult)
+
+    Returns:
+        Value with unset env-var keys removed
+    """
+    if isinstance(data, dict):
+        return {
+            k: _drop_missing_env_keys(v)
+            for k, v in data.items()
+            if not (isinstance(v, _EnvVarResult) and v.missing)
+        }
+    if isinstance(data, list):
+        return [_drop_missing_env_keys(item) for item in data]
+    return data
 
 
 def _unwrap_env_results(data: object) -> object:

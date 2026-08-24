@@ -1986,8 +1986,10 @@ def import_cmd(
                                     if hasattr(
                                         user_importer, "sync_team_memberships_for_existing_users"
                                     ):
-                                        await user_importer.sync_team_memberships_for_existing_users(
-                                            users_for_resync
+                                        await (
+                                            user_importer.sync_team_memberships_for_existing_users(
+                                                users_for_resync
+                                            )
                                         )
                                         logger.info(
                                             "user_team_memberships_resync_after_teams",

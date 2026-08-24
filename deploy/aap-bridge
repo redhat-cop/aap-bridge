@@ -1,0 +1,237 @@
+#!/bin/sh
+# AAP Bridge - workspace launcher.
+#
+# Copied into a workspace by the AAP Bridge installer, next to compose.yml.
+# It owns the operational surface, so running a migration never requires
+# knowing that Podman Compose is underneath:
+#
+#   ./aap-bridge              the CLI, interactively
+#   ./aap-bridge doctor       any CLI command, passed straight through
+#
+#   ./aap-bridge status       what is running
+#   ./aap-bridge start        start the services
+#   ./aap-bridge stop         stop them, keeping everything
+#   ./aap-bridge restart      stop, then start
+#   ./aap-bridge logs         follow the logs
+#   ./aap-bridge uninstall    remove AAP Bridge; your data is kept by default
+#
+# --workspace <dir>, or AAP_BRIDGE_WORKSPACE, points it at another workspace.
+#
+# The lifecycle these map onto:
+#
+#   install    set everything up and start it
+#   stop       shut the services down, changing nothing else
+#   uninstall  remove the containers and images, keep the workspace
+#   remove     delete the workspace and its data too
+#
+# Anything not listed above is a CLI command and is handed to the container.
+
+set -eu
+
+# Which workspace this operates on. Defaults to the directory holding this
+# script, which is what the installer sets up; the override exists so a second
+# migration is a second workspace rather than a second installation.
+if [ "${1:-}" = "--workspace" ] && [ -n "${2:-}" ]; then
+    WORKDIR=$(CDPATH= cd -- "$2" && pwd) || exit 1
+    shift 2
+elif [ -n "${AAP_BRIDGE_WORKSPACE:-}" ]; then
+    WORKDIR=$(CDPATH= cd -- "$AAP_BRIDGE_WORKSPACE" && pwd) || exit 1
+else
+    WORKDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+fi
+cd "$WORKDIR"
+
+CLI_IMAGE="localhost/aap-bridge:latest"
+
+# The image runs as uid 998. Rootless Podman maps the host user onto that uid,
+# so files the container writes into this directory belong to whoever ran it.
+# Running Podman as root needs no mapping and cannot use one.
+CONTAINER_UID=998
+USERNS=""
+if [ "$(id -u)" -ne 0 ]; then
+    USERNS="--userns=keep-id:uid=${CONTAINER_UID},gid=${CONTAINER_UID}"
+fi
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    BOLD=$(printf '\033[1m'); RED=$(printf '\033[31m')
+    GREEN=$(printf '\033[32m'); DIM=$(printf '\033[2m'); RESET=$(printf '\033[0m')
+else
+    BOLD=''; RED=''; GREEN=''; DIM=''; RESET=''
+fi
+
+ok()      { printf '  %s✔%s %s\n' "$GREEN" "$RESET" "$1"; }
+absent()  { printf '  %s•%s %s\n' "$DIM" "$RESET" "$1"; }
+die()     { printf '\n  %s✘ %s%s\n\n' "$RED" "$1" "$RESET" >&2; exit 1; }
+section() { printf '\n%s%s%s\n\n' "$BOLD" "$1" "$RESET"; }
+
+compose() { podman compose "$@"; }
+
+# The name this launcher can be reached by. The installer puts `aap-bridge` on
+# PATH for the container installation too, so pointing someone who has it at
+# `./aap-bridge` in one particular directory is worse advice than what they
+# already typed.
+self_name() {
+    if command -v aap-bridge >/dev/null 2>&1; then
+        printf 'aap-bridge'
+    else
+        printf './aap-bridge'
+    fi
+}
+
+# Every published port comes from .env, which is the single source of truth
+# for them: the engine, the Web UI's proxy, and the database.
+env_port() {
+    _p=$(sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1)
+    printf '%s' "${_p:-$2}"
+}
+
+api_port() { env_port AAP_BRIDGE_API_PORT 8000; }
+ui_port()  { env_port AAP_BRIDGE_UI_PORT 8080; }
+
+# One service's state, as compose reports it: running, exited, or absent.
+service_state() {
+    _cid=$(compose ps -a -q "$1" 2>/dev/null | head -n 1) || _cid=""
+    if [ -z "$_cid" ]; then
+        printf 'absent'
+        return 0
+    fi
+    podman inspect --format '{{.State.Status}}' "$_cid" 2>/dev/null || printf 'unknown'
+}
+
+require_compose() {
+    [ -f compose.yml ] || die "No compose.yml in $WORKDIR. This is not an AAP Bridge workspace."
+    podman compose version >/dev/null 2>&1 \
+        || die "Podman Compose is not available. Install podman-compose or docker-compose."
+}
+
+cmd_status() {
+    require_compose
+    section "AAP Bridge"
+
+    _any_running=0
+    for _svc in db engine ui; do
+        case "$_svc" in
+            db)     _label="Database" ;;
+            engine) _label="API engine" ;;
+            *)      _label="Web UI" ;;
+        esac
+        case "$(service_state "$_svc")" in
+            running) ok "$_label"; _any_running=1 ;;
+            exited|created|paused) absent "$_label  ${DIM}stopped${RESET}" ;;
+            *) absent "$_label  ${DIM}not created${RESET}" ;;
+        esac
+    done
+
+    printf '\n'
+    if [ "$_any_running" = "1" ]; then
+        printf '  %sWeb UI%s     http://localhost:%s\n' "$BOLD" "$RESET" "$(ui_port)"
+        printf '  %sAPI%s        http://localhost:%s\n' "$BOLD" "$RESET" "$(api_port)"
+    else
+        printf '  Start AAP Bridge with:  %s%s start%s\n' "$BOLD" "$(self_name)" "$RESET"
+    fi
+    printf '  %sWorkspace%s  %s\n\n' "$BOLD" "$RESET" "$WORKDIR"
+}
+
+cmd_start() {
+    require_compose
+    section "Starting AAP Bridge"
+
+    # `up -d` rather than `start`: it creates whatever is missing, so this works
+    # equally after a stop and after a compose down.
+    compose up -d >/dev/null 2>&1 || die "Could not start the services. See: $(self_name) logs"
+
+    _deadline=$(( $(date +%s) + 120 ))
+    while :; do
+        _cid=$(compose ps -q db 2>/dev/null | head -n 1) || _cid=""
+        if [ -n "$_cid" ] && podman exec "$_cid" pg_isready -q >/dev/null 2>&1; then
+            break
+        fi
+        if [ "$(date +%s)" -ge "$_deadline" ]; then
+            die "The database did not become ready. See: $(self_name) logs db"
+        fi
+        sleep 2
+    done
+
+    ok "Database"
+    for _svc in engine ui; do
+        if [ "$_svc" = "engine" ]; then _label="API engine"; else _label="Web UI"; fi
+        if [ "$(service_state "$_svc")" = "running" ]; then
+            ok "$_label"
+        else
+            absent "$_label  ${DIM}did not start${RESET}"
+        fi
+    done
+
+    printf '\n%sAAP Bridge is running.%s\n\n' "$GREEN$BOLD" "$RESET"
+    printf '  Web UI:  http://localhost:%s\n\n' "$(ui_port)"
+}
+
+cmd_stop() {
+    require_compose
+    section "Stopping AAP Bridge"
+
+    # `stop`, not `down`: the containers, the network, and the database volume
+    # all stay, so `start` resumes rather than rebuilds.
+    compose stop >/dev/null 2>&1 || die "Could not stop the services."
+
+    ok "Web UI stopped"
+    ok "API engine stopped"
+    ok "Database stopped"
+
+    printf '\n%sAAP Bridge is stopped.%s Nothing was removed.\n\n' "$BOLD" "$RESET"
+    printf 'Start it again with:\n  %s%s start%s\n\n' "$BOLD" "$(self_name)" "$RESET"
+}
+
+cmd_logs() {
+    require_compose
+    if [ "$#" -gt 0 ]; then
+        compose logs -f "$@"
+    else
+        compose logs -f
+    fi
+}
+
+cmd_uninstall() {
+    if [ -x "$WORKDIR/uninstall.sh" ]; then
+        exec "$WORKDIR/uninstall.sh" "$@"
+    fi
+    die "uninstall.sh is not in this workspace. Fetch it from the AAP Bridge repository."
+}
+
+cmd_help() {
+    _self=$(self_name)
+
+    printf '\n%sAAP Bridge%s  -  %s\n\n' "$BOLD" "$RESET" "$WORKDIR"
+    printf '%sRun a migration%s\n' "$BOLD" "$RESET"
+    printf '  %-26s the CLI, interactively\n' "$_self"
+    printf '  %-26s check configuration and connections\n' "$_self doctor"
+    printf '  %-26s write a migration report\n' "$_self report"
+    printf '  %-26s every CLI command\n' "$_self --help"
+    printf '\n%sManage AAP Bridge%s\n' "$BOLD" "$RESET"
+    printf '  %-26s what is running\n' "$_self status"
+    printf '  %-26s start the services\n' "$_self start"
+    printf '  %-26s stop them, keeping everything\n' "$_self stop"
+    printf '  %-26s stop, then start\n' "$_self restart"
+    printf '  %-26s follow the logs\n' "$_self logs [service]"
+    printf '  %-26s remove AAP Bridge, keeping your data\n' "$_self uninstall"
+    printf '\n'
+}
+
+case "${1:-}" in
+    status)    shift; cmd_status "$@" ;;
+    start)     shift; cmd_start "$@" ;;
+    stop)      shift; cmd_stop "$@" ;;
+    restart)   shift; cmd_stop; cmd_start ;;
+    logs)      shift; cmd_logs "$@" ;;
+    uninstall) shift; cmd_uninstall "$@" ;;
+    help)      cmd_help ;;
+    *)
+        # Everything else is a CLI command. Host networking: the migration
+        # database is published on the host, and the CLI has to reach the same
+        # AAP endpoints the host can.
+        # shellcheck disable=SC2086  # USERNS is a flag or empty by design
+        exec podman run --rm -it --network host $USERNS \
+            -e AAP_BRIDGE_HOST_WORKSPACE="$WORKDIR" \
+            -v "$WORKDIR":/work:Z -w /work "$CLI_IMAGE" "$@"
+        ;;
+esac

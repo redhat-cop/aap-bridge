@@ -13,6 +13,31 @@ pre-commit / CI via `tools/check_changelog_periods.py` on this file and
 
 ### Added
 
+- **One-Command Install**: `scripts/install.sh` sets AAP Bridge up in a single
+  command and asks how to run it - the `aap-bridge` command on the host, or the
+  CLI, API engine, Web UI, and PostgreSQL in containers. It checks prerequisites,
+  installs what is missing, resolves `registry.redhat.io` access before building
+  anything, verifies every image it needs, builds only what is out of date, and
+  ends with a configured workspace and a running stack.
+- **`aap-bridge init` and `aap-bridge doctor`**: An interactive walkthrough that
+  writes a self-contained workspace (`.env` at mode 0600, `config/config.yaml`,
+  artifact directories), and a single diagnostic command covering the system,
+  workspace, database, services, and both AAP connections. `doctor --fix`
+  repairs safe local problems only.
+- **`aap-bridge` as one interface**: Both installations put the same command on
+  PATH, with `status`, `start`, `stop`, `restart`, `logs`, and `uninstall`
+  alongside every CLI command. How AAP Bridge is deployed is chosen once at
+  install time rather than remembered at every invocation.
+- **Uninstaller**: `scripts/uninstall.sh`, also reachable as
+  `aap-bridge uninstall`, removes the containers, images, and command while
+  keeping the migration workspace by default; removing the data as well is a
+  separate choice that must be typed out in full. Base images shared with other
+  applications are never removed.
+- **Configurable Published Ports**: `AAP_BRIDGE_DB_PORT` (15432),
+  `AAP_BRIDGE_API_PORT` (8000), and `AAP_BRIDGE_UI_PORT` (8080) are settings
+  recorded in the workspace `.env`. The installer checks all three before
+  starting anything and offers a free port when one is taken.
+
 - **Instance Group Capacity Assignments**: Organizations, inventories, and job templates
   now export related instance group names and re-associate them on the target by name
   after create (instance group objects remain a target prerequisite).
@@ -127,6 +152,16 @@ pre-commit / CI via `tools/check_changelog_periods.py` on this file and
   Support Matrix to the MkDocs nav. Addresses #108.
 
 ### Fixed
+
+- **Migration artifacts follow the workspace**: `exports/`, `xformed/`,
+  `schemas/`, `reports/`, and the log are written relative to the workspace root
+  rather than the working directory, so one migration's files stay together
+  whichever directory a command is run from. Absolute paths and an explicit
+  `--output` are unchanged.
+- **`aap-bridge report` reports the migration**: Statistics came from a block of
+  hardcoded zeros; they now come from the state database, with a
+  per-resource-type breakdown and the errors behind any failures. With no
+  `--output` the report is written into the workspace's `reports/`.
 
 - **Import Summary – Project Patching Count (#116)**: Phase 2 import summary now reports
   how many projects were patched instead of always showing `0 resources processed`.

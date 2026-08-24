@@ -1,0 +1,83 @@
+# AAP Bridge - end-user compose stack.
+#
+# Runs prebuilt images against the workspace in the current directory. Unlike
+# the repository's compose.yml, no service has a `build:` section and no source
+# tree is bind-mounted, so this file works on its own next to a .env.
+#
+#   podman compose -f compose.user.yml up -d
+#
+# Fetched into your workspace by scripts/install.sh.
+
+services:
+  db-init:
+    image: registry.redhat.io/ubi9/ubi-minimal:latest
+    user: "0"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /var/lib/pgsql/data
+        chown -R 26:26 /var/lib/pgsql/data
+        touch /tmp/ready
+        exec sleep infinity
+    volumes:
+      - pgdata:/var/lib/pgsql/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  db:
+    image: registry.redhat.io/rhel9/postgresql-15
+    depends_on:
+      db-init:
+        condition: service_healthy
+    environment:
+      POSTGRESQL_USER: ${POSTGRESQL_USER:?Set POSTGRESQL_USER in .env}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}
+      POSTGRESQL_DATABASE: ${POSTGRESQL_DATABASE:-aap_migration}
+      POSTGRESQL_ADMIN_PASSWORD: ${POSTGRESQL_ADMIN_PASSWORD:?Set POSTGRESQL_ADMIN_PASSWORD in .env}
+    ports:
+      - "${AAP_BRIDGE_DB_PORT:-15432}:5432"
+    volumes:
+      - pgdata:/var/lib/pgsql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESQL_USER:-aap_migration_user} -d ${POSTGRESQL_DATABASE:-aap_migration}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  engine:
+    image: localhost/aap-bridge-api:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    network_mode: host
+    security_opt:
+      - label=disable
+    # The image runs as uid 998. Map the host user onto that uid so migration
+    # artifacts written into the bind mounts below belong to whoever started
+    # the stack - without this the engine cannot write to them at all.
+    # Rootless Podman only; drop this line if you run Podman as root.
+    userns_mode: "keep-id:uid=998,gid=998"
+    volumes:
+      - ./config:/app/config:ro
+      - ./exports:/app/exports
+      - ./xformed:/app/xformed
+      - ./reports:/app/reports
+      - ./schemas:/app/schemas
+      - ./logs:/app/logs
+
+  ui:
+    image: localhost/aap-bridge-ui:latest
+    depends_on:
+      - engine
+    env_file:
+      - .env
+    network_mode: host
+
+volumes:
+  pgdata:

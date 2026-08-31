@@ -199,6 +199,9 @@ def load_endpoints(endpoints_file: Path) -> dict[str, Any]:
     with open(endpoints_file) as f:
         data = json.load(f)
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid endpoints file: {endpoints_file}")
+
     logger.debug(
         "endpoints_loaded",
         file=str(endpoints_file),

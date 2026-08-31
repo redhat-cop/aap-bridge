@@ -40,7 +40,7 @@ def compare_schemas(
         target_version=target_version,
     )
 
-    transformations = {}
+    transformations: dict[str, dict[str, Any]] = {}
     source_schemas = source_schema.get("schemas", {})
     target_schemas = target_schema.get("schemas", {})
 
@@ -112,7 +112,7 @@ def compare_schemas(
                 }
 
         # Build transformation rules for this resource type
-        transformation = {
+        transformation: dict[str, Any] = {
             "fields_removed": fields_removed,
             "fields_added": fields_added,
             "fields_unchanged": fields_common,
@@ -206,6 +206,9 @@ def load_comparison(comparison_file: Path) -> dict[str, Any]:
 
     with open(comparison_file) as f:
         data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid comparison file: {comparison_file}")
 
     logger.debug(
         "comparison_loaded",

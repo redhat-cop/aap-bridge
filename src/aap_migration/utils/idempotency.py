@@ -111,7 +111,7 @@ def idempotent(
     key_fields: list[str],
     source_id_field: str = "id",
     source_name_field: str = "name",
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to make a function idempotent using state tracking.
 
     This decorator wraps async functions to:
@@ -155,7 +155,7 @@ def idempotent(
         resource_type = normalize_resource_type(resource_type)
 
         @functools.wraps(func)
-        async def wrapper(data: dict[str, Any], *args, **kwargs) -> dict[str, Any]:
+        async def wrapper(data: dict[str, Any], *args: Any, **kwargs: Any) -> dict[str, Any]:
             # Extract source ID and name
             source_id = data.get(source_id_field)
             source_name = data.get(source_name_field, "")
@@ -178,6 +178,8 @@ def idempotent(
             # Execute function
             try:
                 result = await func(data, *args, **kwargs)
+                if not isinstance(result, dict):
+                    raise TypeError(f"Idempotent function must return dict, got {type(result)!r}")
 
                 # Mark as completed if we have source_id
                 if source_id is not None and "id" in result:
@@ -354,7 +356,7 @@ async def find_existing_resource(
             organization=organization,
         )
 
-        return result
+        return result if isinstance(result, dict) else None
 
     except Exception as e:
         logger.error(

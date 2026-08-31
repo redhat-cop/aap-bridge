@@ -3,7 +3,9 @@ import contextvars
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -182,8 +184,8 @@ class JobLogHandler(logging.Handler):
             # everything still imports correctly.
             "no_identifiers_found",
         )
-        for n in noisy:
-            if n in msg:
+        for token in noisy:
+            if token in msg:
                 return
 
         # --- Show warnings/errors ---
@@ -472,7 +474,7 @@ class MigrationService:
         dest: Connection,
         *,
         label: str,
-        runner,
+        runner: Callable[..., Awaitable[Any]],
         runner_kwargs: dict | None = None,
     ) -> str:
         job_id = self._create_job(job_type, source.id)
@@ -532,7 +534,12 @@ class MigrationService:
     def start_cleanup(self, source: Connection, dest: Connection) -> str:
         from aap_migration.api.services.cli_workflows import run_migration_cleanup
 
-        async def _runner(_source, dest_conn, db_url, log=None):
+        async def _runner(
+            _source: Connection,
+            dest_conn: Connection,
+            db_url: str,
+            log: Callable[[str], None] | None = None,
+        ) -> Any:
             from aap_migration.api.services.cli_workflows import PhasedMigrationResult
 
             result = await run_migration_cleanup(dest_conn, db_url, log=log)

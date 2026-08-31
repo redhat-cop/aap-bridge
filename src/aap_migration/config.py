@@ -769,7 +769,11 @@ class MigrationConfig(BaseSettings):
 
     # Ignored Endpoints (loaded from external file)
     ignored_endpoints: dict[str, list[str]] = Field(
-        default_factory=lambda: {"common": [], "source": [], "target": []},
+        default_factory=lambda: {
+            "common": list[str](),
+            "source": list[str](),
+            "target": list[str](),
+        },
         description="Endpoints to ignore grouped by scope (common, source, target)",
     )
 
@@ -902,16 +906,20 @@ def load_config_from_yaml(config_path: str | Path) -> MigrationConfig:
     with open(config_path) as f:
         config_data = yaml.safe_load(f)
 
-    if not config_data:
+    if not isinstance(config_data, dict) or not config_data:
         raise ValueError(f"Empty configuration file: {config_path}")
 
     # Expand ${VAR} references, prune optional sections that are entirely
     # unconfigured (all env-var refs missing), then unwrap the sentinels.
-    config_data = _expand_env_vars(config_data)
-    config_data = _prune_unconfigured_sections(config_data)
-    config_data = _unwrap_env_results(config_data)
+    expanded = _expand_env_vars(config_data)
+    if not isinstance(expanded, dict):
+        raise ValueError(f"Invalid configuration file: {config_path}")
+    pruned = _prune_unconfigured_sections(expanded)
+    unwrapped = _unwrap_env_results(pruned)
+    if not isinstance(unwrapped, dict):
+        raise ValueError(f"Invalid configuration file: {config_path}")
 
-    return MigrationConfig(**config_data)
+    return MigrationConfig(**unwrapped)
 
 
 def load_config_tuning_from_yaml(config_path: str | Path) -> dict:
@@ -939,19 +947,20 @@ def load_config_tuning_from_yaml(config_path: str | Path) -> dict:
     with open(config_path) as f:
         config_data = yaml.safe_load(f)
 
-    if not config_data:
+    if not isinstance(config_data, dict) or not config_data:
         raise ValueError(f"Empty configuration file: {config_path}")
 
-    config_data = _expand_env_vars(config_data)
-    config_data = _prune_unconfigured_sections(config_data)
-    config_data = _unwrap_env_results(config_data)
+    expanded = _expand_env_vars(config_data)
+    if not isinstance(expanded, dict):
+        raise ValueError(f"Invalid configuration file: {config_path}")
+    pruned = _prune_unconfigured_sections(expanded)
+    unwrapped = _unwrap_env_results(pruned)
+    if not isinstance(unwrapped, dict):
+        raise ValueError(f"Invalid configuration file: {config_path}")
 
-    if isinstance(config_data, dict):
-        config_data.pop("source", None)
-        config_data.pop("target", None)
-        return config_data
-
-    raise ValueError(f"Invalid configuration file: {config_path}")
+    unwrapped.pop("source", None)
+    unwrapped.pop("target", None)
+    return unwrapped
 
 
 class _EnvVarResult:

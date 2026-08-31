@@ -11,6 +11,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from types import TracebackType
 from typing import Any, overload
 
 from sqlalchemy import func
@@ -134,7 +135,12 @@ class MigrationState:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Context manager exit."""
         # No cleanup needed as sessions are managed per operation
 
@@ -322,7 +328,7 @@ class MigrationState:
                         max_id=result,
                     )
 
-                    return result
+                    return result if isinstance(result, int) else None
 
             except Exception as e:
                 logger.error(

@@ -5,15 +5,16 @@ migration process: Export → Transform → Import for all resource types
 in proper dependency order.
 """
 
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol, TypedDict, cast
 
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.config import MigrationConfig
 from aap_migration.migration.checkpoint import CheckpointManager
 from aap_migration.migration.exporter import create_exporter
-from aap_migration.migration.importer import create_importer
+from aap_migration.migration.importer import ResourceImporter, create_importer
 from aap_migration.migration.inventory_source_sync import sync_inventory_sources_after_import
 from aap_migration.migration.state import MigrationState
 from aap_migration.migration.transformer import SkipResourceError, create_transformer
@@ -28,6 +29,31 @@ from aap_migration.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class _HasExport(Protocol):
+    def export(self) -> AsyncGenerator[dict[str, Any], None]: ...
+
+
+class PhaseConfig(TypedDict, total=False):
+    name: str
+    description: str
+    resource_types: list[str]
+    batch_size: int
+    use_bulk: bool
+
+
+class CoordinatorMetrics(TypedDict):
+    start_time: datetime | None
+    end_time: datetime | None
+    phases_completed: int
+    phases_failed: int
+    total_resources_exported: int
+    total_resources_imported: int
+    total_resources_failed: int
+    total_resources_skipped: int
+    errors: list[Any]
+    skipped_items: list[Any]
+
+
 class MigrationCoordinator:
     """Coordinates the full migration pipeline.
 
@@ -36,7 +62,7 @@ class MigrationCoordinator:
     """
 
     # Migration phases in dependency order
-    MIGRATION_PHASES = [
+    MIGRATION_PHASES: list[PhaseConfig] = [
         {
             "name": "organizations",
             "description": "Organizations (foundation for most resources)",
@@ -189,7 +215,7 @@ class MigrationCoordinator:
         self.schema_comparator = SchemaComparator()
         self._users_for_team_resync: list[dict[str, Any]] = []
 
-        self.metrics = {
+        self.metrics: CoordinatorMetrics = {
             "start_time": None,
             "end_time": None,
             "phases_completed": 0,
@@ -213,7 +239,7 @@ class MigrationCoordinator:
         self,
         resource_type: str,
         resources: list[dict[str, Any]],
-        importer,
+        importer: ResourceImporter,
     ) -> tuple[list[dict[str, Any]], int]:
         """Detect pre-existing target resources and restore ID mappings before import."""
         if not resources:
@@ -378,7 +404,7 @@ class MigrationCoordinator:
                 ) from e
 
         found_count = 0
-        to_import: list[dict[str, Any]] = []
+        to_import = []
         for identifier, resource_info in resource_by_identifier.items():
             source_id = resource_info["source_id"]
             resource_data = resource_info["data"]
@@ -611,7 +637,7 @@ class MigrationCoordinator:
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
-    async def _execute_phase(self, phase: dict[str, Any]) -> None:
+    async def _execute_phase(self, phase: PhaseConfig) -> None:
         """Execute a single migration phase.
 
         Args:
@@ -690,7 +716,7 @@ class MigrationCoordinator:
     async def _execute_etl_pipeline(
         self,
         resource_type: str,
-        phase_config: dict[str, Any],
+        phase_config: PhaseConfig,
     ) -> dict[str, int]:
         """Execute Export → Transform → Import pipeline for a resource type.
 
@@ -744,7 +770,7 @@ class MigrationCoordinator:
             resources_to_import = []
 
             # Export phase
-            async for resource in exporter.export():
+            async for resource in cast(_HasExport, exporter).export():
                 stats["exported"] += 1
 
                 # Update progress
@@ -1007,7 +1033,9 @@ class MigrationCoordinator:
 
         return stats
 
-    async def _execute_bulk_host_migration(self, exporter, transformer, importer) -> dict[str, int]:
+    async def _execute_bulk_host_migration(
+        self, exporter: Any, transformer: Any, importer: Any
+    ) -> dict[str, int]:
         """Execute bulk host migration using AAP 2.6 bulk operations.
 
         Args:
@@ -1027,9 +1055,9 @@ class MigrationCoordinator:
         }
 
         # Group hosts by inventory for bulk import
-        hosts_by_inventory = {}
+        hosts_by_inventory: dict[int, list[dict[str, Any]]] = {}
 
-        async for host in exporter.export():
+        async for host in cast(_HasExport, exporter).export():
             stats["exported"] += 1
 
             # Update progress for export
@@ -1295,7 +1323,7 @@ class MigrationCoordinator:
         self,
         skip_phases: list[str] | None,
         only_phases: list[str] | None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PhaseConfig]:
         """Determine which phases to execute.
 
         Args:

@@ -261,14 +261,14 @@ offline.
 
 ## Checklist
 
-**Connected**
+### Connected
 
 - [ ] `make build-all` and pull PostgreSQL + UBI (plus `make build` only for TUI/CLI)
 - [ ] `podman save` every image compose needs
 - [ ] Ship repo tarball **excluding `.env`** + `SHA256SUMS`
 - [ ] Image tags match what `compose.yml` expects
 
-**Disconnected**
+### Disconnected
 
 - [ ] Checksums verify
 - [ ] `podman load` all images
@@ -277,7 +277,7 @@ offline.
 - [ ] `podman compose` is available
 - [ ] `make up`; open `http://<host-ip>:8080`
 
-**Port remap (if 8080/8000 are in use)**
+### Port remap (if 8080/8000 are in use)
 
 - [ ] Edit host `deploy/nginx.conf` (`listen` + `proxy_pass`)
 - [ ] `chmod 644 deploy/nginx.conf`

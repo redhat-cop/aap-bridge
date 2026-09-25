@@ -849,6 +849,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disconnected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disconnected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-remap-if-80808000-are-in-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port remap (if 8080/8000 are in use)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1609,14 +1648,14 @@ config:</p>
 base images, RPM repos, and often PyPI/npm, which are usually unavailable
 offline.</p>
 <h2 id="checklist">Checklist<a class="headerlink" href="#checklist" title="Permanent link">&para;</a></h2>
-<p><strong>Connected</strong></p>
+<h3 id="connected">Connected<a class="headerlink" href="#connected" title="Permanent link">&para;</a></h3>
 <ul>
 <li>[ ] <code>make build-all</code> and pull PostgreSQL + UBI (plus <code>make build</code> only for TUI/CLI)</li>
 <li>[ ] <code>podman save</code> every image compose needs</li>
 <li>[ ] Ship repo tarball <strong>excluding <code>.env</code></strong> + <code>SHA256SUMS</code></li>
 <li>[ ] Image tags match what <code>compose.yml</code> expects</li>
 </ul>
-<p><strong>Disconnected</strong></p>
+<h3 id="disconnected">Disconnected<a class="headerlink" href="#disconnected" title="Permanent link">&para;</a></h3>
 <ul>
 <li>[ ] Checksums verify</li>
 <li>[ ] <code>podman load</code> all images</li>
@@ -1625,7 +1664,7 @@ offline.</p>
 <li>[ ] <code>podman compose</code> is available</li>
 <li>[ ] <code>make up</code>; open <code>http://&lt;host-ip&gt;:8080</code></li>
 </ul>
-<p><strong>Port remap (if 8080/8000 are in use)</strong></p>
+<h3 id="port-remap-if-80808000-are-in-use">Port remap (if 8080/8000 are in use)<a class="headerlink" href="#port-remap-if-80808000-are-in-use" title="Permanent link">&para;</a></h3>
 <ul>
 <li>[ ] Edit host <code>deploy/nginx.conf</code> (<code>listen</code> + <code>proxy_pass</code>)</li>
 <li>[ ] <code>chmod 644 deploy/nginx.conf</code></li>

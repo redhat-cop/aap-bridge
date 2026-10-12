@@ -25,15 +25,24 @@ into compose.
 
 This starts:
 
-| Container | Port | Description |
-| --- | --- | --- |
-| **db** | 15432 | PostgreSQL 15 state database |
+| Container  | Port            | Description                           |
+|:-----------|:----------------|:--------------------------------------|
+| **db**     | 15432           | PostgreSQL 15 state database          |
 | **engine** | 8000 (internal) | FastAPI API server + migration engine |
-| **ui** | 8080 | nginx serving React UI + API proxy |
+| **ui**     | 8080            | nginx serving React UI + API proxy    |
+
+The engine port comes from `AAP_BRIDGE_API_PORT`; the nginx proxy in the **ui**
+container reads the same variable, so changing it in `.env` keeps both in step.
 
 ### Local Development
 
-For frontend development with hot-reload:
+For frontend development with hot-reload.
+
+Set the API port once in the project-root `.env` when port 8000 is unavailable:
+
+```dotenv
+AAP_BRIDGE_API_PORT=4017
+```
 
 ```bash
 # Terminal 1: Start the API server
@@ -47,6 +56,10 @@ make web-dev
 
 # Access at http://localhost:5173
 ```
+
+Both `aap-bridge serve` and the Vite development proxy read
+`AAP_BRIDGE_API_PORT` from the project-root `.env`. The default is `8000` when
+the variable is not set.
 
 ## Pages
 
@@ -108,28 +121,28 @@ Historical listing of all async operations with:
 
 The API server exposes these endpoints:
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/connections` | Create connection |
-| GET | `/api/connections` | List connections |
-| GET | `/api/versions` | List supported source/target AAP versions |
-| PUT | `/api/connections/{id}` | Update connection |
-| DELETE | `/api/connections/{id}` | Delete connection |
-| POST | `/api/connections/{id}/test` | Test connectivity |
-| POST | `/api/migrate/preview` | Start migration preview |
-| GET | `/api/migrate/preview/{job_id}` | Get preview results |
-| POST | `/api/migrate/prep` | Run prep (discover endpoints and schemas) |
-| POST | `/api/migrate/cleanup` | Full cleanup (destination resources, state, local files) |
-| POST | `/api/migrate/clear-state` | Clear migration state and local files (not target AAP) |
-| POST | `/api/migrate/export` | Run export |
-| POST | `/api/migrate/transform` | Run transform |
-| POST | `/api/migrate/import` | Run import (phase 1 or 2) |
-| POST | `/api/migrate/run` | Execute full migration (legacy endpoint) |
-| GET | `/api/exclusions` | Get exclusion lists |
-| GET | `/api/jobs` | List jobs |
-| GET | `/api/jobs/{id}` | Get job details |
-| POST | `/api/jobs/{id}/cancel` | Cancel running job |
-| WS | `/ws/jobs/{id}/logs` | Stream job logs |
+| Method | Path                            | Description                                              |
+|:-------|:--------------------------------|:---------------------------------------------------------|
+| POST   | `/api/connections`              | Create connection                                        |
+| GET    | `/api/connections`              | List connections                                         |
+| GET    | `/api/versions`                 | List supported source/target AAP versions                |
+| PUT    | `/api/connections/{id}`         | Update connection                                        |
+| DELETE | `/api/connections/{id}`         | Delete connection                                        |
+| POST   | `/api/connections/{id}/test`    | Test connectivity                                        |
+| POST   | `/api/migrate/preview`          | Start migration preview                                  |
+| GET    | `/api/migrate/preview/{job_id}` | Get preview results                                      |
+| POST   | `/api/migrate/prep`             | Run prep (discover endpoints and schemas)                |
+| POST   | `/api/migrate/cleanup`          | Full cleanup (destination resources, state, local files) |
+| POST   | `/api/migrate/clear-state`      | Clear migration state and local files (not target AAP)   |
+| POST   | `/api/migrate/export`           | Run export                                               |
+| POST   | `/api/migrate/transform`        | Run transform                                            |
+| POST   | `/api/migrate/import`           | Run import (phase 1 or 2)                                |
+| POST   | `/api/migrate/run`              | Execute full migration (legacy endpoint)                 |
+| GET    | `/api/exclusions`               | Get exclusion lists                                      |
+| GET    | `/api/jobs`                     | List jobs                                                |
+| GET    | `/api/jobs/{id}`                | Get job details                                          |
+| POST   | `/api/jobs/{id}/cancel`         | Cancel running job                                       |
+| WS     | `/ws/jobs/{id}/logs`            | Stream job logs                                          |
 
 Interactive API documentation is available at `/docs` (Swagger UI) and
 `/redoc` when the API server is running.

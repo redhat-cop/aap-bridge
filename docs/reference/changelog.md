@@ -12,6 +12,19 @@ in the repository.
 
 **New Features:**
 
+- One-command install: `scripts/install.sh` sets up either the `aap-bridge` command
+  or the full container stack, checks prerequisites, and ends with a configured
+  workspace.
+- `aap-bridge init` and `aap-bridge doctor`: interactive workspace setup, and one
+  command that checks the system, workspace, database, services, and AAP connections.
+- The same `aap-bridge` command for both installations, with `status`, `start`,
+  `stop`, `logs`, and `uninstall` alongside the migration commands.
+- Uninstaller that removes AAP Bridge while keeping your migration workspace by
+  default (`aap-bridge uninstall`).
+- Configurable published ports: `AAP_BRIDGE_DB_PORT`, `AAP_BRIDGE_API_PORT`, and
+  `AAP_BRIDGE_UI_PORT`, with a conflict check before anything starts.
+- Migration artifacts and reports are written into the workspace rather than the
+  current directory.
 - AAP 2.7 supported as a migration source and target (same-or-forward paths only;
   see compatibility matrix).
 - Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and

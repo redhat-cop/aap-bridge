@@ -203,7 +203,13 @@ schemas/
 xformed/
 sql/
 migrations/
-scripts/
+
+# Ad-hoc local scripts are ignored, but the installers are shipped: they are
+# fetched by URL from this path. Use scripts/* rather than scripts/ so these
+# negations apply - git cannot re-include a file inside an excluded directory.
+scripts/*
+!scripts/install.sh
+!scripts/uninstall.sh
 
 # Documentation PDFs (API references, etc.)
 docs/*.pdf

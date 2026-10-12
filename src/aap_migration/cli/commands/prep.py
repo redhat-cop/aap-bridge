@@ -19,8 +19,8 @@ from aap_migration.prep.workflow import run_prep_workflow_sync, suppress_verbose
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
-    default=Path("schemas"),
-    help="Output directory for schema files (default: schemas/)",
+    default=None,
+    help="Output directory for schema files (default: the workspace's schemas/)",
 )
 @click.option(
     "--force",
@@ -30,7 +30,7 @@ from aap_migration.prep.workflow import run_prep_workflow_sync, suppress_verbose
 @pass_context
 @requires_config
 @handle_errors
-def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
+def prep(ctx: MigrationContext, output_dir: Path | None, force: bool) -> None:
     """Discover endpoints and generate schemas from AAP instances.
 
     This command:
@@ -61,6 +61,11 @@ def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
         aap-bridge prep --config config.yaml --output-dir my_schemas/
     """
     suppress_verbose_prep_logging()
+
+    # Unset means the workspace's schema directory, which the configuration has
+    # already resolved to an absolute path. An explicit --output-dir wins.
+    if output_dir is None:
+        output_dir = Path(ctx.config.paths.schema_dir)
 
     source_endpoints_file = output_dir / "source_endpoints.json"
     target_endpoints_file = output_dir / "target_endpoints.json"

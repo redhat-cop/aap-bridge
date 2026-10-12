@@ -9,13 +9,13 @@ aap-bridge [OPTIONS] COMMAND [ARGS]
 
 ```
 
-| Option | Description |
-| --- | --- |
-| `--config`, `-c` | Path to configuration file |
-| `--log-level` | Console log level (DEBUG, INFO, WARNING, ERROR) |
-| `--log-file` | Path to log file |
-| `--version` | Show version and exit |
-| `--help` | Show help message |
+| Option           | Description                                     |
+|:-----------------|:------------------------------------------------|
+| `--config`, `-c` | Path to configuration file                      |
+| `--log-level`    | Console log level (DEBUG, INFO, WARNING, ERROR) |
+| `--log-file`     | Path to log file                                |
+| `--version`      | Show version and exit                           |
+| `--help`         | Show help message                               |
 
 ## Commands
 
@@ -27,6 +27,81 @@ aap-bridge
 ```
 
 Launches an interactive menu for guided operation.
+
+---
+
+### init
+
+Set up a migration workspace interactively.
+
+```bash
+aap-bridge init [OPTIONS]
+
+```
+
+**What it does:**
+
+- Prompts for source and target AAP URLs, versions, API tokens, and TLS preference
+- Asks whether to use the bundled PostgreSQL container or your own connection string
+- Writes `.env` (mode `0600`) and `config/config.yaml` into the workspace
+- Creates `exports/`, `xformed/`, `reports/`, `logs/`, `schemas/`, and `backups/`
+
+**Options:**
+
+| Option    | Description                                              |
+|:----------|:---------------------------------------------------------|
+| `--dir`   | Workspace directory to create or populate (default: `.`) |
+| `--force` | Overwrite an existing `.env` and `config/config.yaml`    |
+
+**Examples:**
+
+```bash
+# Set up the current directory
+aap-bridge init
+
+# Set up a named workspace
+aap-bridge init --dir $HOME/aap-migration
+
+# Reconfigure an existing workspace
+aap-bridge init --force
+
+```
+
+The installer scripts run this as their final step. The CLI finds the workspace
+by walking up from the working directory, looking for `config/config.yaml`,
+`.env`, or `pyproject.toml`. Set `AAP_BRIDGE_ENV` to use a specific `.env` from
+anywhere.
+
+---
+
+### doctor
+
+Diagnose the installation, workspace, database, and AAP connections.
+
+```bash
+aap-bridge doctor [OPTIONS]
+
+```
+
+**What it does:**
+
+- Checks the system (platform, Podman, installed version)
+- Checks the workspace (configuration present, token file permissions)
+- Checks that the migration state database is reachable
+- Checks that both AAP instances answer
+
+**Options:**
+
+| Option  | Description                                             |
+|:--------|:--------------------------------------------------------|
+| `--fix` | Repair safe, local problems automatically               |
+| `--dir` | Workspace to inspect (default: discovered from the cwd) |
+
+`--fix` starts a stopped bundled database, recreates missing workspace
+directories, and tightens `.env` permissions. It never changes AAP URLs,
+tokens, or anything on a remote system.
+
+Exits non-zero when a blocking problem remains, so it is usable in CI.
 
 ---
 
@@ -47,8 +122,8 @@ aap-bridge prep [OPTIONS]
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
+| Option    | Description                  |
+|:----------|:-----------------------------|
 | `--force` | Overwrite existing prep data |
 
 ---
@@ -81,11 +156,11 @@ aap-bridge export --records-per-file 500
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
-| `--output`, `-o` | Output directory (default: ./exports) |
+| Option               | Description                            |
+|:---------------------|:---------------------------------------|
+| `--output`, `-o`     | Output directory (default: ./exports)  |
 | `--records-per-file` | Records per split file (default: 1000) |
-| `--force` | Overwrite existing exports |
+| `--force`            | Overwrite existing exports             |
 
 ---
 
@@ -111,9 +186,9 @@ aap-bridge transform inventories hosts
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
-| `--input`, `-i` | Input directory (default: ./exports) |
+| Option           | Description                               |
+|:-----------------|:------------------------------------------|
+| `--input`, `-i`  | Input directory (default: ./exports)      |
 | `--output`, `-o` | Output directory (default: ./transformed) |
 
 ---
@@ -143,11 +218,11 @@ aap-bridge import --disable-progress
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
-| `--input`, `-i` | Input directory |
-| `--disable-progress` | Disable live progress display |
-| `--dry-run` | Simulate without making changes |
+| Option               | Description                     |
+|:---------------------|:--------------------------------|
+| `--input`, `-i`      | Input directory                 |
+| `--disable-progress` | Disable live progress display   |
+| `--dry-run`          | Simulate without making changes |
 
 ---
 
@@ -176,10 +251,10 @@ aap-bridge cleanup --dry-run
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
-| `--dry-run` | Show what would be deleted |
-| `--force` | Skip confirmation prompt |
+| Option            | Description                   |
+|:------------------|:------------------------------|
+| `--dry-run`       | Show what would be deleted    |
+| `--force`         | Skip confirmation prompt      |
 | `--skip-defaults` | Skip default/system resources |
 
 ---
@@ -206,10 +281,10 @@ aap-bridge validate --sample-size 1000
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
+| Option          | Description                   |
+|:----------------|:------------------------------|
 | `--sample-size` | Number of resources to sample |
-| `--detailed` | Show detailed comparison |
+| `--detailed`    | Show detailed comparison      |
 
 ---
 
@@ -308,11 +383,11 @@ aap-bridge serve [OPTIONS]
 
 **Options:**
 
-| Option | Description |
-| --- | --- |
-| `--host` | Bind address (default: 0.0.0.0) |
-| `--port` | Bind port (default: 8000) |
-| `--reload` | Enable auto-reload for development |
+| Option     | Description                                           |
+|:-----------|:------------------------------------------------------|
+| `--host`   | Bind address (default: 0.0.0.0)                       |
+| `--port`   | Bind port (env: `AAP_BRIDGE_API_PORT`, default: 8000) |
+| `--reload` | Enable auto-reload for development                    |
 
 **Examples:**
 
@@ -338,22 +413,34 @@ MIGRATION_STATE_DB_PATH=sqlite:///aap_bridge.db aap-bridge serve
 
 ### report
 
-Generate migration reports.
+Generate a migration report from the state database: totals, a per-resource-type
+breakdown of completed, failed, and skipped, and the errors behind any failures.
 
 ```bash
-aap-bridge report SUBCOMMAND
-
+aap-bridge report
 ```
 
-**Subcommands:**
+With no `--output`, it writes a timestamped HTML file into the workspace's
+`reports/` directory (see [`paths.report_dir`](../getting-started/configuration.md#path-configuration)).
+
+**Options:**
+
+| Option               | Description                                                      |
+|:---------------------|:-----------------------------------------------------------------|
+| `--output`, `-o`     | Write to a specific file; the format is taken from the extension |
+| `--format`           | `html`, `json`, or `markdown` (default `html`)                   |
+| `--include-mappings` | Add the source-to-target ID mappings                             |
+| `--include-errors`   | Include failure details (on by default)                          |
 
 ```bash
-# Summary report
-aap-bridge report summary
+# Default: reports/migration-report-<timestamp>.html
+aap-bridge report
 
-# Detailed report
-aap-bridge report detailed --output report.html
+# JSON, for further processing
+aap-bridge report --format json
 
+# A specific file, with ID mappings included
+aap-bridge report --output /tmp/migration.html --include-mappings
 ```
 
 ---

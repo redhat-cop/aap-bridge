@@ -168,10 +168,12 @@ def _run_migration_workflow(
     from aap_migration.prep.workflow import run_prep_workflow_sync
     from aap_migration.resources import get_exportable_types, get_importable_types
 
-    # Define directories for workflow
-    schemas_dir = Path("schemas")
-    export_dir = Path("exports")
-    xformed_dir = Path("xformed")
+    # Directories for the workflow. Taken from the configuration, which has
+    # already resolved them against the workspace root, so every phase writes
+    # into the same migration regardless of where the command was run.
+    schemas_dir = Path(ctx.config.paths.schema_dir)
+    export_dir = Path(ctx.config.paths.export_dir)
+    xformed_dir = Path(ctx.config.paths.transform_dir)
 
     # ============================================
     # PHASE 0: PREP (Optional)

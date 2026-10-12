@@ -1,5 +1,10 @@
 FROM registry.redhat.io/ubi9/ubi-minimal:latest AS base
 
+# Installing into the image's system Python as root is the point of a container
+# build, so pip's "running as the root user" advisory is noise here - and noise
+# an installer would otherwise surface to a user as if something went wrong.
+ENV PIP_ROOT_USER_ACTION=ignore
+
 RUN microdnf install -y \
         python3.12 \
         python3.12-pip \
@@ -46,6 +51,7 @@ RUN pip3.12 install --no-cache-dir '.[api]'
 
 USER bridge
 
+# Default port; override at runtime with AAP_BRIDGE_API_PORT.
 EXPOSE 8000
 
-ENTRYPOINT ["aap-bridge", "serve", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["aap-bridge", "serve", "--host", "0.0.0.0"]

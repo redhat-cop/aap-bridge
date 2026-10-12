@@ -6,6 +6,8 @@ generating migration reports.
 """
 
 import asyncio
+from datetime import datetime
+from html import escape
 from pathlib import Path
 
 import click
@@ -173,8 +175,8 @@ def validate(
     "--output",
     "-o",
     type=click.Path(path_type=Path),
-    required=True,
-    help="Output file for report (HTML, JSON, or Markdown)",
+    default=None,
+    help="Output file (HTML, JSON, or Markdown). Default: the workspace's reports/",
 )
 @click.option(
     "--format",
@@ -198,7 +200,7 @@ def validate(
 @handle_errors
 def report(
     ctx: MigrationContext,
-    output: Path,
+    output: Path | None,
     report_format: str | None,
     include_mappings: bool,
     include_errors: bool,
@@ -226,6 +228,17 @@ def report(
         # Markdown report
         aap-bridge report --output report.md --format markdown --config config.yaml
     """
+    # Unset means the workspace's reports directory, which the configuration
+    # has already resolved to an absolute path. Reports belong with the
+    # migration that produced them, not in whichever directory this was run
+    # from, and a required --output meant the directory stayed empty forever.
+    if output is None:
+        report_format = report_format or "html"
+        suffix = {"html": "html", "json": "json", "markdown": "md"}[report_format]
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output = Path(ctx.config.paths.report_dir) / f"migration-report-{stamp}.{suffix}"
+        output.parent.mkdir(parents=True, exist_ok=True)
+
     # Auto-detect format from extension if not specified
     if not report_format:
         suffix = output.suffix.lower()
@@ -249,20 +262,32 @@ def report(
         # Collect report data
         echo_info("Collecting migration data...")
 
+        # Every figure below comes from the state database. This used to be a
+        # block of hardcoded zeros, so the command reported a successful
+        # migration of nothing at all, in three formats.
+        overall = migration_state.get_overall_stats()
+
+        by_type = {}
+        for resource_type in migration_state.get_all_resource_types():
+            counts = migration_state.get_migration_stats(resource_type)
+            if counts.get("total"):
+                by_type[resource_type] = counts
+
         report_data = {
             "migration_id": migration_state.migration_id,
             "source_url": ctx.config.source.url,
             "target_url": ctx.config.target.url,
-            "generated_at": None,
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
             "statistics": {
-                "total_resources_migrated": 0,
-                "phases_completed": 0,
-                "errors": 0,
-                "warnings": 0,
+                "total_resources_migrated": overall["total_completed"],
+                "total_resources_tracked": overall["total_progress"],
+                "resource_types": len(by_type),
+                "id_mappings": overall["total_mappings"],
+                "failed": overall["total_failed"],
             },
-            "resources_by_type": {},
-            "errors": [] if include_errors else None,
-            "mappings": [] if include_mappings else None,
+            "resources_by_type": by_type,
+            "errors": migration_state.get_failures(limit=200) if include_errors else None,
+            "mappings": migration_state.get_all_mappings(limit=1000) if include_mappings else None,
         }
 
         # Generate report in appropriate format
@@ -279,11 +304,44 @@ def report(
             with open(output, "w") as f:
                 f.write("# Migration Report\n\n")
                 f.write(f"**Migration ID:** {report_data['migration_id']}\n\n")
+                f.write(f"**Generated:** {report_data['generated_at']}\n\n")
                 f.write(f"**Source:** {report_data['source_url']}\n\n")
                 f.write(f"**Target:** {report_data['target_url']}\n\n")
                 f.write("## Statistics\n\n")
                 for key, value in report_data["statistics"].items():
                     f.write(f"- **{key.replace('_', ' ').title()}:** {value}\n")
+
+                if report_data["resources_by_type"]:
+                    f.write("\n## Resources\n\n")
+                    f.write("| Resource type | Total | Completed | Failed | Skipped |\n")
+                    f.write("|:---|---:|---:|---:|---:|\n")
+                    for rtype, counts in sorted(report_data["resources_by_type"].items()):
+                        f.write(
+                            f"| {rtype} | {counts.get('total', 0)} "
+                            f"| {counts.get('completed', 0)} | {counts.get('failed', 0)} "
+                            f"| {counts.get('skipped', 0)} |\n"
+                        )
+
+                if report_data["errors"]:
+                    f.write("\n## Failures\n\n")
+                    f.write("| Resource type | Name | Phase | Error |\n")
+                    f.write("|:---|:---|:---|:---|\n")
+                    for failure in report_data["errors"]:
+                        error_text = failure["error"].replace("|", "\\|").replace("\n", " ")
+                        f.write(
+                            f"| {failure['resource_type']} | {failure['source_name']} "
+                            f"| {failure['phase']} | {error_text} |\n"
+                        )
+
+                if report_data["mappings"]:
+                    f.write("\n## ID mappings\n\n")
+                    f.write("| Resource type | Source ID | Target ID | Name |\n")
+                    f.write("|:---|---:|---:|:---|\n")
+                    for mapping in report_data["mappings"]:
+                        f.write(
+                            f"| {mapping['resource_type']} | {mapping['source_id']} "
+                            f"| {mapping['target_id']} | {mapping['source_name']} |\n"
+                        )
 
         elif report_format == "html":
             # Generate HTML report
@@ -307,6 +365,7 @@ def report(
     <h1>AAP Migration Report</h1>
     <h2>Migration Details</h2>
     <p><strong>Migration ID:</strong> {report_data["migration_id"]}</p>
+    <p><strong>Generated:</strong> {report_data["generated_at"]}</p>
     <p><strong>Source:</strong> {report_data["source_url"]}</p>
     <p><strong>Target:</strong> {report_data["target_url"]}</p>
 
@@ -318,10 +377,57 @@ def report(
                 html_content += (
                     f"        <tr><td>{key.replace('_', ' ').title()}</td><td>{value}</td></tr>\n"
                 )
+            html_content += "    </table>\n"
+
+            if report_data["resources_by_type"]:
+                html_content += """
+    <h2>Resources</h2>
+    <table>
+        <tr><th>Resource type</th><th>Total</th><th>Completed</th><th>Failed</th><th>Skipped</th></tr>
+"""
+                for rtype, counts in sorted(report_data["resources_by_type"].items()):
+                    failed = counts.get("failed", 0)
+                    failed_cell = f'<td class="error">{failed}</td>' if failed else "<td>0</td>"
+                    html_content += (
+                        f"        <tr><td>{escape(rtype)}</td>"
+                        f"<td>{counts.get('total', 0)}</td>"
+                        f'<td class="success">{counts.get("completed", 0)}</td>'
+                        f"{failed_cell}"
+                        f"<td>{counts.get('skipped', 0)}</td></tr>\n"
+                    )
+                html_content += "    </table>\n"
+
+            if report_data["errors"]:
+                html_content += """
+    <h2>Failures</h2>
+    <table>
+        <tr><th>Resource type</th><th>Name</th><th>Phase</th><th>Error</th></tr>
+"""
+                for failure in report_data["errors"]:
+                    html_content += (
+                        f"        <tr><td>{escape(failure['resource_type'])}</td>"
+                        f"<td>{escape(str(failure['source_name']))}</td>"
+                        f"<td>{escape(str(failure['phase']))}</td>"
+                        f'<td class="error">{escape(failure["error"])}</td></tr>\n'
+                    )
+                html_content += "    </table>\n"
+
+            if report_data["mappings"]:
+                html_content += """
+    <h2>ID mappings</h2>
+    <table>
+        <tr><th>Resource type</th><th>Source ID</th><th>Target ID</th><th>Name</th></tr>
+"""
+                for mapping in report_data["mappings"]:
+                    html_content += (
+                        f"        <tr><td>{escape(mapping['resource_type'])}</td>"
+                        f"<td>{mapping['source_id']}</td>"
+                        f"<td>{mapping['target_id']}</td>"
+                        f"<td>{escape(str(mapping['source_name']))}</td></tr>\n"
+                    )
+                html_content += "    </table>\n"
 
             html_content += """
-    </table>
-
     <p><em>Generated by AAP Bridge</em></p>
 </body>
 </html>

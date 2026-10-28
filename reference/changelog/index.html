@@ -1303,6 +1303,8 @@ in the repository.</p>
 </ul>
 <p><strong>Bug Fixes:</strong></p>
 <ul>
+<li>Git project <code>scm_refspec</code> is retained through deferred SCM / Phase 2 PATCH and
+  idempotency checks so it is no longer dropped on migration (#180).</li>
 <li>Phase 2 import summary reports patched project count instead of always
   <code>0 resources processed</code> (#116).</li>
 <li>Inventory source sync wait no longer hangs after a 405 on <code>update/</code> (removed GET

@@ -8,7 +8,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from aap_migration.client.aap_target_client import AAPTargetClient
 from aap_migration.client.api_layout import (
@@ -44,6 +44,18 @@ from aap_migration.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _as_int(value: Any) -> int | None:
+    """Coerce a JSON/API id to int, or None if missing/invalid."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _inventory_kind_blocks_groups_and_hosts(kind: str | None) -> bool:
     """True when the API does not allow creating groups or hosts on this inventory."""
     return (kind or "") in ("smart", "constructed")
@@ -76,9 +88,10 @@ async def _fetch_target_inventory_kind(
 def _inventory_sources_list_has_items(resp: dict[str, Any]) -> bool:
     """Interpret a list response from inventory_sources (count and/or results)."""
     total = resp.get("count")
-    if total is not None:
+    if isinstance(total, int):
         return total > 0
-    return len(resp.get("results", [])) > 0
+    results = resp.get("results", [])
+    return isinstance(results, list) and len(results) > 0
 
 
 async def _fetch_target_inventory_has_inventory_sources(
@@ -142,7 +155,7 @@ class ResourceImporter:
     """
 
     # Dependency mapping: field_name -> resource_type
-    DEPENDENCIES = {}
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}
 
     # Identifier field used for uniqueness checks (override in subclasses if different)
     IDENTIFIER_FIELD = "name"
@@ -1447,7 +1460,7 @@ class CredentialTypeImporter(ResourceImporter):
 class UserImporter(ResourceImporter):
     """Importer for user resources."""
 
-    DEPENDENCIES = {}  # No dependencies - users can exist independently
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}  # No dependencies - users can exist independently
     IDENTIFIER_FIELD = "username"  # Users use 'username' instead of 'name'
 
     async def _sync_team_memberships(
@@ -1646,17 +1659,17 @@ class UserImporter(ResourceImporter):
 
         except ConflictError:
             # Handle conflict (user already exists)
-            result = await self._handle_conflict(resource_type, source_id, data)
-            if result:
+            conflict_result = await self._handle_conflict(resource_type, source_id, data)
+            if conflict_result:
                 self.stats["conflict_count"] += 1
-                target_user_id = result.get("id")
+                target_user_id = conflict_result.get("id")
                 if target_user_id:
                     await self._sync_team_memberships(
                         source_user_id=source_id,
                         target_user_id=target_user_id,
                         source_team_ids=team_source_ids,
                     )
-            return result
+            return conflict_result
 
         except Exception as e:
             # Mark as failed
@@ -2104,12 +2117,12 @@ class TeamImporter(ResourceImporter):
 class OrganizationImporter(ResourceImporter):
     """Importer for organization resources."""
 
-    DEPENDENCIES = {}  # No dependencies
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}  # No dependencies
 
     async def import_resource(
         self,
         resource_type: str,
-        source_id: int | str,
+        source_id: int,
         data: dict[str, Any],
         resolve_dependencies: bool = True,
     ) -> dict[str, Any] | None:
@@ -2159,7 +2172,7 @@ class InstanceImporter(ResourceImporter):
     Uses config/mappings.yaml to map different hostnames between environments.
     """
 
-    DEPENDENCIES = {}  # No dependencies - instances are foundational
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}  # No dependencies - instances are foundational
     IDENTIFIER_FIELD = "hostname"  # Instances use 'hostname' instead of 'name'
 
     async def import_instances(
@@ -2203,11 +2216,11 @@ class InstanceImporter(ResourceImporter):
         )
 
         for instance in instances:
-            source_id = instance.get("_source_id") or instance.get("id")
+            source_id = _as_int(instance.get("_source_id") or instance.get("id"))
             source_hostname = instance.get("hostname", "unknown")
 
             # Check if already mapped
-            if self.state.is_migrated("instances", source_id):
+            if source_id is None or self.state.is_migrated("instances", source_id):
                 skipped_count += 1
                 if progress_callback:
                     progress_callback(success_count, failed_count, skipped_count)
@@ -2312,7 +2325,7 @@ class InventoryImporter(ResourceImporter):
     async def import_resource(
         self,
         resource_type: str,
-        source_id: int | str,
+        source_id: int,
         data: dict[str, Any],
         resolve_dependencies: bool = True,
     ) -> dict[str, Any] | None:
@@ -2489,7 +2502,9 @@ class InventoryGroupImporter(ResourceImporter):
                 check_exists=True,
             )
 
-            target_id = result.get("id")
+            target_id = _as_int(result.get("id"))
+            if target_id is None:
+                raise APIError("Inventory group create did not return an id")
             self.state.mark_completed(
                 resource_type=resource_type,
                 source_id=source_id,
@@ -2589,7 +2604,7 @@ class InventoryGroupImporter(ResourceImporter):
         )
 
         # Create a cumulative progress callback
-        def tier_progress_cb(success, failed, skipped):
+        def tier_progress_cb(success: int, failed: int, skipped: int) -> None:
             nonlocal total_success, total_failed, total_skipped
             # This callback receives totals for the CURRENT batch/tier
             # We need to accumulate them across tiers for the global progress bar
@@ -2647,7 +2662,7 @@ class InventoryGroupImporter(ResourceImporter):
         group_by_id = {g.get("_source_id", g.get("id")): g for g in groups}
 
         # Adjacency list: parent_id -> list of child_ids
-        children_map = {}
+        children_map: dict[Any, list[Any]] = {}
         # Parent map: child_id -> parent_id
         parent_map = {}
 
@@ -2767,7 +2782,7 @@ class ScheduleImporter(ResourceImporter):
     the target until operators re-enable them after validation.
     """
 
-    DEPENDENCIES = {}  # Handled manually in _resolve_dependencies
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}  # Handled manually in _resolve_dependencies
 
     async def ensure_schedule_disabled_on_target(self, schedule: dict[str, Any]) -> dict[str, Any]:
         """PATCH a target schedule to ``enabled=false`` when it is still enabled."""
@@ -4346,7 +4361,7 @@ class JobTemplateImporter(ResourceImporter):
     async def import_resource(
         self,
         resource_type: str,
-        source_id: int | str,
+        source_id: int,
         data: dict[str, Any],
         resolve_dependencies: bool = True,
     ) -> dict[str, Any] | None:
@@ -4606,7 +4621,9 @@ class WorkflowImporter(ResourceImporter):
         skipped_count = 0
 
         for workflow_raw in workflows:
-            source_id = workflow_raw.get("_source_id") or workflow_raw.get("id")
+            source_id = _as_int(workflow_raw.get("_source_id") or workflow_raw.get("id"))
+            if source_id is None:
+                continue
             workflow = dict(workflow_raw)
             workflow.pop("_source_id", None)
 
@@ -4702,7 +4719,7 @@ class SystemJobTemplateImporter(ResourceImporter):
     System job templates are built-in and read-only. We only map them.
     """
 
-    DEPENDENCIES = {}
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}
 
     async def import_resource(
         self,
@@ -4812,21 +4829,17 @@ class CredentialInputSourceImporter(ResourceImporter):
         for input_source in input_sources:
             source_id = input_source.pop("_source_id", input_source.get("id"))
             # `credential` is the ID of the credential whose input is being sourced.
-            source_target_credential_id = input_source.get(
-                "credential"
-            )  # Renamed for clarity to avoid confusion with the source_credential for the input value.
+            source_target_credential_id = _as_int(input_source.get("credential"))
             source_input_field_name = input_source.get("input_field_name")
             # `source_credential` is the ID of the credential that provides the source (e.g., a HashiCorp Vault credential).
-            source_source_credential_id = input_source.get("source_credential")
+            source_source_credential_id = _as_int(input_source.get("source_credential"))
             source_source_credential_field_name = input_source.get("source_credential_field_name")
 
-            if not all(
-                [
-                    source_target_credential_id,
-                    source_input_field_name,
-                    source_source_credential_id,
-                    source_source_credential_field_name,
-                ]
+            if (
+                source_target_credential_id is None
+                or not source_input_field_name
+                or source_source_credential_id is None
+                or not source_source_credential_field_name
             ):
                 logger.warning(
                     "credential_input_source_missing_fields",
@@ -5139,7 +5152,9 @@ class ConstructedInventoryImporter(ResourceImporter):
         results = []
 
         for inv_raw in inventories:
-            source_id = inv_raw.get("_source_id") or inv_raw.get("id")
+            source_id = _as_int(inv_raw.get("_source_id") or inv_raw.get("id"))
+            if source_id is None:
+                continue
             # Copy before popping: ``transformed_resources`` in the CLI reuses these dicts for
             # :meth:`sync_input_inventories_for_constructed_resources`, which runs after import.
             inventory = dict(inv_raw)
@@ -5280,7 +5295,7 @@ class RoleDefinitionImporter(ResourceImporter):
     don't already exist, then the source→target ID mapping is saved.
     """
 
-    DEPENDENCIES = {}
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}
 
     async def import_resource(
         self,
@@ -5424,7 +5439,7 @@ async def _resolve_content_object_target_id(
     """
     target_id = state.get_mapped_id(resource_type, object_source_id)
     if target_id:
-        return target_id
+        return _as_int(target_id)
 
     if not content_object_name:
         return None
@@ -5441,7 +5456,7 @@ async def _resolve_content_object_target_id(
                 target_id=resources[0]["id"],
                 source_id=source_id,
             )
-            return resources[0]["id"]
+            return _as_int(resources[0]["id"])
     except Exception as e:
         logger.error(
             "role_assignment_resource_name_lookup_failed",
@@ -5505,7 +5520,7 @@ async def _resolve_organization_id_for_controller(
     layout = client.api_layout
 
     if layout is None or layout.mode is not ApiMode.GATEWAY:
-        return state.get_mapped_id("organizations", source_id)
+        return _as_int(state.get_mapped_id("organizations", source_id))
 
     org_name = state.get_mapping_source_name("organizations", source_id)
 
@@ -5518,7 +5533,7 @@ async def _resolve_organization_id_for_controller(
     if mapped_id is not None:
         try:
             await client.get_on_base(controller_api_base, f"organizations/{mapped_id}/")
-            return mapped_id
+            return _as_int(mapped_id)
         except Exception:
             pass
 
@@ -5566,7 +5581,7 @@ async def _resolve_rbac_principal_id_for_assignment(
     layout = client.api_layout
 
     if layout.mode is not ApiMode.GATEWAY:
-        return mapped_id
+        return _as_int(mapped_id)
 
     principal_name = state.get_mapping_source_name(principal_type, source_id)
 
@@ -5580,7 +5595,7 @@ async def _resolve_rbac_principal_id_for_assignment(
     if mapped_id is not None:
         try:
             await client.get_on_base(assignment_api_base, f"{principal_type}/{mapped_id}/")
-            return mapped_id
+            return _as_int(mapped_id)
         except Exception:
             pass
 
@@ -5617,7 +5632,7 @@ async def _resolve_role_definition_target_id(
             )
             resources = results.get("results", [])
             if resources:
-                return resources[0]["id"]
+                return _as_int(resources[0]["id"])
         except Exception as e:
             logger.error(
                 "role_definition_name_lookup_failed",
@@ -5628,7 +5643,7 @@ async def _resolve_role_definition_target_id(
 
     target_id = state.get_mapped_id("role_definitions", role_def_source_id)
     if target_id:
-        return target_id
+        return _as_int(target_id)
 
     if not role_def_name:
         logger.warning(
@@ -5671,7 +5686,7 @@ def _resolve_user_target_id_for_assignment(
         source_id = int(user_source_id)
     except (TypeError, ValueError):
         return None
-    return state.get_mapped_id("users", source_id)
+    return _as_int(state.get_mapped_id("users", source_id))
 
 
 async def _resolve_assignment_user_id(
@@ -5744,7 +5759,7 @@ def _resolve_team_target_id_for_assignment(
         source_id = int(team_source_id)
     except (TypeError, ValueError):
         return None
-    return state.get_mapped_id("teams", source_id)
+    return _as_int(state.get_mapped_id("teams", source_id))
 
 
 class RoleUserAssignmentImporter(ResourceImporter):
@@ -5759,7 +5774,7 @@ class RoleUserAssignmentImporter(ResourceImporter):
     RoleAssignmentTransformer.
     """
 
-    DEPENDENCIES = {}
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}
 
     async def import_role_user_assignments(
         self,
@@ -5770,11 +5785,11 @@ class RoleUserAssignmentImporter(ResourceImporter):
         results: list[dict[str, Any]] = []
 
         for assignment in assignments:
-            source_id = assignment.pop("_source_id", assignment.get("id"))
-            role_def_source_id = assignment.get("role_definition")
+            source_id = _as_int(assignment.pop("_source_id", assignment.get("id")))
+            role_def_source_id = _as_int(assignment.get("role_definition"))
             role_def_name = assignment.get("role_definition_name")
             content_type = assignment.get("content_type")
-            object_source_id = assignment.get("object_id")
+            object_source_id = _as_int(assignment.get("object_id"))
             content_object_name = assignment.get("content_object_name")
             user_source_id = assignment.get("user")
 
@@ -5787,6 +5802,10 @@ class RoleUserAssignmentImporter(ResourceImporter):
                         self.stats["error_count"],
                         self.stats["skipped_count"],
                     )
+
+            if source_id is None or role_def_source_id is None:
+                _skip()
+                continue
 
             # Resolve role_definition
             target_role_def_id = await _resolve_role_definition_target_id(
@@ -5812,11 +5831,15 @@ class RoleUserAssignmentImporter(ResourceImporter):
                 _skip()
                 continue
 
+            if object_source_id is None:
+                _skip()
+                continue
+
             target_resource_id = await _resolve_content_object_target_id(
                 self.state,
                 self.client,
                 resource_type,
-                int(object_source_id),
+                object_source_id,
                 content_object_name,
                 source_id,
             )
@@ -5881,7 +5904,7 @@ class RoleTeamAssignmentImporter(ResourceImporter):
     Same pattern as RoleUserAssignmentImporter but resolves team instead of user.
     """
 
-    DEPENDENCIES = {}
+    DEPENDENCIES: ClassVar[dict[str, str]] = {}
 
     async def import_role_team_assignments(
         self,
@@ -5892,11 +5915,11 @@ class RoleTeamAssignmentImporter(ResourceImporter):
         results: list[dict[str, Any]] = []
 
         for assignment in assignments:
-            source_id = assignment.pop("_source_id", assignment.get("id"))
-            role_def_source_id = assignment.get("role_definition")
+            source_id = _as_int(assignment.pop("_source_id", assignment.get("id")))
+            role_def_source_id = _as_int(assignment.get("role_definition"))
             role_def_name = assignment.get("role_definition_name")
             content_type = assignment.get("content_type")
-            object_source_id = assignment.get("object_id")
+            object_source_id = _as_int(assignment.get("object_id"))
             content_object_name = assignment.get("content_object_name")
             team_source_id = assignment.get("team")
 
@@ -5909,6 +5932,10 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                         self.stats["error_count"],
                         self.stats["skipped_count"],
                     )
+
+            if source_id is None or role_def_source_id is None:
+                _skip()
+                continue
 
             # Resolve role_definition
             target_role_def_id = await _resolve_role_definition_target_id(
@@ -5934,11 +5961,15 @@ class RoleTeamAssignmentImporter(ResourceImporter):
                 _skip()
                 continue
 
+            if object_source_id is None:
+                _skip()
+                continue
+
             target_resource_id = await _resolve_content_object_target_id(
                 self.state,
                 self.client,
                 resource_type,
-                int(object_source_id),
+                object_source_id,
                 content_object_name,
                 source_id,
             )
@@ -6024,7 +6055,7 @@ def create_importer(
     Raises:
         ValueError: If resource_type is not supported
     """
-    importers = {
+    importers: dict[str, type[ResourceImporter]] = {
         # Foundation resources
         "organizations": OrganizationImporter,
         "labels": LabelImporter,

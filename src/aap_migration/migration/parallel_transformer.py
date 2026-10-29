@@ -78,7 +78,7 @@ class ParallelTransformCoordinator:
         # Normalize resource type
         resource_type = normalize_resource_type(resource_type)
 
-        stats = {
+        stats: dict[str, Any] = {
             "resource_type": resource_type,
             "count": 0,
             "failed": 0,

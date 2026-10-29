@@ -256,6 +256,14 @@ class ExporterProtocol(Protocol):
         """
         ...
 
+    async def get_count(self, endpoint: str, filters: dict[str, Any] | None = None) -> int:
+        """Return the total count of resources at an endpoint."""
+        ...
+
+    def get_stats(self) -> dict[str, int]:
+        """Return export statistics."""
+        ...
+
 
 class ResourceExporter:
     """Base class for exporting resources from AAP 2.3.
@@ -280,7 +288,7 @@ class ResourceExporter:
         self.client = client
         self.state = state
         self.performance_config = performance_config
-        self.stats = {
+        self.stats: dict[str, int] = {
             "exported_count": 0,
             "error_count": 0,
             "skipped_count": 0,
@@ -297,6 +305,14 @@ class ResourceExporter:
         # Filtering flags (can be overridden by subclasses)
         self.skip_dynamic_hosts: bool = False
         self.skip_smart_inventories: bool = False
+
+    def set_skip_dynamic_hosts(self, skip: bool) -> None:
+        """Set whether to skip hosts from dynamic inventory sources."""
+        self.skip_dynamic_hosts = skip
+
+    def set_skip_smart_inventories(self, skip: bool) -> None:
+        """Set whether to skip smart inventories during export."""
+        self.skip_smart_inventories = skip
 
     def set_resume_checkpoint(self, resume_from_id: int | None) -> None:
         """Set the resume checkpoint for this exporter.
@@ -374,7 +390,8 @@ class ResourceExporter:
         for attempt in range(max_retries):
             try:
                 response = await self.client.get(endpoint, params=params)
-                return response.get("count", 0)
+                count = response.get("count", 0)
+                return count if isinstance(count, int) else 0
             except APIError as e:
                 # Retry on server errors (500, 502, 503, 504)
                 if hasattr(e, "status_code") and e.status_code in (500, 502, 503, 504):
@@ -2872,7 +2889,7 @@ def create_exporter(
     performance_config: PerformanceConfig,
     skip_execution_environment_names: list[str] | None = None,
     skip_credential_names: list[str] | None = None,
-) -> ExporterProtocol:
+) -> ResourceExporter:
     """Create appropriate exporter for resource type.
 
     Args:
@@ -2889,7 +2906,7 @@ def create_exporter(
     Raises:
         ValueError: If resource_type is not supported
     """
-    exporters = {
+    exporters: dict[str, type[ResourceExporter]] = {
         "labels": LabelExporter,
         "credential_types": CredentialTypeExporter,
         "organizations": OrganizationExporter,

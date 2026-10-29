@@ -117,7 +117,10 @@ def _grant_to_assignment_fields(
         return None
 
     try:
-        content_source_id = int(grant.get("content_source_id"))
+        raw_id = grant.get("content_source_id")
+        if raw_id is None:
+            return None
+        content_source_id = int(raw_id)
     except (TypeError, ValueError):
         return None
 

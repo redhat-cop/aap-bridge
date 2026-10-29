@@ -774,6 +774,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#selecting-resource-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting resource types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#checkpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1431,14 +1442,14 @@
 <hr />
 <h3 id="export">export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
 <p>Export resources from source AAP.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>aap-bridge<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span><span class="o">[</span>RESOURCE_TYPES<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>aap-bridge<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </code></pre></div>
 <p><strong>Examples:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Export all resources</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>aap-bridge<span class="w"> </span><span class="nb">export</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Export specific resource types</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>aap-bridge<span class="w"> </span><span class="nb">export</span><span class="w"> </span>organizations<span class="w"> </span>inventories<span class="w"> </span>hosts
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Export specific resource types (repeat -r for each type)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>aap-bridge<span class="w"> </span><span class="nb">export</span><span class="w"> </span>-r<span class="w"> </span>organizations<span class="w"> </span>-r<span class="w"> </span>inventories<span class="w"> </span>-r<span class="w"> </span>hosts
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Export with custom output directory</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>aap-bridge<span class="w"> </span><span class="nb">export</span><span class="w"> </span>--output<span class="w"> </span>./my-exports/
@@ -1460,6 +1471,10 @@
 <td>Output directory (default: ./exports)</td>
 </tr>
 <tr>
+<td><code>--resource-type</code>, <code>-r</code></td>
+<td>Resource type to export; repeat the option to select multiple types. Defaults to all available types.</td>
+</tr>
+<tr>
 <td><code>--records-per-file</code></td>
 <td>Records per split file (default: 1000)</td>
 </tr>
@@ -1472,14 +1487,14 @@
 <hr />
 <h3 id="transform">transform<a class="headerlink" href="#transform" title="Permanent link">&para;</a></h3>
 <p>Transform exported data for target AAP.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>transform<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span><span class="o">[</span>RESOURCE_TYPES<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>aap-bridge<span class="w"> </span>transform<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </code></pre></div>
 <p><strong>Examples:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Transform all exported data</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>aap-bridge<span class="w"> </span>transform
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Transform specific types</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>aap-bridge<span class="w"> </span>transform<span class="w"> </span>inventories<span class="w"> </span>hosts
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>aap-bridge<span class="w"> </span>transform<span class="w"> </span>-r<span class="w"> </span>inventories<span class="w"> </span>-r<span class="w"> </span>hosts
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <table>
@@ -1498,19 +1513,23 @@
 <td><code>--output</code>, <code>-o</code></td>
 <td>Output directory (default: ./transformed)</td>
 </tr>
+<tr>
+<td><code>--resource-type</code>, <code>-r</code></td>
+<td>Resource type to transform; repeat the option to select multiple types. Defaults to all exported types.</td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h3 id="import">import<a class="headerlink" href="#import" title="Permanent link">&para;</a></h3>
 <p>Import data to target AAP.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aap-bridge<span class="w"> </span>import<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span><span class="o">[</span>RESOURCE_TYPES<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aap-bridge<span class="w"> </span>import<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </code></pre></div>
 <p><strong>Examples:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Import all transformed data</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>aap-bridge<span class="w"> </span>import
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Import specific types</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>aap-bridge<span class="w"> </span>import<span class="w"> </span>organizations<span class="w"> </span>inventories
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>aap-bridge<span class="w"> </span>import<span class="w"> </span>-r<span class="w"> </span>organizations<span class="w"> </span>-r<span class="w"> </span>inventories
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Import with progress disabled (CI/CD)</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>aap-bridge<span class="w"> </span>import<span class="w"> </span>--disable-progress
@@ -1527,6 +1546,10 @@
 <tr>
 <td><code>--input</code>, <code>-i</code></td>
 <td>Input directory</td>
+</tr>
+<tr>
+<td><code>--resource-type</code>, <code>-r</code></td>
+<td>Resource type to import; repeat the option to select multiple types. Defaults to all transformed types.</td>
 </tr>
 <tr>
 <td><code>--disable-progress</code></td>
@@ -1610,7 +1633,7 @@
 <hr />
 <h3 id="migrate">migrate<a class="headerlink" href="#migrate" title="Permanent link">&para;</a></h3>
 <p>Run migration operations.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>SUBCOMMAND<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </code></pre></div>
 <p><strong>Subcommands:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Full migration (prep + export + transform + import)</span>
@@ -1619,46 +1642,69 @@
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Resume from checkpoint</span>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>resume
 <a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Resume from specific checkpoint</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>resume<span class="w"> </span>--checkpoint<span class="w"> </span>inventories_batch_50
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Resume from a specific migration phase</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>resume<span class="w"> </span>--from-phase<span class="w"> </span>inventories
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># Run only selected resource types through export, transform, and import</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>-r<span class="w"> </span>organizations<span class="w"> </span>-r<span class="w"> </span>projects<span class="w"> </span>-r<span class="w"> </span>inventories
 </code></pre></div>
+<h3 id="selecting-resource-types">Selecting resource types<a class="headerlink" href="#selecting-resource-types" title="Permanent link">&para;</a></h3>
+<p><code>export</code>, <code>transform</code>, <code>import</code>, and <code>migrate</code> accept a repeatable
+<code>--resource-type</code> (<code>-r</code>) option. Supplying one or more values makes the command
+operate only on those resource types; omitting the option uses the command's
+default set.</p>
+<p>For example, to migrate content while retaining users and teams that already
+exist on the target, provide an allow-list that does not contain <code>users</code> or
+<code>teams</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>-r<span class="w"> </span>organizations<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span>-r<span class="w"> </span>projects<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span>-r<span class="w"> </span>inventories<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span>-r<span class="w"> </span>job_templates<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span>-r<span class="w"> </span>workflow_job_templates
+</code></pre></div>
+<p>This selects only the listed types; it is not an exclusion option. When leaving
+out users or teams, also leave out <code>role_user_assignments</code> and
+<code>role_team_assignments</code>, because those assignments cannot be resolved without
+the corresponding identities on the target. A first-class resource-exclusion
+option is tracked in <a href="https://github.com/redhat-cop/aap-bridge/issues/182">issue #182</a>.</p>
 <hr />
 <h3 id="checkpoint">checkpoint<a class="headerlink" href="#checkpoint" title="Permanent link">&para;</a></h3>
 <p>Manage checkpoints.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>SUBCOMMAND
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>SUBCOMMAND
 </code></pre></div>
 <p><strong>Subcommands:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># List all checkpoints</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>list
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Show checkpoint details</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>show<span class="w"> </span>&lt;name&gt;
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Delete a checkpoint</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>delete<span class="w"> </span>&lt;name&gt;
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># Clean old checkpoints</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>7d
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># List all checkpoints</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>list
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Show checkpoint details</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>show<span class="w"> </span>&lt;name&gt;
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="c1"># Delete a checkpoint</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>delete<span class="w"> </span>&lt;name&gt;
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="c1"># Clean old checkpoints</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>aap-bridge<span class="w"> </span>checkpoint<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>7d
 </code></pre></div>
 <hr />
 <h3 id="state">state<a class="headerlink" href="#state" title="Permanent link">&para;</a></h3>
 <p>Manage migration state.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>SUBCOMMAND
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>SUBCOMMAND
 </code></pre></div>
 <p><strong>Subcommands:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Show state summary</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>summary
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Reset state for a resource type</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>reset<span class="w"> </span>hosts
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="c1"># Clear all state (use with caution!)</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>clear<span class="w"> </span>--confirm
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Show state summary</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>summary
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Reset state for a resource type</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>reset<span class="w"> </span>hosts
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Clear all state (use with caution!)</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>aap-bridge<span class="w"> </span>state<span class="w"> </span>clear<span class="w"> </span>--confirm
 </code></pre></div>
 <hr />
 <h3 id="serve">serve<a class="headerlink" href="#serve" title="Permanent link">&para;</a></h3>
 <p>Start the web API server.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </code></pre></div>
 <p><strong>What it does:</strong></p>
 <ul>
@@ -1690,17 +1736,17 @@
 </tbody>
 </table>
 <p><strong>Examples:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Start API server with defaults</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>aap-bridge<span class="w"> </span>serve
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Start on custom port</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="c1"># Development mode with auto-reload</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--reload
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># Serve still uses `MIGRATION_STATE_DB_PATH` for its database location</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>sqlite:///aap_bridge.db<span class="w"> </span>aap-bridge<span class="w"> </span>serve
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Start API server with defaults</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>aap-bridge<span class="w"> </span>serve
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Start on custom port</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># Development mode with auto-reload</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>aap-bridge<span class="w"> </span>serve<span class="w"> </span>--reload
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="c1"># Serve still uses `MIGRATION_STATE_DB_PATH` for its database location</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="nv">MIGRATION_STATE_DB_PATH</span><span class="o">=</span>sqlite:///aap_bridge.db<span class="w"> </span>aap-bridge<span class="w"> </span>serve
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1709,38 +1755,38 @@
 <hr />
 <h3 id="report">report<a class="headerlink" href="#report" title="Permanent link">&para;</a></h3>
 <p>Generate migration reports.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>SUBCOMMAND
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>SUBCOMMAND
 </code></pre></div>
 <p><strong>Subcommands:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Summary report</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>summary
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Detailed report</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>detailed<span class="w"> </span>--output<span class="w"> </span>report.html
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Summary report</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>summary
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Detailed report</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>aap-bridge<span class="w"> </span>report<span class="w"> </span>detailed<span class="w"> </span>--output<span class="w"> </span>report.html
 </code></pre></div>
 <hr />
 <h2 id="output-modes">Output Modes<a class="headerlink" href="#output-modes" title="Permanent link">&para;</a></h2>
 <p>Control output verbosity:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Default: Live progress with WARNING logs</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>aap-bridge<span class="w"> </span>migrate
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Quiet: Errors only</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--quiet
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># CI/CD: No live display</span>
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--disable-progress
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># Detailed: Extra statistics</span>
-<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--show-stats
-<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
-<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="c1"># Combined: Quiet + no progress</span>
-<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--quiet<span class="w"> </span>--disable-progress
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Default: Live progress with WARNING logs</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>aap-bridge<span class="w"> </span>migrate
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1"># Quiet: Errors only</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--quiet
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="c1"># CI/CD: No live display</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--disable-progress
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="c1"># Detailed: Extra statistics</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--show-stats
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="c1"># Combined: Quiet + no progress</span>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>aap-bridge<span class="w"> </span>migrate<span class="w"> </span>--quiet<span class="w"> </span>--disable-progress
 </code></pre></div>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <p>Override options via environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__CONSOLE_LEVEL</span><span class="o">=</span>DEBUG
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__DISABLE_PROGRESS</span><span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>aap-bridge<span class="w"> </span>migrate
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__CONSOLE_LEVEL</span><span class="o">=</span>DEBUG
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AAP_BRIDGE__LOGGING__DISABLE_PROGRESS</span><span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>aap-bridge<span class="w"> </span>migrate
 </code></pre></div>
 
 

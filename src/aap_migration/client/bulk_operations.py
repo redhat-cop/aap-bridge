@@ -510,8 +510,7 @@ class BulkOperations:
             endpoint = f"inventories/{inventory_id}/hosts/"
             response = await self.client.get(endpoint, params={"page_size": 1})
             actual_count = response.get("count", 0)
-
-            matches = actual_count == expected_count
+            matches = actual_count == expected_count if isinstance(actual_count, int) else False
 
             logger.info(
                 "bulk_creation_validation",

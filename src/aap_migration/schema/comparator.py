@@ -1,6 +1,6 @@
 """Schema comparison logic for AAP 2.3 vs AAP 2.6 APIs."""
 
-from typing import Any
+from typing import Any, TypedDict
 
 from aap_migration.client.aap_source_client import AAPSourceClient
 from aap_migration.client.aap_target_client import AAPTargetClient
@@ -18,11 +18,17 @@ from aap_migration.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class _ValidationRule(TypedDict):
+    description: str
+    severity: Severity
+    recommendation: str
+
+
 class SchemaComparator:
     """Compare AAP 2.3 and AAP 2.6 API schemas."""
 
     # Special validation rules we know about from AAP documentation
-    KNOWN_VALIDATION_RULES = {
+    KNOWN_VALIDATION_RULES: dict[str, dict[str, _ValidationRule]] = {
         "credentials": {
             "ownership_validation": {
                 "description": "AAP 2.6 requires at least ONE of: organization, user, team",
@@ -53,14 +59,14 @@ class SchemaComparator:
         Returns:
             Dict of {field_name: field_definition}
         """
-        # First try POST (creation fields)
-        schema = options_response.get("actions", {}).get("POST", {})
+        actions = options_response.get("actions", {})
+        schema = actions.get("POST", {}) if isinstance(actions, dict) else {}
 
-        if not schema:
+        if not isinstance(schema, dict) or not schema:
             # Fallback to GET (read fields) if POST not available
-            schema = options_response.get("actions", {}).get("GET", {})
+            schema = actions.get("GET", {}) if isinstance(actions, dict) else {}
 
-        if not schema:
+        if not isinstance(schema, dict) or not schema:
             logger.warning(
                 "no_actions_in_23_schema",
                 response_keys=list(options_response.keys()),
@@ -88,7 +94,9 @@ class SchemaComparator:
                 "found_actions_in_26_schema",
                 message="AAP 2.6 has actions key (unexpected), using POST extraction",
             )
-            return options_response.get("actions", {}).get("POST", {})
+            actions = options_response.get("actions", {})
+            post = actions.get("POST", {}) if isinstance(actions, dict) else {}
+            return post if isinstance(post, dict) else {}
 
         # New flat format - entire response is field definitions
         # Each key should be a field name with dict value containing type, required, etc.

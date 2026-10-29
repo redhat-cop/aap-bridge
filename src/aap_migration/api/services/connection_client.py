@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -23,7 +24,7 @@ def create_connection_client(conn: Connection) -> AAPClient:
 
 
 @asynccontextmanager
-async def connection_client(conn: Connection):
+async def connection_client(conn: Connection) -> AsyncIterator[AAPClient]:
     """Yield an AAP client and close it when done."""
     client = create_connection_client(conn)
     try:
@@ -39,6 +40,12 @@ async def fetch_resources_with_client(
 ) -> list[dict[str, Any]]:
     """Fetch all pages of a resource type using an existing client."""
     if conn.role == "destination":
+        if not isinstance(client, AAPTargetClient):
+            raise TypeError(
+                f"Destination connection requires AAPTargetClient, got {type(client)!r}"
+            )
         return await client.list_resources(resource_type, page_size=200)
+    if not isinstance(client, AAPSourceClient):
+        raise TypeError(f"Source connection requires AAPSourceClient, got {type(client)!r}")
     endpoint = get_endpoint(resource_type)
     return await client.get_paginated(endpoint, page_size=200)

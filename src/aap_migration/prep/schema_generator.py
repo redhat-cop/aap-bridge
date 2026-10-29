@@ -239,6 +239,9 @@ def load_schema(schema_file: Path) -> dict[str, Any]:
     with open(schema_file) as f:
         data = json.load(f)
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid schema file: {schema_file}")
+
     logger.debug(
         "schema_loaded",
         file=str(schema_file),

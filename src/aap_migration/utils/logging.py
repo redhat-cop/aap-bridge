@@ -6,7 +6,7 @@ and human-readable console output for development.
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from rich.console import Console
@@ -182,7 +182,7 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     Returns:
         structlog.stdlib.BoundLogger: Configured logger instance
     """
-    return structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))
 
 
 def log_api_request(
@@ -449,7 +449,7 @@ def should_log_payloads(logger: structlog.stdlib.BoundLogger, log_payloads_enabl
     # Check if logger is at DEBUG level
     # structlog loggers have _logger._logger attribute for stdlib logger
     try:
-        stdlib_logger = logger._logger  # type: ignore
+        stdlib_logger = logger._logger
         return stdlib_logger.isEnabledFor(logging.DEBUG)
     except AttributeError:
         # Fallback: assume enabled if flag is True

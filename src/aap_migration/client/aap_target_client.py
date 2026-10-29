@@ -482,7 +482,8 @@ class AAPTargetClient(BaseAPIClient):
         """
         endpoint = get_endpoint(resource_type)
         response = await self.get(endpoint, params={"page_size": 1})
-        return response.get("count", 0)
+        count = response.get("count", 0)
+        return count if isinstance(count, int) else 0
 
     @retry_api_call
     async def list_resources(
@@ -510,8 +511,8 @@ class AAPTargetClient(BaseAPIClient):
         """
         # Use get_endpoint to map resource_type to correct API endpoint
         # (e.g., "inventory_groups" -> "groups/")
-        endpoint = get_endpoint(resource_type)
-        params = {"page_size": page_size}
+        endpoint: str | None = get_endpoint(resource_type)
+        params: dict[str, Any] = {"page_size": page_size}
 
         if filters:
             params.update(filters)

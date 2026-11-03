@@ -13,6 +13,10 @@ pre-commit / CI via `tools/check_changelog_periods.py` on this file and
 
 ### Added
 
+- **Experimental Organization Sync**: `sync --organization` plans creates/updates for
+  static inventories and hosts, credential-free Git projects, and job templates;
+  applying requires `--apply` and `dry_run: false`, with Gateway/Controller organization
+  IDs resolved independently.
 - **Instance Group Capacity Assignments**: Organizations, inventories, and job templates
   now export related instance group names and re-associate them on the target by name
   after create (instance group objects remain a target prerequisite).

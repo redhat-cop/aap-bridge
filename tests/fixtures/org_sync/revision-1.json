@@ -1,0 +1,65 @@
+{
+  "organizations": {
+    "id": 1,
+    "name": "aap-bridge",
+    "description": "Organization-scoped AAP 2.4 to 2.7 synchronization demo"
+  },
+  "inventories": [
+    {
+      "id": 10,
+      "organization": 1,
+      "name": "Bridge Demo Inventory",
+      "description": "Revision 1: two simulated hosts",
+      "variables": "{\"demo_revision\": 1, \"app_version\": \"1.0\", \"ansible_connection\": \"local\"}"
+    }
+  ],
+  "hosts": [
+    {
+      "id": 101,
+      "inventory": 10,
+      "name": "app-01",
+      "description": "Simulated application host",
+      "enabled": true,
+      "variables": "{\"demo_role\": \"application\", \"app_version\": \"1.0\"}"
+    },
+    {
+      "id": 102,
+      "inventory": 10,
+      "name": "db-01",
+      "description": "Simulated database host",
+      "enabled": true,
+      "variables": "{\"demo_role\": \"database\"}"
+    }
+  ],
+  "projects": [
+    {
+      "id": 20,
+      "organization": 1,
+      "name": "Bridge Demo Playbooks",
+      "description": "Public hello-world playbook; no SCM credential",
+      "scm_type": "git",
+      "scm_url": "https://github.com/ansible/ansible-tower-samples.git",
+      "scm_branch": "master",
+      "scm_clean": false,
+      "scm_delete_on_update": false,
+      "scm_update_on_launch": false
+    }
+  ],
+  "job_templates": [
+    {
+      "id": 30,
+      "name": "Bridge Demo Hello World",
+      "description": "Revision 1: initial job template",
+      "project": 20,
+      "inventory": 10,
+      "job_type": "run",
+      "playbook": "hello_world.yml",
+      "extra_vars": "{\"demo_revision\": 1}",
+      "verbosity": 0,
+      "forks": 0,
+      "timeout": 120,
+      "limit": "",
+      "ask_variables_on_launch": false
+    }
+  ]
+}

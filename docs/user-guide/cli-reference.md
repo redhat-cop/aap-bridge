@@ -53,6 +53,21 @@ aap-bridge prep [OPTIONS]
 
 ---
 
+### sync (Experimental)
+
+Plan repeated adds/updates for one organization's supported configuration resources:
+
+```bash
+aap-bridge --config config.yaml sync --organization demo
+aap-bridge --config config.yaml sync --organization demo --apply
+```
+
+Applying also requires `dry_run: false` in the configuration. The command does not delete
+resources or launch jobs. Credentials and incremental checkpoints are excluded from this version.
+See [Organization Sync](organization-sync.md) for resource coverage and limitations.
+
+---
+
 ### export
 
 Export resources from source AAP.

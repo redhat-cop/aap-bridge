@@ -43,6 +43,7 @@ async def run_prep_workflow(
     output_dir: Path,
     *,
     force: bool = False,
+    allow_untested_path: bool = False,
     skip_if_exists: bool = False,
     log: LogFn | None = None,
 ) -> PrepWorkflowResult:
@@ -76,13 +77,18 @@ async def run_prep_workflow(
 
         version_path = get_version_path(source_version, target_version)
         if version_path is None:
-            if not force:
-                message = f"Unsupported migration path: {source_version} → {target_version}"
+            if not (force or allow_untested_path):
+                message = (
+                    f"Untested migration path: {source_version} → {target_version}. "
+                    "Use prep --allow-untested-path for discovery only. "
+                    "Migration compatibility remains unverified."
+                )
                 _log(log, message)
                 return PrepWorkflowResult(status="failed", message=message, output_dir=output_dir)
             _log(
                 log,
-                f"Unknown migration path {source_version} → {target_version}; proceeding (--force).",
+                f"Untested migration path: {source_version} → {target_version}. "
+                "Proceeding with discovery only; migration compatibility remains unverified.",
             )
         elif version_path.status == "partial":
             _log(log, f"⚠ Partial support for {source_version} → {target_version}")
@@ -185,6 +191,7 @@ def run_prep_workflow_sync(
     output_dir: Path,
     *,
     force: bool = False,
+    allow_untested_path: bool = False,
     skip_if_exists: bool = False,
     log: LogFn | None = None,
 ) -> PrepWorkflowResult:
@@ -195,6 +202,7 @@ def run_prep_workflow_sync(
                 ctx,
                 output_dir,
                 force=force,
+                allow_untested_path=allow_untested_path,
                 skip_if_exists=skip_if_exists,
                 log=log,
             )
@@ -206,6 +214,7 @@ def run_prep_workflow_sync(
                 ctx,
                 output_dir,
                 force=force,
+                allow_untested_path=allow_untested_path,
                 skip_if_exists=skip_if_exists,
                 log=log,
             )

@@ -12,6 +12,9 @@ in the repository.
 
 **New Features:**
 
+- Explicit `prep --allow-untested-path` discovery override and menu confirmation
+  for unknown version pairs, retaining schema overwrite confirmation and existing
+  migration compatibility rules.
 - AAP 2.7 supported as a migration source and target (same-or-forward paths only;
   see compatibility matrix).
 - Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and

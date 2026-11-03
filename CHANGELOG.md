@@ -13,6 +13,9 @@ pre-commit / CI via `tools/check_changelog_periods.py` on this file and
 
 ### Added
 
+- **Untested-Path Discovery Override**: `prep --allow-untested-path` and menu
+  confirmation allow discovery of unknown version pairs without expanding migration
+  support or bypassing existing-schema overwrite confirmation.
 - **Instance Group Capacity Assignments**: Organizations, inventories, and job templates
   now export related instance group names and re-associate them on the target by name
   after create (instance group objects remain a target prerequisite).

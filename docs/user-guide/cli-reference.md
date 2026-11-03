@@ -50,6 +50,10 @@ aap-bridge prep [OPTIONS]
 | Option | Description |
 | --- | --- |
 | `--force` | Overwrite existing prep data |
+| `--allow-untested-path` | Discover an unknown version pair without changing migration support |
+
+`--allow-untested-path` retains overwrite confirmation when schema files already exist.
+It applies to discovery only; see the [compatibility matrix](../reference/compatibility-matrix.md).
 
 ---
 

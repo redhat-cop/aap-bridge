@@ -145,7 +145,9 @@ def configure_logging(
         add_app_context,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer(colors=False),  # RichHandler handles coloring
+        structlog.dev.ConsoleRenderer(
+            colors=False, exception_formatter=structlog.dev.plain_traceback
+        ),
     ]
 
     # Configure structlog with console level

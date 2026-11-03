@@ -27,14 +27,21 @@ from aap_migration.prep.workflow import run_prep_workflow_sync, suppress_verbose
     is_flag=True,
     help="Force re-discovery even if schemas exist",
 )
+@click.option(
+    "--allow-untested-path",
+    is_flag=True,
+    help="Allow discovery for an untested version pair; does not establish migration support",
+)
 @pass_context
 @requires_config
 @handle_errors
-def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
+def prep(
+    ctx: MigrationContext, output_dir: Path, force: bool, allow_untested_path: bool = False
+) -> None:
     """Discover endpoints and generate schemas from AAP instances.
 
     This command:
-    1. Connects to source AAP 2.3 and target AAP 2.6
+    1. Connects to the configured source and target AAP instances
     2. Discovers all available endpoints
     3. Generates schemas for each endpoint
     4. Compares schemas and generates transformation rules
@@ -57,6 +64,10 @@ def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
         aap-bridge prep --config config.yaml --force
 
         \\b
+        # Discover an untested pair without changing migration support
+        aap-bridge --config config.yaml prep --allow-untested-path
+
+        \\b
         # Custom output directory
         aap-bridge prep --config config.yaml --output-dir my_schemas/
     """
@@ -75,6 +86,7 @@ def prep(ctx: MigrationContext, output_dir: Path, force: bool) -> None:
         ctx,
         output_dir,
         force=force,
+        allow_untested_path=allow_untested_path,
         skip_if_exists=False,
         log=echo_info,
     )

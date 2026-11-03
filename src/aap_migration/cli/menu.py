@@ -4,7 +4,9 @@ from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
+
+from aap_migration.resources import get_version_path
 
 
 def run_command(args: list[str], ctx: Any = None) -> None:
@@ -58,7 +60,20 @@ def interactive_menu(ctx: Any) -> None:
         if choice == "0":
             run_command(["cleanup"], ctx)
         elif choice == "1":
-            run_command(["prep"], ctx)
+            args = ["prep"]
+            if ctx and ctx.obj:
+                config = ctx.obj.config
+                source = config.source.version
+                target = config.target.version
+                if source and target and get_version_path(source, target) is None:
+                    console.print(
+                        f"[yellow]Untested migration path: {source} → {target}. "
+                        "Discovery does not establish migration compatibility.[/yellow]"
+                    )
+                    if not Confirm.ask("Run discovery only for this untested path?", default=False):
+                        continue
+                    args.append("--allow-untested-path")
+            run_command(args, ctx)
         elif choice == "2":
             run_command(["export"], ctx)
         elif choice == "3":

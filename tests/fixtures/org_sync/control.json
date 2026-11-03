@@ -1,0 +1,28 @@
+{
+  "organizations": {
+    "id": 2,
+    "name": "aap-bridge-control",
+    "description": "Excluded control organization; synchronization must leave this unchanged"
+  },
+  "inventories": [
+    {
+      "id": 90,
+      "organization": 2,
+      "name": "Bridge Demo Inventory",
+      "description": "Control inventory: same name in another organization",
+      "variables": "{}"
+    }
+  ],
+  "hosts": [
+    {
+      "id": 901,
+      "inventory": 90,
+      "name": "app-01",
+      "description": "Control host: same name, must remain untouched",
+      "variables": "{}",
+      "enabled": true
+    }
+  ],
+  "projects": [],
+  "job_templates": []
+}

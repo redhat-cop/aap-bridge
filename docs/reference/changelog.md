@@ -12,6 +12,8 @@ in the repository.
 
 **New Features:**
 
+- Experimental organization-scoped configuration sync with read-only planning,
+  explicit apply controls, and independent Gateway/Controller organization ID mapping.
 - AAP 2.7 supported as a migration source and target (same-or-forward paths only;
   see compatibility matrix).
 - Optional container CLI workflow: Podman Compose stack with bundled PostgreSQL and

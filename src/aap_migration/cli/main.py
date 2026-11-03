@@ -25,6 +25,7 @@ from aap_migration.cli.commands import prep as prep_commands
 from aap_migration.cli.commands import schema as schema_commands
 from aap_migration.cli.commands import serve as serve_commands
 from aap_migration.cli.commands import state as state_commands
+from aap_migration.cli.commands import sync as sync_commands
 from aap_migration.cli.commands import transform as transform_commands
 from aap_migration.cli.commands import validate as validate_commands
 from aap_migration.cli.context import MigrationContext
@@ -148,6 +149,7 @@ cli.add_command(patch_projects_commands.patch_projects)
 cli.add_command(validate_commands.validate)
 cli.add_command(validate_commands.report)
 cli.add_command(serve_commands.serve)
+cli.add_command(sync_commands.sync)
 
 
 def main() -> int:
